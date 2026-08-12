@@ -1,5 +1,20 @@
 /** Merge internal condition/rank fields from scraped source data into analysis. */
 
+const VALID_RANKS = new Set(["N", "S", "SA", "A", "AB", "B", "QS", "QA", "QB", "QC"]);
+
+const RANK_CONDITION_DE: Record<string, string> = {
+  N: "Neu (Rank N)",
+  S: "Ungetragen (Rank S)",
+  SA: "Exzellent (Rank SA)",
+  A: "Sehr gut (Rank A)",
+  AB: "Sehr gut (Rank AB)",
+  B: "Gut (Rank B)",
+  QS: "Exzellent — Vintage (QS)",
+  QA: "Sehr gut — Vintage (QA)",
+  QB: "Gut — Vintage (QB)",
+  QC: "Gebraucht — Vintage (QC)",
+};
+
 export function pickFirst(...values: unknown[]): string {
   for (const v of values) {
     if (v === null || v === undefined) continue;
@@ -9,11 +24,38 @@ export function pickFirst(...values: unknown[]): string {
   return "";
 }
 
-/** Extract TS rank code (A, SA, N, …) from labels like "Rank A" or "ランクA". */
+export function hasJapanese(text: string): boolean {
+  return /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/.test(text);
+}
+
+export function stripHtml(text: string): string {
+  return text
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasHtmlArtifact(text: string): boolean {
+  return /<\/?\w+>/.test(text) || text === "</td>" || text === "</tr>";
+}
+
+export function cleanScrapedValue(value: unknown): string {
+  const s = stripHtml(String(value ?? "")).trim();
+  if (!s || hasHtmlArtifact(s)) return "";
+  return s;
+}
+
+export function isValidRankCode(value: string): boolean {
+  return VALID_RANKS.has(value.trim().toUpperCase());
+}
+
+/** Extract TS rank code (A, SA, N, …) — returns empty if not a valid rank. */
 export function normalizeRank(value: unknown): string {
   if (value === null || value === undefined) return "";
-  const trimmed = String(value).trim();
-  if (!trimmed) return "";
+  const trimmed = cleanScrapedValue(value);
+  if (!trimmed || trimmed.length > 12 || hasJapanese(trimmed)) return "";
 
   const exact = trimmed.match(/^(N|S|SA|A|AB|B|QS|QA|QB|QC)$/i);
   if (exact) return exact[1].toUpperCase();
@@ -24,45 +66,67 @@ export function normalizeRank(value: unknown): string {
   const embedded = trimmed.match(/\b(N|S|SA|AB|QS|QA|QB|QC|A|B)\b/i);
   if (embedded) return embedded[1].toUpperCase();
 
-  return trimmed;
+  return "";
 }
 
-/** Parse rank / remarks / maintenance / daily rate from free-form TS Trading text. */
+export function rankToGermanCondition(rank: string): string {
+  return RANK_CONDITION_DE[rank.toUpperCase()] || (rank ? `Rank ${rank}` : "");
+}
+
+/** Parse rank / remarks / maintenance / daily rate from free-form text (Latin labels only). */
 export function extractFromDescriptionText(text: string): Record<string, string> {
   const result: Record<string, string> = {};
-  if (!text?.trim()) return result;
-
-  const normalized = text.replace(/\r\n/g, "\n");
+  const normalized = stripHtml(text).replace(/\r\n/g, "\n");
+  if (!normalized) return result;
 
   const fieldPatterns: [key: string, regex: RegExp][] = [
-    ["overallRank", /(?:商品ランク|Overall Rank|^ランク)[：:\s]*([^\n|]+)/im],
-    ["caseRank", /(?:ケースランク|Case Rank)[：:\s]*([^\n|]+)/im],
-    ["bandRank", /(?:ベルトランク|バンドランク|Band Rank|Bracelet Rank)[：:\s]*([^\n|]+)/im],
+    ["overallRank", /(?:Overall Rank|Product Rank)[：:\s]*([A-Za-z]{1,3})\b/im],
+    ["caseRank", /(?:Case Rank)[：:\s]*([A-Za-z]{1,3})\b/im],
+    ["bandRank", /(?:Band Rank|Bracelet Rank)[：:\s]*([A-Za-z]{1,3})\b/im],
     [
       "conditionRemarks",
-      /(?:備考|Remarks|リマーク|Condition Notes|Individuelle Bemerkungen)[：:\s]*([\s\S]*?)(?=\n\s*(?:メンテナンス|Maintenance|日差|Daily|Case Rank|Band Rank|ケース|ベルト|バンド)|$)/im,
+      /(?:Remarks|Condition Notes)[：:\s]*([\s\S]*?)(?=\n\s*(?:Maintenance|Daily|Case Rank|Band Rank)|$)/im,
     ],
     [
       "maintenanceDescription",
-      /(?:メンテナンス(?:情報)?|Maintenance(?: Info)?|Overhaul|Wartung)[：:\s]*([\s\S]*?)(?=\n\s*(?:日差|Daily|備考|Remarks|Case Rank)|$)/im,
+      /(?:Maintenance(?: Info)?|Overhaul|Wartung)[：:\s]*([\s\S]*?)(?=\n\s*(?:Daily|Remarks|Case Rank)|$)/im,
     ],
-    ["dailyRateDisplay", /(?:日差|Daily Rate|Timing|Accuracy|Gangabweichung)[：:\s]*([^\n|]+)/im],
+    ["dailyRateDisplay", /(?:Daily Rate|Timing|Accuracy|Gangabweichung)[：:\s]*([^\n|]+)/im],
   ];
 
   for (const [key, regex] of fieldPatterns) {
     const match = normalized.match(regex);
     if (match?.[1]?.trim()) {
-      result[key] = match[1].trim().replace(/\s+/g, " ");
+      const val = match[1].trim().replace(/\s+/g, " ");
+      if (!hasJapanese(val) && !hasHtmlArtifact(val)) {
+        result[key] = val;
+      }
     }
   }
 
   return result;
 }
 
-/** Normalize daily rate to a readable DE display string. */
+/** Translate common JP maintenance notes to German; skip garbage/HTML. */
+export function translateMaintenanceToDe(raw: unknown): string {
+  const s = cleanScrapedValue(raw);
+  if (!s) return "";
+  if (!hasJapanese(s)) return s;
+
+  if (/^(なし|無し|無|ー|−|-+|none|n\/a)$/i.test(s)) {
+    return "Keine Wartung dokumentiert";
+  }
+  if (/オーバーホール|\bOH\b/i.test(s)) return "Overhaul durchgeführt";
+  if (/ポリッシュ|研磨|磨き/i.test(s)) return "Politur durchgeführt";
+  if (/電池|battery/i.test(s)) return "Batteriewechsel durchgeführt";
+  if (/未実施|していない/.test(s)) return "Keine Wartung dokumentiert";
+
+  return "";
+}
+
+/** Normalize daily rate to German display; extract seconds from mixed JP/EN text. */
 export function formatDailyRateDisplay(raw: unknown): string {
-  if (raw === null || raw === undefined) return "";
-  const t = String(raw).trim();
+  const t = cleanScrapedValue(raw);
   if (!t) return "";
 
   if (/sek\.?\/?tag|sec\.?\/?day/i.test(t)) {
@@ -85,7 +149,18 @@ export function formatDailyRateDisplay(raw: unknown): string {
     return `ca. ${sign}${value} Sek./Tag`;
   }
 
+  if (hasJapanese(t) || hasHtmlArtifact(t)) return "";
+
   return t;
+}
+
+/** Pick first value that is clean German/Latin text (no JP, no HTML). */
+function pickFirstGerman(...values: unknown[]): string {
+  for (const v of values) {
+    const s = cleanScrapedValue(v);
+    if (s && !hasJapanese(s)) return s;
+  }
+  return "";
 }
 
 export interface InternalFieldSources {
@@ -98,61 +173,58 @@ export interface InternalFieldSources {
   };
 }
 
-/** Source data wins over AI analysis for internal-only fields. */
+/** Source data wins over AI — output German-friendly internal fields. */
 export function extractInternalFields({ analysis = {}, source = {}, contentDe }: InternalFieldSources) {
   const meta = source.metadata || {};
   const specs = source.specs || {};
 
-  const textBlob = [
-    meta.fullDescription,
-    source.description,
-    specs["Remarks"],
-    specs["備考"],
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const textBlob = stripHtml(
+    [meta.fullDescription, source.description].filter(Boolean).join("\n")
+  );
   const fromText = extractFromDescriptionText(textBlob);
 
-  const overallRank = normalizeRank(
-    pickFirst(meta.overallRank, specs["Overall Rank"], specs["商品ランク"], specs["ランク"], fromText.overallRank, analysis.overallRank)
-  );
   const caseRank = normalizeRank(
-    pickFirst(meta.caseRank, specs["Case Rank"], specs["ケースランク"], fromText.caseRank, analysis.caseRank, overallRank)
+    pickFirst(meta.caseRank, specs["Case Rank"], fromText.caseRank, analysis.caseRank)
   );
   const bandRank =
+    normalizeRank(pickFirst(meta.bandRank, specs["Band Rank"], fromText.bandRank, analysis.bandRank)) ||
+    caseRank;
+  const overallRank =
     normalizeRank(
-      pickFirst(meta.bandRank, specs["Band Rank"], specs["バンドランク"], specs["ベルトランク"], fromText.bandRank, analysis.bandRank)
-    ) || caseRank;
-  const sourceRank = normalizeRank(
-    pickFirst(meta.overallRank, overallRank, caseRank, analysis.sourceRank)
-  );
-  const sourceCondition = pickFirst(
-    meta.sourceCondition,
-    specs["Condition"],
-    specs["状態"],
-    overallRank ? `Rank ${overallRank}` : "",
-    caseRank ? `Case Rank ${caseRank}` : "",
-    analysis.sourceCondition
-  );
-  const conditionRemarks = pickFirst(
+      pickFirst(meta.overallRank, specs["Overall Rank"], fromText.overallRank, analysis.overallRank)
+    ) ||
+    caseRank ||
+    bandRank;
+  const sourceRank = overallRank || caseRank || bandRank;
+
+  const sourceCondition =
+    rankToGermanCondition(sourceRank) ||
+    pickFirstGerman(meta.sourceCondition, specs["Condition"]) ||
+    (sourceRank ? `Rank ${sourceRank}` : "");
+
+  const conditionRemarks = pickFirstGerman(
+    contentDe?.conditionText,
+    analysis.conditionRemarks,
+    fromText.conditionRemarks,
     meta.conditionRemarks,
     specs["Remarks"],
-    specs["備考"],
-    specs["Condition Details"],
-    fromText.conditionRemarks,
-    contentDe?.conditionText,
-    analysis.conditionRemarks
+    specs["Condition Details"]
   );
-  const maintenanceDescription = pickFirst(
-    meta.maintenanceDescription,
-    specs["Maintenance Info"],
-    specs["Maintenance"],
-    specs["メンテナンス情報"],
-    fromText.maintenanceDescription,
-    analysis.maintenanceDescription
-  );
+
+  const maintenanceDescription =
+    pickFirstGerman(fromText.maintenanceDescription, analysis.maintenanceDescription) ||
+    translateMaintenanceToDe(meta.maintenanceDescription) ||
+    translateMaintenanceToDe(specs["Maintenance Info"]) ||
+    translateMaintenanceToDe(specs["Maintenance"]);
+
   const dailyRateDisplay = formatDailyRateDisplay(
-    pickFirst(meta.dailyRateDisplay, specs["Daily Rate"], specs["Timing accuracy"], specs["日差"], fromText.dailyRateDisplay, analysis.dailyRateDisplay)
+    pickFirst(
+      meta.dailyRateDisplay,
+      specs["Daily Rate"],
+      specs["Timing accuracy"],
+      fromText.dailyRateDisplay,
+      analysis.dailyRateDisplay
+    )
   );
 
   return {

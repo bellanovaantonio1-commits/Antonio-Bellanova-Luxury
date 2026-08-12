@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import { SourceProductData, ImportProvider } from './types.ts';
-import { normalizeRank, extractFromDescriptionText, formatDailyRateDisplay } from './internalFields.ts';
+import { normalizeRank, extractFromDescriptionText, formatDailyRateDisplay, cleanScrapedValue, translateMaintenanceToDe, rankToGermanCondition } from './internalFields.ts';
 
 export class TsTradingProvider implements ImportProvider {
   canHandle(url: string): boolean {
@@ -305,12 +305,17 @@ export class TsTradingProvider implements ImportProvider {
       '状態': 'Condition'
     };
 
+    const setSpec = (key: string, val: string) => {
+      const cleaned = cleanScrapedValue(val);
+      if (cleaned && cleaned !== key) specs[key] = cleaned;
+    };
+
     $('table tr, .product-spec tr, .spec-table tr').each((_, tr) => {
       const keyRaw = $(tr).find('th, td:first-child').text().trim().replace(/[:：]$/, '');
       const val = $(tr).find('td:last-child').text().trim();
       if (keyRaw && val && keyRaw !== val) {
         const mappedKey = keyMap[keyRaw] || keyRaw;
-        specs[mappedKey] = val;
+        setSpec(mappedKey, val);
       }
     });
 
@@ -321,7 +326,7 @@ export class TsTradingProvider implements ImportProvider {
         const val = $(dt).next('dd').text().trim();
         if (keyRaw && val) {
           const mappedKey = keyMap[keyRaw] || keyRaw;
-          if (!specs[mappedKey]) specs[mappedKey] = val;
+          if (!specs[mappedKey]) setSpec(mappedKey, val);
         }
       });
     });
@@ -334,7 +339,7 @@ export class TsTradingProvider implements ImportProvider {
         const val = $body(tr).find('td:last-child').text().trim();
         if (keyRaw && val && keyRaw !== val) {
           const mappedKey = keyMap[keyRaw] || keyRaw;
-          if (!specs[mappedKey]) specs[mappedKey] = val;
+          if (!specs[mappedKey]) setSpec(mappedKey, val);
         }
       });
       $body('dl dt').each((_, dt) => {
@@ -342,7 +347,7 @@ export class TsTradingProvider implements ImportProvider {
         const val = $body(dt).next('dd').text().trim();
         if (keyRaw && val) {
           const mappedKey = keyMap[keyRaw] || keyRaw;
-          if (!specs[mappedKey]) specs[mappedKey] = val;
+          if (!specs[mappedKey]) setSpec(mappedKey, val);
         }
       });
     }
@@ -378,21 +383,23 @@ export class TsTradingProvider implements ImportProvider {
     const maintenanceMatch = fullDescription.match(/(?:Maintenance|Overhaul|Repair|メンテナンス(?:情報)?|Wartung)[：:\s]*(.*?)(?:\n|$)/i);
     const dailyRateMatch = fullDescription.match(/(?:Daily rate|Timing|Accuracy|日差|Gangabweichung)[：:\s]*(.*?)(?:\n|$)/i);
 
-    const conditionRemarks = specs['Remarks'] || specs['備考'] || fromText.conditionRemarks || remarksMatch?.[1]?.trim() || specs['Condition Details'] || '';
-    const maintenanceDescription = specs['Maintenance Info'] || specs['Maintenance'] || specs['メンテナンス情報'] || fromText.maintenanceDescription || maintenanceMatch?.[1]?.trim() || '';
+    const conditionRemarks = cleanScrapedValue(specs['Remarks'] || specs['Condition Details'] || fromText.conditionRemarks || remarksMatch?.[1] || '');
+    const maintenanceDescription =
+      translateMaintenanceToDe(specs['Maintenance Info'] || specs['Maintenance'] || fromText.maintenanceDescription || maintenanceMatch?.[1] || '');
     const dailyRateDisplay = formatDailyRateDisplay(
-      specs['Daily Rate'] || specs['日差'] || fromText.dailyRateDisplay || dailyRateMatch?.[1]?.trim() || specs['Timing accuracy'] || ''
+      specs['Daily Rate'] || fromText.dailyRateDisplay || dailyRateMatch?.[1] || specs['Timing accuracy'] || ''
     );
 
-    // Special handling for TS Trading specific fields
-    const caseRank = normalizeRank(specs['Case Rank'] || specs['ケースランク'] || fromText.caseRank || specs['Overall Rank'] || '');
-    const bandRank = normalizeRank(specs['Band Rank'] || specs['ベルトランク'] || specs['バンドランク'] || fromText.bandRank || '') || caseRank;
-    const overallRank = normalizeRank(specs['Overall Rank'] || specs['商品ランク'] || fromText.overallRank || caseRank || '');
+    // Special handling for TS Trading specific fields (ranks only — no JP prose)
+    const caseRank = normalizeRank(specs['Case Rank'] || fromText.caseRank || '');
+    const bandRank = normalizeRank(specs['Band Rank'] || fromText.bandRank || '') || caseRank;
+    const overallRank = normalizeRank(specs['Overall Rank'] || fromText.overallRank || '') || caseRank || bandRank;
+    const sourceRank = overallRank || caseRank;
     const sourceCondition =
-      specs['Overall Rank'] ||
-      specs['Condition'] ||
-      $('.condition-label').text().trim() ||
-      (shopifyProduct?.available ? 'Available' : 'Unavailable');
+      rankToGermanCondition(sourceRank) ||
+      rankToGermanCondition(caseRank) ||
+      cleanScrapedValue(specs['Condition']) ||
+      "";
 
     // Price handling
     let price = '';
@@ -444,6 +451,7 @@ export class TsTradingProvider implements ImportProvider {
         caseRank,
         bandRank,
         overallRank,
+        sourceRank,
         sourceCondition,
         conditionRemarks,
         maintenanceDescription,
