@@ -399,6 +399,16 @@ export function registerExtraRoutes(app: Express) {
     }
   });
 
+  // Public shop settings (contact + payment info for footer/checkout)
+  app.get("/api/settings", async (_req, res) => {
+    try {
+      await ensureDefaultSettings();
+      res.json(await getSettingsMap());
+    } catch {
+      res.json(DEFAULT_SHOP_SETTINGS);
+    }
+  });
+
   // Admin settings
   app.get("/api/admin/settings", requireAuth, requireRole(["ADMIN"]), async (_req, res) => {
     try {

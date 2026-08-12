@@ -7,11 +7,13 @@ import { AuthProvider } from './contexts/AuthContext.tsx';
 import { CartProvider } from './contexts/CartContext.tsx';
 import { WishlistProvider } from './contexts/WishlistContext.tsx';
 import { LanguageProvider } from './contexts/LanguageContext.tsx';
+import { ShopSettingsProvider } from './contexts/ShopSettingsContext.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
       <LanguageProvider>
+        <ShopSettingsProvider>
         <CartProvider>
           <WishlistProvider>
             <Router>
@@ -19,6 +21,7 @@ createRoot(document.getElementById('root')!).render(
             </Router>
           </WishlistProvider>
         </CartProvider>
+        </ShopSettingsProvider>
       </LanguageProvider>
     </AuthProvider>
   </StrictMode>,

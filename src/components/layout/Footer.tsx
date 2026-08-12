@@ -2,10 +2,14 @@ import { Link } from "react-router-dom";
 import { Instagram, Facebook, Mail, MapPin, Phone } from "lucide-react";
 import { FOOTER_NAV } from "../../config/navigation.ts";
 import { useLanguage } from "../../contexts/LanguageContext.tsx";
+import { formatAddressLines, useShopSettings } from "../../contexts/ShopSettingsContext.tsx";
 import NewsletterForm from "../common/NewsletterForm.tsx";
 
 export default function Footer() {
   const { t } = useLanguage();
+  const settings = useShopSettings();
+  const addressLines = formatAddressLines(settings.contactAddress);
+
   return (
     <footer className="bg-[#050505] text-[#F4F4F4] pt-24 pb-12 border-t border-white/10">
       <div className="max-w-7xl mx-auto px-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8 border-b border-white/10 pb-16">
@@ -13,24 +17,24 @@ export default function Footer() {
         <div className="space-y-6">
           <Link to="/" className="flex flex-col group">
             <span className="text-xl font-serif tracking-[0.2em] italic group-hover:text-[#c5a059] transition-colors">ANTONIO BELLANOVA</span>
-            <span className="text-[9px] tracking-[0.5em] text-[#c5a059] mt-1 uppercase opacity-60">Luxury Köln</span>
+            <span className="text-[9px] tracking-[0.5em] text-[#c5a059] mt-1 uppercase">Luxury Köln</span>
           </Link>
-          <p className="text-[#F4F4F4]/50 text-[12px] leading-relaxed max-w-[280px] font-light">
+          <p className="text-white/70 text-[12px] leading-relaxed max-w-[280px] font-light">
             {t("footer.brand.desc")}
           </p>
           <div className="flex gap-6">
-            <a href="#" className="hover:text-[#c5a059] transition-colors opacity-60 hover:opacity-100"><Instagram size={18} strokeWidth={1.5} /></a>
-            <a href="#" className="hover:text-[#c5a059] transition-colors opacity-60 hover:opacity-100"><Facebook size={18} strokeWidth={1.5} /></a>
+            <a href="#" className="text-white/70 hover:text-[#c5a059] transition-colors"><Instagram size={18} strokeWidth={1.5} /></a>
+            <a href="#" className="text-white/70 hover:text-[#c5a059] transition-colors"><Facebook size={18} strokeWidth={1.5} /></a>
           </div>
         </div>
 
         {/* Navigation */}
         <div className="space-y-6">
           <h4 className="text-[10px] tracking-[0.3em] uppercase font-bold text-[#c5a059]">{t("footer.discover")}</h4>
-          <ul className="space-y-4 text-[12px] text-[#F4F4F4]/50 font-light">
+          <ul className="space-y-4 text-[12px] text-white/75 font-light">
             {FOOTER_NAV.discover.map((item) => (
               <li key={item.path}>
-                <Link to={item.path} className="hover:text-white transition-colors">{item.label}</Link>
+                <Link to={item.path} className="hover:text-[#c5a059] transition-colors">{item.label}</Link>
               </li>
             ))}
           </ul>
@@ -39,31 +43,48 @@ export default function Footer() {
         {/* Support */}
         <div className="space-y-6">
           <h4 className="text-[10px] tracking-[0.3em] uppercase font-bold text-[#c5a059]">{t("footer.service")}</h4>
-          <ul className="space-y-4 text-[12px] text-[#F4F4F4]/50 font-light">
+          <ul className="space-y-4 text-[12px] text-white/75 font-light">
             {FOOTER_NAV.service.map((item) => (
               <li key={item.path}>
-                <Link to={item.path} className="hover:text-white transition-colors">{item.label}</Link>
+                <Link to={item.path} className="hover:text-[#c5a059] transition-colors">{item.label}</Link>
               </li>
             ))}
           </ul>
         </div>
 
-        {/* Contact */}
+        {/* Contact — from Admin → Einstellungen */}
         <div className="space-y-6">
           <h4 className="text-[10px] tracking-[0.3em] uppercase font-bold text-[#c5a059]">{t("footer.atelier")}</h4>
-          <ul className="space-y-4 text-[12px] text-[#F4F4F4]/50 font-light">
-            <li className="flex items-start gap-3">
-              <MapPin size={16} className="mt-0.5 text-[#c5a059]" strokeWidth={1.5} />
-              <span>Ahornstraße 8<br />50765 Köln, Deutschland</span>
-            </li>
-            <li className="flex items-center gap-3">
-              <Phone size={16} className="text-[#c5a059]" strokeWidth={1.5} />
-              <span>+49 (0) 221 123 456</span>
-            </li>
-            <li className="flex items-center gap-3">
-              <Mail size={16} className="text-[#c5a059]" strokeWidth={1.5} />
-              <span className="break-all">antonio.bellanova@luxury.com</span>
-            </li>
+          <ul className="space-y-4 text-[12px] text-white/75 font-light">
+            {addressLines.length > 0 && (
+              <li className="flex items-start gap-3">
+                <MapPin size={16} className="mt-0.5 text-[#c5a059] shrink-0" strokeWidth={1.5} />
+                <span>
+                  {addressLines.map((line, i) => (
+                    <span key={i}>
+                      {line}
+                      {i < addressLines.length - 1 && <br />}
+                    </span>
+                  ))}
+                </span>
+              </li>
+            )}
+            {settings.contactPhone && (
+              <li className="flex items-center gap-3">
+                <Phone size={16} className="text-[#c5a059] shrink-0" strokeWidth={1.5} />
+                <a href={`tel:${settings.contactPhone.replace(/\s/g, "")}`} className="hover:text-[#c5a059] transition-colors">
+                  {settings.contactPhone}
+                </a>
+              </li>
+            )}
+            {settings.contactEmail && (
+              <li className="flex items-center gap-3">
+                <Mail size={16} className="text-[#c5a059] shrink-0" strokeWidth={1.5} />
+                <a href={`mailto:${settings.contactEmail}`} className="break-all hover:text-[#c5a059] transition-colors">
+                  {settings.contactEmail}
+                </a>
+              </li>
+            )}
           </ul>
         </div>
       </div>
@@ -72,7 +93,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-10 py-12 border-b border-white/10">
         <div className="max-w-md space-y-4">
           <h4 className="text-[10px] tracking-[0.3em] uppercase font-bold text-[#c5a059]">Newsletter</h4>
-          <p className="text-[12px] text-white/40 font-light">Neuheiten und exklusive Angebote — direkt in Ihr Postfach.</p>
+          <p className="text-[12px] text-white/70 font-light">Neuheiten und exklusive Angebote — direkt in Ihr Postfach.</p>
           <div className="relative">
             <NewsletterForm />
           </div>
@@ -80,11 +101,11 @@ export default function Footer() {
       </div>
 
       {/* Bottom Bar */}
-      <div className="max-w-7xl mx-auto px-10 pt-12 flex flex-col md:flex-row justify-between items-center gap-6 text-[9px] tracking-[0.3em] text-[#F4F4F4]/30 uppercase font-light">
-        <p>© {new Date().getFullYear()} Antonio Bellanova Luxury. {t("footer.rights")}</p>
+      <div className="max-w-7xl mx-auto px-10 pt-12 flex flex-col md:flex-row justify-between items-center gap-6 text-[9px] tracking-[0.3em] text-white/50 uppercase font-light">
+        <p>© {new Date().getFullYear()} {settings.shopName}. {t("footer.rights")}</p>
         <div className="flex gap-10">
           {FOOTER_NAV.legal.map((item) => (
-            <Link key={item.path} to={item.path} className="hover:text-white transition-colors">{item.label}</Link>
+            <Link key={item.path} to={item.path} className="hover:text-[#c5a059] transition-colors">{item.label}</Link>
           ))}
         </div>
       </div>

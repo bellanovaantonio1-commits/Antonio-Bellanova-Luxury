@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import { Mail, MapPin, Phone, Send, CheckCircle2 } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
+import { formatAddressLines, useShopSettings } from "../contexts/ShopSettingsContext.tsx";
 
 export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
@@ -9,6 +10,8 @@ export default function Contact() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", subject: "general", message: "" });
   const { t } = useLanguage();
+  const settings = useShopSettings();
+  const addressLines = formatAddressLines(settings.contactAddress);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,7 +67,11 @@ export default function Contact() {
               </div>
               <div>
                 <h3 className="text-[10px] tracking-[0.3em] uppercase font-bold mb-2">{t("contact.atelier.title")}</h3>
-                <p className="text-[#F4F4F4]/60 text-sm font-light leading-relaxed">Ahornstraße 8<br />50765 Köln, Deutschland</p>
+                <p className="text-white/75 text-sm font-light leading-relaxed">
+                  {addressLines.map((line, i) => (
+                    <span key={i}>{line}{i < addressLines.length - 1 && <br />}</span>
+                  ))}
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-8 group">
@@ -73,7 +80,12 @@ export default function Contact() {
               </div>
               <div>
                 <h3 className="text-[10px] tracking-[0.3em] uppercase font-bold mb-2">{t("contact.phone.title")}</h3>
-                <p className="text-[#F4F4F4]/60 text-sm font-light leading-relaxed">+49 (0) 221 123 456<br />Mo - Fr: 10:00 - 18:00 Uhr</p>
+                <p className="text-white/75 text-sm font-light leading-relaxed">
+                  <a href={`tel:${settings.contactPhone.replace(/\s/g, "")}`} className="hover:text-[#c5a059] transition-colors">
+                    {settings.contactPhone}
+                  </a>
+                  <br />Mo - Fr: 10:00 - 18:00 Uhr
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-8 group">
@@ -82,7 +94,12 @@ export default function Contact() {
               </div>
               <div>
                 <h3 className="text-[10px] tracking-[0.3em] uppercase font-bold mb-2">{t("contact.email.title")}</h3>
-                <p className="text-[#F4F4F4]/60 text-sm font-light leading-relaxed">antonio.bellanova@luxury.com<br />{t("contact.email.desc")}</p>
+                <p className="text-white/75 text-sm font-light leading-relaxed">
+                  <a href={`mailto:${settings.contactEmail}`} className="hover:text-[#c5a059] transition-colors">
+                    {settings.contactEmail}
+                  </a>
+                  <br />{t("contact.email.desc")}
+                </p>
               </div>
             </div>
           </div>

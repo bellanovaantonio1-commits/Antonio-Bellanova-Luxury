@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { Settings as SettingsIcon, Save } from "lucide-react";
 import { auth } from "../../lib/firebase.ts";
+import { useReloadShopSettings } from "../../contexts/ShopSettingsContext.tsx";
 
 export default function Settings() {
+  const reloadShopSettings = useReloadShopSettings();
   const [settings, setSettings] = useState<Record<string, string>>({
     shopName: "",
     contactEmail: "",
     contactPhone: "",
+    contactAddress: "",
     bankName: "",
     bankIban: "",
     bankBic: "",
@@ -51,6 +54,7 @@ export default function Settings() {
         body: JSON.stringify(settings),
       });
       setSaved(true);
+      reloadShopSettings();
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       console.error("Save failed", err);
@@ -63,6 +67,7 @@ export default function Settings() {
     { key: "shopName", label: "Shop Name" },
     { key: "contactEmail", label: "Kontakt E-Mail" },
     { key: "contactPhone", label: "Telefon" },
+    { key: "contactAddress", label: "Adresse (Footer & Kontakt)", multiline: true },
     { key: "bankAccountHolder", label: "Kontoinhaber" },
     { key: "bankName", label: "Bank" },
     { key: "bankIban", label: "IBAN" },
@@ -78,7 +83,7 @@ export default function Settings() {
         <SettingsIcon size={32} />
         <div>
           <h3 className="text-xl font-serif text-gray-900">Einstellungen</h3>
-          <p className="text-sm text-gray-500">Shop-Informationen und Bankverbindung für Checkout.</p>
+          <p className="text-sm text-gray-500">Diese Daten erscheinen im Footer, auf der Kontaktseite und beim Checkout.</p>
         </div>
       </div>
 
