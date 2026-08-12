@@ -19,24 +19,9 @@ import {
   getInvoiceByOrderId,
 } from "./invoice/service.ts";
 import { getMissingInvoiceSettings } from "./invoice/seller.ts";
-
-async function getSettingsMap(): Promise<Record<string, unknown>> {
-  const rows = await db.select().from(shopSettings);
-  const map: Record<string, unknown> = { ...DEFAULT_SHOP_SETTINGS };
-  for (const row of rows) {
-    map[row.key] = row.value;
-  }
-  return map;
-}
-
-async function ensureDefaultSettings() {
-  for (const [key, value] of Object.entries(DEFAULT_SHOP_SETTINGS)) {
-    const existing = await db.select().from(shopSettings).where(eq(shopSettings.key, key)).limit(1);
-    if (existing.length === 0) {
-      await db.insert(shopSettings).values({ key, value });
-    }
-  }
-}
+import { calculateShippingCost } from "./shipping.ts";
+import { createStripeCheckoutSession, isStripeEnabled } from "./stripe.ts";
+import { getSettingsMap, ensureDefaultSettings } from "./settings.ts";
 
 export function registerExtraRoutes(app: Express) {
   // Health check
@@ -128,7 +113,87 @@ export function registerExtraRoutes(app: Express) {
     }
   });
 
-  // Public forms
+  app.post("/api/products/:slug/inquiry", async (req, res) => {
+    try {
+      const { firstName, lastName, email, phone, message } = req.body;
+      if (!email) return res.status(400).json({ error: "E-Mail ist erforderlich." });
+
+      const [product] = await db.select({
+        product: products,
+        brand: brands,
+      })
+        .from(products)
+        .leftJoin(brands, eq(products.brandId, brands.id))
+        .where(eq(products.slug, req.params.slug))
+        .limit(1);
+
+      if (!product) return res.status(404).json({ error: "Produkt nicht gefunden." });
+
+      const productTitle = product.product.titleDe || product.product.name;
+      const subject = `Reservierung / Anfrage: ${productTitle}`;
+
+      const [inquiry] = await db.insert(inquiries).values({
+        type: "RESERVE",
+        firstName,
+        lastName,
+        email,
+        phone,
+        subject,
+        message: message || `Interesse an ${productTitle}`,
+        metadata: {
+          productId: product.product.id,
+          productSlug: product.product.slug,
+          productSku: product.product.sku,
+          productName: productTitle,
+          brand: product.brand?.name,
+          price: product.product.price,
+        },
+      }).returning();
+
+      const settings = await getSettingsMap();
+      sendInquiryEmails({
+        type: "RESERVE",
+        typeLabel: "Produkt-Reservierung",
+        firstName,
+        lastName,
+        email,
+        phone,
+        subject,
+        message: message || `Interesse an ${productTitle}`,
+        metadata: {
+          productId: product.product.id,
+          productSlug: product.product.slug,
+          productSku: product.product.sku,
+          productName: productTitle,
+          brand: product.brand?.name,
+          price: product.product.price,
+        },
+        settings,
+      }).catch((e) => console.error("Reserve inquiry email failed", e));
+
+      res.status(201).json({ id: inquiry.id, message: "Ihre Anfrage wurde übermittelt." });
+    } catch (error) {
+      console.error("Product inquiry failed", error);
+      res.status(500).json({ error: "Anfrage konnte nicht gespeichert werden." });
+    }
+  });
+
+  app.get("/api/shipping/quote", async (req, res) => {
+    try {
+      const country = String(req.query.country || "Deutschland");
+      const subtotal = parseFloat(String(req.query.subtotal || "0")) || 0;
+      const settings = await getSettingsMap();
+      const cost = calculateShippingCost(country, settings as Record<string, string>, subtotal);
+      res.json({
+        shippingCost: cost,
+        freeFrom: parseFloat(String(settings.shippingFreeFrom || "500")) || 500,
+        stripeEnabled: isStripeEnabled(),
+      });
+    } catch {
+      res.status(500).json({ error: "Versand konnte nicht berechnet werden." });
+    }
+  });
+
   app.post("/api/contact", async (req, res) => {
     try {
       const { firstName, lastName, email, subject, message } = req.body;
@@ -306,6 +371,7 @@ export function registerExtraRoutes(app: Express) {
         customerVatId,
         language,
         discountAmount,
+        paymentMethod,
       } = req.body;
       if (!items?.length) return res.status(400).json({ error: "Warenkorb ist leer." });
 
@@ -313,9 +379,16 @@ export function registerExtraRoutes(app: Express) {
         items.map((i: { id: string; quantity: number }) => ({ id: i.id, quantity: i.quantity }))
       );
 
-      const shippingCost = 0;
+      const settings = await getSettingsMap();
+      const shippingCountry = (shippingAddress || billingAddress)?.country || "Deutschland";
+      const shippingCost = calculateShippingCost(
+        shippingCountry,
+        settings as Record<string, string>,
+        computed.totalGross
+      );
       const discount = parseFloat(discountAmount) || 0;
       const totalGross = Math.max(0, computed.totalGross + shippingCost - discount);
+      const resolvedPaymentMethod = paymentMethod === "STRIPE" && isStripeEnabled() ? "STRIPE" : "BANK_TRANSFER";
 
       const orderNumber = generateOrderNumber();
       const billing = billingAddress || null;
@@ -326,7 +399,7 @@ export function registerExtraRoutes(app: Express) {
         orderNumber,
         status: "PENDING",
         paymentStatus: "PENDING",
-        paymentMethod: "BANK_TRANSFER",
+        paymentMethod: resolvedPaymentMethod,
         total: totalGross.toString(),
         subtotalNet: computed.subtotalNet.toString(),
         taxAmount: computed.taxAmount.toString(),
@@ -369,10 +442,8 @@ export function registerExtraRoutes(app: Express) {
         }
       }
 
-      const settings = await getSettingsMap();
-
       const customerEmail = req.user!.email;
-      if (customerEmail) {
+      if (customerEmail && resolvedPaymentMethod === "BANK_TRANSFER") {
         sendOrderEmails({
           customerEmail,
           orderNumber,
@@ -383,10 +454,29 @@ export function registerExtraRoutes(app: Express) {
         }).catch((e) => console.error("Order email failed", e));
       }
 
+      let checkoutUrl: string | null = null;
+      if (resolvedPaymentMethod === "STRIPE" && customerEmail) {
+        checkoutUrl = await createStripeCheckoutSession({
+          orderId: order.id,
+          orderNumber,
+          totalEur: totalGross,
+          customerEmail,
+          language: language === "en" ? "en" : "de",
+          lineItems: computed.lines.map((line) => ({
+            name: line.name,
+            quantity: line.quantity,
+            unitAmountEur: line.unitPriceGross,
+          })),
+          shippingEur: shippingCost,
+        });
+      }
+
       res.status(201).json({
         ...order,
         invoiceNumber: null,
         paymentInfo: settings,
+        checkoutUrl,
+        stripeEnabled: isStripeEnabled(),
         invoiceSettingsWarning: getMissingInvoiceSettings(settings),
       });
     } catch (error: unknown) {

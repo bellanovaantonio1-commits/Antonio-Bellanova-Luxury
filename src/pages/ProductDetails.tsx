@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Shield, Clock, Award, Package, MessageSquare, ChevronRight, Share2, Heart, CheckCircle2 } from "lucide-react";
+import { Shield, Clock, Award, Package, MessageSquare, ChevronRight, Share2, Heart, CheckCircle2, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Product } from "../types.ts";
 import { useCart } from "../contexts/CartContext.tsx";
 import { useWishlist } from "../contexts/WishlistContext.tsx";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
+import { useShopSettings } from "../contexts/ShopSettingsContext.tsx";
 import MetaTags from "../components/common/MetaTags.tsx";
 import { mergeSpecRows, parseSpecificationsText, splitDescriptionAndDetails } from "../lib/productDisplay.ts";
+import { buildProductJsonLd } from "../lib/productJsonLd.ts";
 
 export default function ProductDetails() {
   const { slug } = useParams();
@@ -16,7 +18,13 @@ export default function ProductDetails() {
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(0);
   const [showAddedToast, setShowAddedToast] = useState(false);
+  const [showReserveModal, setShowReserveModal] = useState(false);
+  const [reserveForm, setReserveForm] = useState({ firstName: "", lastName: "", email: "", phone: "", message: "" });
+  const [reserveLoading, setReserveLoading] = useState(false);
+  const [reserveSuccess, setReserveSuccess] = useState(false);
+  const [reserveError, setReserveError] = useState<string | null>(null);
   const { language, t } = useLanguage();
+  const shopSettings = useShopSettings();
   
   const { addItem } = useCart();
   const { toggleItem, isInWishlist } = useWishlist();
@@ -41,6 +49,38 @@ export default function ProductDetails() {
     };
     fetchProduct();
   }, [slug]);
+
+  useEffect(() => {
+    if (!product) return;
+    const baseUrl = window.location.origin;
+    const title = language === "en" && product.titleEn ? product.titleEn : (product.titleDe || product.name || "");
+    const jsonLd = {
+      "@context": "https://schema.org",
+      "@graph": [
+        buildProductJsonLd(product as any, baseUrl, language),
+        {
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: `${baseUrl}/` },
+            { "@type": "ListItem", position: 2, name: language === "en" ? "Collection" : "Kollektion", item: `${baseUrl}/shop` },
+            { "@type": "ListItem", position: 3, name: title, item: `${baseUrl}/product/${product.slug}` },
+          ],
+        },
+      ],
+    };
+    const scriptId = "product-jsonld";
+    let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+    if (!script) {
+      script = document.createElement("script");
+      script.id = scriptId;
+      script.type = "application/ld+json";
+      document.head.appendChild(script);
+    }
+    script.textContent = JSON.stringify(jsonLd);
+    return () => {
+      script?.remove();
+    };
+  }, [product, language]);
 
   if (loading) return <div className="pt-48 pb-24 text-center text-[10px] tracking-widest uppercase">{t("common.loading")}</div>;
   if (!product) return <div className="pt-48 pb-24 text-center">{t("common.back")}</div>;
@@ -128,13 +168,40 @@ export default function ProductDetails() {
     }
   };
 
+  const handleReserveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!slug || !reserveForm.email.trim()) return;
+    setReserveLoading(true);
+    setReserveError(null);
+    try {
+      const res = await fetch(`/api/products/${slug}/inquiry`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reserveForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || t("product.reserve.error"));
+      setReserveSuccess(true);
+    } catch (err: unknown) {
+      setReserveError(err instanceof Error ? err.message : t("product.reserve.error"));
+    } finally {
+      setReserveLoading(false);
+    }
+  };
+
   const isFavorited = product.id ? isInWishlist(String(product.id)) : false;
+  const authenticityNote = language === "en" ? shopSettings.authenticityNoteEn : shopSettings.authenticityNoteDe;
+  const marginTaxNote = language === "en" ? shopSettings.marginTaxNoteEn : shopSettings.marginTaxNoteDe;
+  const seoDescription =
+    language === "en"
+      ? product.seoDescriptionEn || product.shortDescriptionEn || displayTitle
+      : product.seoDescriptionDe || product.shortDescriptionDe || displayTitle;
 
   return (
     <div className="pt-32 pb-24 px-10 bg-[#050505]">
       <MetaTags
         title={displayTitle}
-        description={product.seoDescriptionDe || product.shortDescriptionDe || displayTitle}
+        description={seoDescription}
         image={product.images?.[0]}
       />
       <AnimatePresence>
@@ -211,7 +278,17 @@ export default function ProductDetails() {
                 <span className="text-3xl font-serif italic text-[#c5a059]">
                   {new Intl.NumberFormat(language === "en" ? 'en-US' : 'de-DE', { style: 'currency', currency: 'EUR' }).format(parseFloat(product.price))}
                 </span>
-                <span className="text-[10px] tracking-widest text-white/30 uppercase italic font-light">Inkl. MwSt. / §25a</span>
+                <span className="text-[10px] tracking-widest text-white/30 uppercase italic font-light">{marginTaxNote}</span>
+              </div>
+            </div>
+
+            <div className="mb-10 p-6 bg-white/[0.03] border border-white/10 rounded-2xl space-y-4">
+              <p className="text-[10px] tracking-[0.3em] uppercase font-bold text-[#c5a059]">{t("product.trust.title")}</p>
+              <p className="text-sm text-white/70 leading-relaxed">{authenticityNote}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 text-[11px] text-white/60">
+                <div><span className="text-white/40 uppercase tracking-widest text-[9px] block mb-1">{t("product.condition")}</span>{displayCondition}</div>
+                <div><span className="text-white/40 uppercase tracking-widest text-[9px] block mb-1">{t("product.scope")}</span>{displayScope}</div>
+                <div><span className="text-white/40 uppercase tracking-widest text-[9px] block mb-1">Referenz</span>{product.sku || "—"}</div>
               </div>
             </div>
 
@@ -236,12 +313,16 @@ export default function ProductDetails() {
                 >
                   {t("product.add_to_cart")}
                 </button>
-                <Link 
-                  to="/contact"
-                  className="w-full border border-white/20 hover:border-[#c5a059] py-6 text-[11px] tracking-[0.3em] uppercase font-bold transition-all flex items-center justify-center gap-3"
+                <button
+                  onClick={() => {
+                    setShowReserveModal(true);
+                    setReserveSuccess(false);
+                    setReserveError(null);
+                  }}
+                  className="w-full border border-[#c5a059]/40 text-[#c5a059] hover:bg-[#c5a059] hover:text-black py-6 text-[11px] tracking-[0.3em] uppercase font-bold transition-all flex items-center justify-center gap-3"
                 >
-                  <MessageSquare size={16} strokeWidth={1.5} /> {t("shop.send_request")}
-                </Link>
+                  <MessageSquare size={16} strokeWidth={1.5} /> {t("product.reserve.button")}
+                </button>
               </div>
             </div>
 
@@ -347,6 +428,119 @@ export default function ProductDetails() {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {showReserveModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm"
+            onClick={() => !reserveLoading && setShowReserveModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg bg-[#0a0a0a] border border-white/10 rounded-2xl p-8 space-y-6 relative"
+            >
+              <button
+                type="button"
+                onClick={() => setShowReserveModal(false)}
+                className="absolute top-4 right-4 text-white/40 hover:text-white"
+                aria-label={t("common.cancel")}
+              >
+                <X size={20} />
+              </button>
+
+              {reserveSuccess ? (
+                <div className="text-center space-y-4 py-8">
+                  <CheckCircle2 size={48} className="text-[#c5a059] mx-auto" />
+                  <p className="text-lg font-serif italic">{t("product.reserve.success")}</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowReserveModal(false)}
+                    className="text-[10px] tracking-widest uppercase text-[#c5a059] font-bold"
+                  >
+                    {t("common.back")}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <h3 className="text-xl font-serif italic text-[#c5a059]">{t("product.reserve.title")}</h3>
+                    <p className="text-sm text-white/50 mt-2">{t("product.reserve.desc")}</p>
+                    <p className="text-xs text-white/30 mt-2 italic">{displayTitle}</p>
+                  </div>
+
+                  {reserveError && (
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-3 text-sm">{reserveError}</div>
+                  )}
+
+                  <form onSubmit={handleReserveSubmit} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("contact.form.firstname")}</label>
+                        <input
+                          required
+                          value={reserveForm.firstName}
+                          onChange={(e) => setReserveForm((f) => ({ ...f, firstName: e.target.value }))}
+                          className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("contact.form.lastname")}</label>
+                        <input
+                          required
+                          value={reserveForm.lastName}
+                          onChange={(e) => setReserveForm((f) => ({ ...f, lastName: e.target.value }))}
+                          className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("contact.form.email")}</label>
+                      <input
+                        type="email"
+                        required
+                        value={reserveForm.email}
+                        onChange={(e) => setReserveForm((f) => ({ ...f, email: e.target.value }))}
+                        className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("contact.phone.title")}</label>
+                      <input
+                        value={reserveForm.phone}
+                        onChange={(e) => setReserveForm((f) => ({ ...f, phone: e.target.value }))}
+                        className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("product.reserve.message")}</label>
+                      <textarea
+                        rows={3}
+                        value={reserveForm.message}
+                        onChange={(e) => setReserveForm((f) => ({ ...f, message: e.target.value }))}
+                        className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50 resize-none"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={reserveLoading}
+                      className="w-full bg-[#c5a059] text-black py-4 text-[11px] tracking-[0.3em] uppercase font-bold hover:bg-[#d4af37] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {reserveLoading ? <Loader2 size={16} className="animate-spin" /> : null}
+                      {t("product.reserve.submit")}
+                    </button>
+                  </form>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

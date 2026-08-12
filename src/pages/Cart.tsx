@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, CheckCircle2, LogIn, FileText } from "lucide-react";
+import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, CheckCircle2, LogIn, FileText, CreditCard } from "lucide-react";
 import { useCart } from "../contexts/CartContext.tsx";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
 import { useAuth } from "../contexts/AuthContext.tsx";
 import InvoiceActions from "../components/InvoiceActions.tsx";
@@ -34,8 +34,10 @@ const emptyAddress = (): AddressForm => ({
 
 export default function Cart() {
   const { items, removeItem, total, count, updateQuantity, clearCart } = useCart();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isStripeSuccess, setIsStripeSuccess] = useState(false);
   const [showCheckoutForm, setShowCheckoutForm] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
   const [orderId, setOrderId] = useState<number | null>(null);
@@ -48,8 +50,68 @@ export default function Cart() {
   const [isBusiness, setIsBusiness] = useState(false);
   const [companyName, setCompanyName] = useState("");
   const [customerVatId, setCustomerVatId] = useState("");
+  const [shippingCost, setShippingCost] = useState<number | null>(null);
+  const [shippingFreeFrom, setShippingFreeFrom] = useState<number>(500);
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [stripeEnabled, setStripeEnabled] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"BANK_TRANSFER" | "STRIPE">("BANK_TRANSFER");
   const { t, language } = useLanguage();
   const { user, signIn } = useAuth();
+
+  const shippingCountry = (differentShipping ? shipping.country : billing.country) || "Deutschland";
+  const grandTotal = total + (shippingCost ?? 0);
+
+  useEffect(() => {
+    const stripeParam = searchParams.get("stripe");
+    const orderParam = searchParams.get("order");
+    if (stripeParam === "success" && orderParam) {
+      setIsStripeSuccess(true);
+      setIsSuccess(true);
+      setOrderNumber(orderParam);
+      setSearchParams({}, { replace: true });
+    } else if (stripeParam === "cancelled") {
+      setError(language === "en" ? "Payment was cancelled." : "Zahlung wurde abgebrochen.");
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams, language]);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setShippingCost(null);
+      return;
+    }
+
+    let cancelled = false;
+    setShippingLoading(true);
+    fetch(`/api/shipping/quote?country=${encodeURIComponent(shippingCountry)}&subtotal=${total}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        setShippingCost(Number(data.shippingCost) || 0);
+        setShippingFreeFrom(Number(data.freeFrom) || 500);
+        setStripeEnabled(Boolean(data.stripeEnabled));
+        if (!data.stripeEnabled) setPaymentMethod("BANK_TRANSFER");
+      })
+      .catch(() => {
+        if (!cancelled) setShippingCost(0);
+      })
+      .finally(() => {
+        if (!cancelled) setShippingLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shippingCountry, total, items.length]);
+
+  const formatMoney = (amount: number) =>
+    new Intl.NumberFormat(language === "en" ? "en-US" : "de-DE", { style: "currency", currency: "EUR" }).format(amount);
+
+  const shippingLabel = () => {
+    if (shippingLoading || shippingCost === null) return t("cart.shipping.calculated");
+    if (shippingCost === 0) return t("cart.shipping.free");
+    return formatMoney(shippingCost);
+  };
 
   const formatAddress = (a: AddressForm) => ({
     name: a.name.trim(),
@@ -109,6 +171,7 @@ export default function Cart() {
           companyName: isBusiness ? companyName.trim() || null : null,
           customerVatId: isBusiness ? customerVatId.trim() || null : null,
           language,
+          paymentMethod,
         }),
       });
 
@@ -118,6 +181,13 @@ export default function Cart() {
       }
 
       const data = await res.json();
+
+      if (data.checkoutUrl) {
+        clearCart();
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+
       setOrderNumber(data.orderNumber || `ORD-${data.id}`);
       setOrderId(data.id);
       setInvoiceNumber(data.invoiceNumber || null);
@@ -148,8 +218,12 @@ export default function Cart() {
             <CheckCircle2 size={40} className="text-green-500" strokeWidth={1.5} />
           </div>
           <div className="space-y-4">
-            <h1 className="text-3xl font-serif italic">{t("cart.success.title")}</h1>
-            <p className="text-white/40 text-sm font-light leading-relaxed">{t("cart.success.desc")}</p>
+            <h1 className="text-3xl font-serif italic">
+              {isStripeSuccess ? t("cart.success.stripe.title") : t("cart.success.title")}
+            </h1>
+            <p className="text-white/40 text-sm font-light leading-relaxed">
+              {isStripeSuccess ? t("cart.success.stripe.desc") : t("cart.success.desc")}
+            </p>
             <div className="space-y-2 pt-2">
               <p className="text-[10px] tracking-widest uppercase text-white/30">{t("cart.success.orderNumber")}</p>
               <p className="text-[#c5a059] font-serif text-xl">{orderNumber}</p>
@@ -173,7 +247,7 @@ export default function Cart() {
             />
           )}
 
-          {paymentInfo && (
+          {paymentInfo && !isStripeSuccess && (
             <div className="text-left bg-black/30 border border-white/10 rounded-xl p-6 space-y-3 text-sm">
               <p className="text-[10px] tracking-widest uppercase text-[#c5a059] font-bold">{t("cart.payment.bank")}</p>
               <p className="text-white/60">{paymentHint}</p>
@@ -276,7 +350,7 @@ export default function Cart() {
           <div className="flex items-center gap-4 text-white/30 text-[10px] tracking-widest uppercase font-bold">
             <span>{count} {t("cart.items")}</span>
             <span className="w-1 h-1 bg-white/10 rounded-full" />
-            <span>{t("cart.shipping.free")}</span>
+            <span>{shippingLabel()}</span>
           </div>
         </header>
 
@@ -399,6 +473,41 @@ export default function Cart() {
                       <AddressFields value={shipping} onChange={setShipping} prefix="shipping" />
                     </div>
                   )}
+
+                  {stripeEnabled && (
+                    <div className="space-y-4 pt-4 border-t border-white/10">
+                      <h3 className="text-sm tracking-[0.3em] uppercase font-bold text-[#c5a059]">{t("cart.payment.method")}</h3>
+                      <label className="flex items-start gap-3 cursor-pointer p-4 rounded-xl border border-white/10 hover:border-[#c5a059]/30 transition-colors">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          checked={paymentMethod === "BANK_TRANSFER"}
+                          onChange={() => setPaymentMethod("BANK_TRANSFER")}
+                          className="mt-1"
+                        />
+                        <div>
+                          <p className="text-sm font-bold">{t("cart.payment.bank")}</p>
+                          <p className="text-xs text-white/40 mt-1">{t("cart.payment.note")}</p>
+                        </div>
+                      </label>
+                      <label className="flex items-start gap-3 cursor-pointer p-4 rounded-xl border border-white/10 hover:border-[#c5a059]/30 transition-colors">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          checked={paymentMethod === "STRIPE"}
+                          onChange={() => setPaymentMethod("STRIPE")}
+                          className="mt-1"
+                        />
+                        <div className="flex items-start gap-2">
+                          <CreditCard size={16} className="text-[#c5a059] mt-0.5" />
+                          <div>
+                            <p className="text-sm font-bold">{t("cart.payment.stripe")}</p>
+                            <p className="text-xs text-white/40 mt-1">{t("cart.payment.stripeNote")}</p>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </div>
@@ -410,19 +519,26 @@ export default function Cart() {
                 <div className="space-y-4">
                   <div className="flex justify-between text-sm font-light">
                     <span className="text-white/40">{t("cart.subtotal")}</span>
-                    <span>{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(total)}</span>
+                    <span>{formatMoney(total)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-light">
                     <span className="text-white/40">{t("cart.shipping")}</span>
-                    <span className="text-green-400 uppercase tracking-widest text-[10px] font-bold">{t("cart.shipping.free")}</span>
+                    <span className={shippingCost === 0 && !shippingLoading ? "text-green-400 uppercase tracking-widest text-[10px] font-bold" : ""}>
+                      {shippingLabel()}
+                    </span>
                   </div>
+                  {shippingFreeFrom > 0 && total < shippingFreeFrom && shippingCost !== null && shippingCost > 0 && (
+                    <p className="text-[9px] text-white/30 uppercase tracking-widest">
+                      {t("cart.shipping.freeFrom").replace("{amount}", formatMoney(shippingFreeFrom))}
+                    </p>
+                  )}
                 </div>
 
                 <div className="pt-6 border-t border-white/10">
                   <div className="flex justify-between items-end">
                     <span className="text-[10px] tracking-[0.3em] uppercase font-bold">{t("cart.total")}</span>
                     <span className="text-3xl font-serif text-[#c5a059]">
-                      {new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(total)}
+                      {formatMoney(grandTotal)}
                     </span>
                   </div>
                 </div>
@@ -442,7 +558,9 @@ export default function Cart() {
                   <ArrowRight size={16} />
                 </button>
 
-                <p className="text-[9px] text-center text-white/30 uppercase tracking-widest">{t("cart.payment.note")}</p>
+                <p className="text-[9px] text-center text-white/30 uppercase tracking-widest">
+                  {stripeEnabled && paymentMethod === "STRIPE" ? t("cart.payment.stripeNote") : t("cart.payment.note")}
+                </p>
               </div>
             </div>
           </div>

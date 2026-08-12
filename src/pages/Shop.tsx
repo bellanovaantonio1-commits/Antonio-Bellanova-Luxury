@@ -21,6 +21,12 @@ export default function Shop() {
   const [brandFilter, setBrandFilter] = useState(searchParams.get("brand") || "");
   const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "");
   const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "");
+  const [conditionFilter, setConditionFilter] = useState(searchParams.get("conditionGroup") || "");
+  const [boxFilter, setBoxFilter] = useState(searchParams.get("box") || "");
+  const [papersFilter, setPapersFilter] = useState(searchParams.get("papers") || "");
+  const [materialFilter, setMaterialFilter] = useState(searchParams.get("material") || "");
+  const [movementFilter, setMovementFilter] = useState(searchParams.get("movement") || "");
+  const [diameterFilter, setDiameterFilter] = useState(searchParams.get("diameter") || "");
   const { language, t } = useLanguage();
 
   useEffect(() => {
@@ -39,6 +45,12 @@ export default function Shop() {
         if (brandFilter) params.set("brand", brandFilter);
         if (minPrice) params.set("minPrice", minPrice);
         if (maxPrice) params.set("maxPrice", maxPrice);
+        if (conditionFilter) params.set("conditionGroup", conditionFilter);
+        if (boxFilter) params.set("box", boxFilter);
+        if (papersFilter) params.set("papers", papersFilter);
+        if (materialFilter) params.set("material", materialFilter);
+        if (movementFilter) params.set("movement", movementFilter);
+        if (diameterFilter) params.set("diameter", diameterFilter);
         const response = await fetch(`/api/products?${params}`);
         if (response.ok) {
           const data = await response.json();
@@ -70,7 +82,7 @@ export default function Shop() {
       return () => unsubscribe();
     };
     loadProducts();
-  }, [cat, sort, brandFilter, minPrice, maxPrice]);
+  }, [cat, sort, brandFilter, minPrice, maxPrice, conditionFilter, boxFilter, papersFilter, materialFilter, movementFilter, diameterFilter]);
 
   const [brandOptions, setBrandOptions] = useState<[string, string][]>([]);
 
@@ -81,6 +93,12 @@ export default function Shop() {
     if (brandFilter) params.set("brand", brandFilter);
     if (minPrice) params.set("minPrice", minPrice);
     if (maxPrice) params.set("maxPrice", maxPrice);
+    if (conditionFilter) params.set("conditionGroup", conditionFilter);
+    if (boxFilter) params.set("box", boxFilter);
+    if (papersFilter) params.set("papers", papersFilter);
+    if (materialFilter) params.set("material", materialFilter);
+    if (movementFilter) params.set("movement", movementFilter);
+    if (diameterFilter) params.set("diameter", diameterFilter);
     setSearchParams(params);
     setShowFilters(false);
   };
@@ -89,6 +107,12 @@ export default function Shop() {
     setBrandFilter("");
     setMinPrice("");
     setMaxPrice("");
+    setConditionFilter("");
+    setBoxFilter("");
+    setPapersFilter("");
+    setMaterialFilter("");
+    setMovementFilter("");
+    setDiameterFilter("");
     setSort("newest");
     const params = new URLSearchParams();
     if (cat) params.set("cat", cat);
@@ -140,7 +164,7 @@ export default function Shop() {
           </div>
 
           {showFilters && (
-            <div className="mt-8 p-6 bg-white/5 border border-white/10 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="mt-8 p-6 bg-white/5 border border-white/10 rounded-2xl grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6">
               <div>
                 <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Marke</label>
                 <select value={brandFilter} onChange={e => setBrandFilter(e.target.value)}
@@ -148,6 +172,32 @@ export default function Shop() {
                   <option value="">Alle Marken</option>
                   {brandOptions.map(([slug, name]) => <option key={slug} value={slug}>{name}</option>)}
                 </select>
+              </div>
+              <div>
+                <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Zustand</label>
+                <select value={conditionFilter} onChange={e => setConditionFilter(e.target.value)}
+                  className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg">
+                  <option value="">Alle</option>
+                  <option value="NEW">Neu</option>
+                  <option value="UNUSED">Ungetragen</option>
+                  <option value="PRE_OWNED">Gebraucht</option>
+                  <option value="VINTAGE">Vintage</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Material</label>
+                <input value={materialFilter} onChange={e => setMaterialFilter(e.target.value)} placeholder="z.B. Edelstahl"
+                  className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
+              </div>
+              <div>
+                <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Werk</label>
+                <input value={movementFilter} onChange={e => setMovementFilter(e.target.value)} placeholder="z.B. Automatik"
+                  className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
+              </div>
+              <div>
+                <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Gehäusegröße</label>
+                <input value={diameterFilter} onChange={e => setDiameterFilter(e.target.value)} placeholder="z.B. 41"
+                  className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
               </div>
               <div>
                 <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Min. Preis (€)</label>
@@ -159,7 +209,17 @@ export default function Shop() {
                 <input type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} placeholder="50000"
                   className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
               </div>
-              <div className="flex items-end gap-3">
+              <div className="flex flex-col gap-3 justify-end">
+                <label className="flex items-center gap-3 text-sm text-white/70 cursor-pointer">
+                  <input type="checkbox" checked={boxFilter === "yes"} onChange={e => setBoxFilter(e.target.checked ? "yes" : "")} className="accent-[#c5a059]" />
+                  Mit Originalbox
+                </label>
+                <label className="flex items-center gap-3 text-sm text-white/70 cursor-pointer">
+                  <input type="checkbox" checked={papersFilter === "yes"} onChange={e => setPapersFilter(e.target.checked ? "yes" : "")} className="accent-[#c5a059]" />
+                  Mit Papieren
+                </label>
+              </div>
+              <div className="flex items-end gap-3 md:col-span-2 xl:col-span-1">
                 <button onClick={applyFilters} className="flex-1 bg-[#c5a059] text-black py-3 rounded-lg text-[10px] tracking-widest uppercase font-bold">Anwenden</button>
                 <button onClick={clearFilters} className="p-3 border border-white/10 rounded-lg hover:text-[#c5a059]" aria-label="Filter zurücksetzen"><X size={16} /></button>
               </div>

@@ -209,10 +209,13 @@ export async function analyzeProductImport(rawData: any) {
      - NO bullet points here.
      - NEVER include a "Details:" section, asterisk lists, or specification tables in description.
   4. specificationsText: One structured line per attribute using "Label: Value" format, separated by newlines (NOT pipes, NOT asterisks).
-  5. conditionText: A natural, descriptive sentence about the condition. 
-     - DO NOT use rank codes (A, AB, etc.). 
-     - Instead: "Very good condition with minor signs of wear on the bezel."
-  6. scopeOfDelivery: What is included (e.g., "Original papers", "Luxury travel case").
+  5. conditionText: ONE or TWO short, natural sentences about physical condition only.
+     - DO NOT use rank codes (A, AB, etc.) — describe wear in plain language.
+     - Example DE: "Sehr gepflegter Zustand mit leichten Gebrauchsspuren an Krone und Lünette."
+     - Example EN: "Very well kept with light wear on the crown and bezel."
+     - NEVER include warehouse, shipping, inquiry, or stock notices.
+  6. scopeOfDelivery: Concise list of included items only (e.g. "Originalbox, Garantiekarte, Originalpapiere").
+     - NO warehouse or dealer policy text.
   7. SEO: Create a professional seoTitle and seoDescription.
 
   LANGUAGE RULES:

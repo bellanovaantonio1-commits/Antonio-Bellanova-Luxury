@@ -20,6 +20,14 @@ export type ShopSettings = {
   facebookUrl: string;
   whatsappNumber: string;
   googleMapsUrl: string;
+  authenticityNoteDe: string;
+  authenticityNoteEn: string;
+  marginTaxNoteDe: string;
+  marginTaxNoteEn: string;
+  shippingCostDe: string;
+  shippingCostEu: string;
+  shippingCostWorld: string;
+  shippingFreeFrom: string;
 };
 
 function toSettings(raw: Record<string, unknown>): ShopSettings {
@@ -43,6 +51,14 @@ function toSettings(raw: Record<string, unknown>): ShopSettings {
     facebookUrl: str("facebookUrl"),
     whatsappNumber: str("whatsappNumber"),
     googleMapsUrl: str("googleMapsUrl"),
+    authenticityNoteDe: str("authenticityNoteDe"),
+    authenticityNoteEn: str("authenticityNoteEn"),
+    marginTaxNoteDe: str("marginTaxNoteDe"),
+    marginTaxNoteEn: str("marginTaxNoteEn"),
+    shippingCostDe: str("shippingCostDe"),
+    shippingCostEu: str("shippingCostEu"),
+    shippingCostWorld: str("shippingCostWorld"),
+    shippingFreeFrom: str("shippingFreeFrom"),
   };
 }
 

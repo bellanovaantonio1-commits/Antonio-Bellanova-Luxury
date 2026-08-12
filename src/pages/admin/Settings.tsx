@@ -122,6 +122,26 @@ export default function Settings() {
         { key: "googleMapsUrl", label: "Google Maps Link (Anfahrt)" },
       ],
     },
+    {
+      title: "Produktdetailseite (Vertrauen)",
+      desc: "Texte für Echtheits-Hinweis und MwSt./§25a auf der Produktseite.",
+      fields: [
+        { key: "authenticityNoteDe", label: "Echtheits-Hinweis (DE)", multiline: true },
+        { key: "authenticityNoteEn", label: "Echtheits-Hinweis (EN)", multiline: true },
+        { key: "marginTaxNoteDe", label: "MwSt./§25a Hinweis (DE)", multiline: true },
+        { key: "marginTaxNoteEn", label: "MwSt./§25a Hinweis (EN)", multiline: true },
+      ],
+    },
+    {
+      title: "Versandzonen",
+      desc: "Versandkosten im Warenkorb (EUR). Ab „Versand frei ab“ wird Versand kostenlos.",
+      fields: [
+        { key: "shippingCostDe", label: "Versand Deutschland (EUR)" },
+        { key: "shippingCostEu", label: "Versand EU (EUR)" },
+        { key: "shippingCostWorld", label: "Versand International (EUR)" },
+        { key: "shippingFreeFrom", label: "Versand frei ab Bestellwert (EUR)" },
+      ],
+    },
   ];
 
   if (loading) return <p className="text-gray-400 italic text-sm">Einstellungen werden geladen...</p>;

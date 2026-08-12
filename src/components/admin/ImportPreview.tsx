@@ -195,6 +195,35 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
     formData?.isInputTaxDeductible, formData?.taxRatePercent
   ]);
 
+  const reapplyShopContent = () => {
+    if (!data?.analysis) return;
+    const shopContent = resolveShopContentFields({
+      analysis: { ...data.analysis, ...formData },
+      source: data.source,
+      contentDe: data.contentDe,
+      contentEn: data.contentEn,
+    });
+    setFormData((prev: any) => ({
+      ...prev,
+      descriptionDe: shopContent.descriptionDe,
+      descriptionEn: shopContent.descriptionEn,
+      shortDescriptionDe: shopContent.shortDescriptionDe,
+      shortDescriptionEn: shopContent.shortDescriptionEn,
+      titleDe: shopContent.titleDe,
+      titleEn: shopContent.titleEn,
+      conditionDe: shopContent.conditionDe,
+      conditionEn: shopContent.conditionEn,
+      specificationsDe: shopContent.specificationsDe,
+      specificationsEn: shopContent.specificationsEn,
+      scopeOfDeliveryDe: shopContent.scopeOfDeliveryDe,
+      scopeOfDeliveryEn: shopContent.scopeOfDeliveryEn,
+      seoTitleDe: shopContent.seoTitleDe,
+      seoDescriptionDe: shopContent.seoDescriptionDe,
+      seoTitleEn: shopContent.seoTitleEn,
+      seoDescriptionEn: shopContent.seoDescriptionEn,
+    }));
+  };
+
   // Handle gross sale price — switches to manual mode and recalculates margin backwards
   const handleGrossPriceChange = (value: string) => {
     const numeric = parseFloat(value);
@@ -313,7 +342,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
     return "text-red-500 bg-red-50";
   };
 
-  const SectionHeader = ({ title, icon: Icon, badge }: any) => (
+  const SectionHeader = ({ title, icon: Icon, badge, action }: any) => (
     <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-8">
       <div className="flex items-center gap-3">
         <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 shadow-sm">
@@ -321,11 +350,14 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
         </div>
         <h3 className="text-[13px] font-black uppercase tracking-[0.2em] text-gray-900">{title}</h3>
       </div>
-      {badge && (
-        <span className="px-3 py-1 bg-[#D4AF37]/10 text-[#D4AF37] text-[10px] font-black uppercase tracking-widest rounded-full">
-          {badge}
-        </span>
-      )}
+      <div className="flex items-center gap-3">
+        {action}
+        {badge && (
+          <span className="px-3 py-1 bg-[#D4AF37]/10 text-[#D4AF37] text-[10px] font-black uppercase tracking-widest rounded-full">
+            {badge}
+          </span>
+        )}
+      </div>
     </div>
   );
 
@@ -759,7 +791,19 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
 
           {/* Section 5: Condition & Scope */}
           <section className="bg-white p-10 rounded-[32px] border border-gray-200 shadow-xl">
-            <SectionHeader title="Zustand & Lieferumfang" icon={ShieldCheck} />
+            <SectionHeader
+              title="Zustand & Lieferumfang"
+              icon={ShieldCheck}
+              action={
+                <button
+                  type="button"
+                  onClick={reapplyShopContent}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#D4AF37]/30 text-[10px] tracking-widest uppercase font-bold text-[#c5a059] hover:bg-[#D4AF37]/10 transition-colors"
+                >
+                  <RefreshCw size={14} /> Texte neu aufbereiten
+                </button>
+              }
+            />
             <div className="space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <InputField 

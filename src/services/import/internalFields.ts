@@ -203,7 +203,6 @@ export function extractInternalFields({ analysis = {}, source = {}, contentDe }:
     (sourceRank ? `Rank ${sourceRank}` : "");
 
   const conditionRemarks = pickFirstGerman(
-    contentDe?.conditionText,
     analysis.conditionRemarks,
     fromText.conditionRemarks,
     meta.conditionRemarks,

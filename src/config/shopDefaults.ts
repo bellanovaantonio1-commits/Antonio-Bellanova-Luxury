@@ -18,4 +18,12 @@ export const DEFAULT_SHOP_SETTINGS: Record<string, string> = {
   facebookUrl: "",
   whatsappNumber: "491637607805",
   googleMapsUrl: "https://maps.google.com/?q=Ahornstraße+8+50765+Köln+Deutschland",
+  authenticityNoteDe: "Jedes Stück wird von unseren Experten auf Echtheit geprüft. Auf Wunsch stellen wir ein Echtheitszertifikat aus.",
+  authenticityNoteEn: "Every piece is inspected by our experts for authenticity. Certificates of authenticity are available on request.",
+  marginTaxNoteDe: "Preise verstehen sich inkl. MwSt. Gebrauchtware nach §25a UStG (Differenzbesteuerung).",
+  marginTaxNoteEn: "Prices include VAT. Pre-owned goods taxed under Section 25a UStG (margin scheme).",
+  shippingCostDe: "0",
+  shippingCostEu: "29",
+  shippingCostWorld: "79",
+  shippingFreeFrom: "500",
 };

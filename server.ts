@@ -14,12 +14,14 @@ import { adminAuth, adminDb, adminStorage, FieldValue } from "./src/lib/firebase
 import firebaseConfig from "./firebase-applet-config.json";
 import { db } from "./src/db/index.ts";
 import { users, products, categories, brands } from "./src/db/schema.ts";
-import { eq, or, like, and, sql, desc, asc, gt, inArray, ne, gte, lte } from "drizzle-orm";
+import { eq, or, like, and, sql, desc, asc, gt, inArray, ne, gte, lte, ilike } from "drizzle-orm";
 import { importService } from "./src/services/import/ImportService.ts";
 import { imageStorageService } from "./src/services/import/ImageStorageService.ts";
 
 
 import { registerExtraRoutes } from "./src/server/extraRoutes.ts";
+import { handleStripeWebhook } from "./src/server/stripeWebhook.ts";
+import { buildProductJsonLd, injectProductMeta, loadSpaIndexHtml } from "./src/server/seo.ts";
 
 function toEntitySlug(value: string): string {
   return value.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -78,6 +80,20 @@ async function findOrCreateCategoryId(categoryName: string): Promise<number | nu
 async function startServer() {
   const app = express();
   const PORT = parseInt(process.env.PORT || "3000", 10);
+
+  app.post(
+    "/api/stripe/webhook",
+    express.raw({ type: "application/json" }),
+    async (req, res) => {
+      try {
+        await handleStripeWebhook(req.body as Buffer, req.headers["stripe-signature"] as string | undefined);
+        res.json({ received: true });
+      } catch (error) {
+        console.error("Stripe webhook failed", error);
+        res.status(400).json({ error: error instanceof Error ? error.message : "Webhook failed" });
+      }
+    }
+  );
 
   if (!process.env.DATABASE_URL?.trim()) {
     console.warn("[DB] DATABASE_URL is not set — API/database features will fail until configured.");
@@ -174,7 +190,10 @@ async function startServer() {
 
   app.get("/api/products", async (req, res) => {
     try {
-      const { cat, all, limit: limitParam, sort, brand: brandSlug, minPrice, maxPrice, exclude } = req.query;
+      const {
+        cat, all, limit: limitParam, sort, brand: brandSlug, minPrice, maxPrice, exclude,
+        conditionGroup, box, papers, material, movement, diameter,
+      } = req.query;
       
       let conditions: any[] = [];
       
@@ -185,13 +204,39 @@ async function startServer() {
       
       if (cat === "watches") conditions.push(eq(products.type, "WATCH"));
       else if (cat === "jewelry") conditions.push(eq(products.type, "JEWELRY"));
+      else if (cat === "new") {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 90);
+        conditions.push(gte(products.createdAt, cutoff));
+      }
 
       if (brandSlug) conditions.push(eq(brands.slug, brandSlug as string));
       if (minPrice) conditions.push(gte(products.price, minPrice as string));
       if (maxPrice) conditions.push(lte(products.price, maxPrice as string));
       if (exclude) conditions.push(ne(products.slug, exclude as string));
+      if (conditionGroup) conditions.push(eq(products.conditionGroup, String(conditionGroup)));
+      if (material) conditions.push(ilike(products.material, `%${String(material)}%`));
+      if (movement) conditions.push(ilike(products.movement, `%${String(movement)}%`));
+      if (diameter) conditions.push(ilike(products.diameter, `%${String(diameter)}%`));
 
-      let orderBy = desc(products.createdAt);
+      if (box === "yes") {
+        conditions.push(or(
+          eq(products.box, "true"),
+          eq(products.box, "Ja"),
+          ilike(products.box, "yes"),
+          ilike(products.box, "ja"),
+        ));
+      }
+      if (papers === "yes") {
+        conditions.push(or(
+          eq(products.papers, "true"),
+          eq(products.papers, "Ja"),
+          ilike(products.papers, "yes"),
+          ilike(products.papers, "ja"),
+        ));
+      }
+
+      let orderBy = cat === "new" ? desc(products.createdAt) : desc(products.createdAt);
       if (sort === "price-asc") orderBy = asc(products.price);
       else if (sort === "price-desc") orderBy = desc(products.price);
       else if (sort === "name") orderBy = asc(products.name);
@@ -236,8 +281,10 @@ async function startServer() {
 
       const base = process.env.APP_URL || "https://antonio-bellanova-luxury.onrender.com";
       const staticPages = ["", "shop", "contact", "sell", "faq", "legal", "privacy", "terms", "shipping", "returns"];
+      const brandRows = await db.select({ slug: brands.slug }).from(brands);
       const urls = [
         ...staticPages.map(p => `${base}/${p}`),
+        ...brandRows.map(b => `${base}/shop?brand=${b.slug}`),
         ...activeProducts.map(p => `${base}/product/${p.slug}`),
       ];
 
@@ -309,6 +356,50 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
   });
 
   registerExtraRoutes(app);
+
+  app.get("/robots.txt", (_req, res) => {
+    const base = process.env.APP_URL || "https://antonio-bellanova-luxury.onrender.com";
+    res.type("text/plain").send(`User-agent: *\nAllow: /\nSitemap: ${base}/sitemap.xml\n`);
+  });
+
+  async function renderProductPage(slug: string, res: express.Response) {
+    const result = await db.select({
+      product: products,
+      brand: brands,
+    })
+      .from(products)
+      .leftJoin(brands, eq(products.brandId, brands.id))
+      .where(eq(products.slug, slug))
+      .limit(1);
+
+    if (result.length === 0) return false;
+
+    const item = result[0];
+    const images = Array.isArray(item.product.images)
+      ? item.product.images
+      : typeof item.product.images === "string"
+        ? JSON.parse(item.product.images)
+        : [];
+    const product = { ...item.product, images, brand: item.brand };
+    const base = process.env.APP_URL || "https://antonio-bellanova-luxury.onrender.com";
+    const url = `${base}/product/${product.slug}`;
+    const title = product.seoTitleDe || product.titleDe || product.name;
+    const description = (product.seoDescriptionDe || product.shortDescriptionDe || product.descriptionDe || title)
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 160);
+    const html = injectProductMeta(loadSpaIndexHtml(), {
+      title: `${title} | Antonio Bellanova Luxury`,
+      description,
+      image: images[0],
+      url,
+      jsonLd: { "@context": "https://schema.org", ...buildProductJsonLd(product as any, base, "de") },
+    });
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(html);
+    return true;
+  }
 
   // Admin Products Retrieval (SQL Source of Truth)
   app.get("/api/admin/products", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
@@ -866,6 +957,15 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
+    app.get("/product/:slug", async (req, res, next) => {
+      try {
+        const rendered = await renderProductPage(req.params.slug, res);
+        if (rendered) return;
+      } catch (error) {
+        console.error("Product prerender failed", error);
+      }
+      next();
+    });
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });

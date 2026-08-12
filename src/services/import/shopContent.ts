@@ -40,6 +40,113 @@ export interface ResolvedShopContent {
 
 const GENERIC_CONDITION = /zustand siehe quellseite|condition see source/i;
 const RAW_LISTING = /used item very clean|product number \d+|please refer to the product description|stored in a separate warehouse/i;
+const WAREHOUSE_BOILERPLATE =
+  /separate warehouse|cannot respond immediately|contact us via email|contact us via inquiry|wristwatch wat\s*\d|inquiry\.\s*wristwatch/i;
+const RANK_CHART_BOILERPLATE = /please refer to[^.]*rank chart|product rank chart/i;
+
+const WEAR_REMARKS_DE: [RegExp, string][] = [
+  [/slight scratches on the crown/gi, "Leichte Gebrauchsspuren an der Krone"],
+  [/light scratches on the crown/gi, "Leichte Gebrauchsspuren an der Krone"],
+  [/minor scratches on the crown/gi, "Leichte Kratzer an der Krone"],
+  [/small dents on the bezel and bracelet/gi, "Kleine Dellen an Lünette und Armband"],
+  [/minor dents on the bezel/gi, "Leichte Dellen an der Lünette"],
+  [/signs of wear on the (?:bezel|bracelet|case)/gi, "Leichte Gebrauchsspuren"],
+  [/very clean condition/gi, "Sehr gepflegter Gesamtzustand"],
+  [/hairline scratches/gi, "Feine Gebrauchsspuren"],
+  [/polished case/gi, "Gehäuse poliert"],
+  [/unpolished case/gi, "Gehäuse unpoliert"],
+];
+
+const WEAR_REMARKS_EN: [RegExp, string][] = [
+  [/sehr gut(?:er)? zustand/gi, "Very good overall condition"],
+  [/leichte gebrauchsspuren/gi, "Light signs of wear"],
+  [/kleine dellen/gi, "Minor dents"],
+  [/kratzer an der krone/gi, "Light scratches on the crown"],
+];
+
+function isSupplierBoilerplate(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  return (
+    WAREHOUSE_BOILERPLATE.test(t) ||
+    RANK_CHART_BOILERPLATE.test(t) ||
+    RAW_LISTING.test(t) ||
+    GENERIC_CONDITION.test(t)
+  );
+}
+
+function stripConditionBoilerplate(text: string): string {
+  return text
+    .replace(RANK_CHART_BOILERPLATE, "")
+    .replace(/please refer to[^.]*\.?/gi, "")
+    .replace(/product number\s*[:\s]*\d+/gi, "")
+    .replace(/\s+/g, " ")
+    .replace(/\.\s*\./g, ".")
+    .trim()
+    .replace(/\.$/, "");
+}
+
+function polishWearRemarks(raw: string, language: "de" | "en"): string {
+  let text = stripConditionBoilerplate(cleanScrapedValue(raw));
+  if (!text || isSupplierBoilerplate(text) || hasJapanese(text)) return "";
+
+  const replacements = language === "de" ? WEAR_REMARKS_DE : WEAR_REMARKS_EN;
+  for (const [pattern, replacement] of replacements) {
+    text = text.replace(pattern, replacement);
+  }
+
+  text = stripConditionBoilerplate(text);
+  if (!text) return "";
+
+  if (language === "de" && looksEnglish(text) && !/[äöüß]/i.test(text)) {
+    for (const [pattern, replacement] of WEAR_REMARKS_DE) {
+      text = text.replace(pattern, replacement);
+    }
+  }
+
+  if (text.length > 180) {
+    text = text.split(/[.!?]/).filter(Boolean)[0]?.trim() || text.slice(0, 180);
+  }
+
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function isMixedLanguageCondition(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  const hasGerman = /[äöüß]|ungetragen|gehäuse|band|zustand|sehr gut|exzellent|leichte|dellen|kratzer/i.test(t);
+  const hasEnglish = /\b(slight|scratches|crown|bezel|bracelet|please refer|rank chart|dents|warehouse|inquiry)\b/i.test(t);
+  return hasGerman && hasEnglish;
+}
+
+function formatRankDetailDe(caseRank?: string, bandRank?: string, overallRank?: string): string {
+  if (!caseRank && !bandRank) return "";
+  if (caseRank && bandRank) {
+    if (caseRank === bandRank && caseRank === overallRank) return "";
+    return `Gehäuse und Armband in sehr gutem Zustand (Rank ${caseRank}/${bandRank})`;
+  }
+  if (caseRank) return `Gehäuse Rank ${caseRank}`;
+  return `Band Rank ${bandRank}`;
+}
+
+function formatRankDetailEn(caseRank?: string, bandRank?: string, overallRank?: string): string {
+  if (!caseRank && !bandRank) return "";
+  if (caseRank && bandRank) {
+    if (caseRank === bandRank && caseRank === overallRank) return "";
+    return `Case and bracelet in very good condition (Rank ${caseRank}/${bandRank})`;
+  }
+  if (caseRank) return `Case Rank ${caseRank}`;
+  return `Bracelet Rank ${bandRank}`;
+}
+
+function joinConditionSentences(...parts: string[]): string {
+  return parts
+    .map((p) => p.trim().replace(/\.$/, ""))
+    .filter(Boolean)
+    .join(". ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 const RANK_CONDITION_EN: Record<string, string> = {
   N: "New condition (Rank N)",
@@ -139,11 +246,16 @@ function buildScopeOfDelivery(
     pickFirst(specs["Accessories"], specs["Scope of Delivery"], specs["Included"])
   );
 
-  if (accessories && !hasJapanese(accessories)) {
-    return {
-      de: translateAccessoriesDe(accessories),
-      en: accessories,
-    };
+  if (accessories && !hasJapanese(accessories) && !isSupplierBoilerplate(accessories)) {
+    const de = translateAccessoriesDe(accessories)
+      .replace(/,\s*$/g, "")
+      .replace(/\s*,\s*/g, ", ")
+      .trim();
+    const en = accessories
+      .replace(/\bGuarantee \(blank\)/gi, "Warranty card (blank)")
+      .replace(/\s*,\s*/g, ", ")
+      .trim();
+    return { de, en };
   }
 
   const partsDe: string[] = [];
@@ -167,23 +279,23 @@ function buildConditionText(
   internal: ReturnType<typeof extractInternalFields>,
   remarks?: string
 ): { de: string; en: string } {
-  const rank = internal.overallRank || internal.caseRank || internal.bandRank || internal.sourceRank;
-  const cleanRemarks = cleanScrapedValue(remarks || internal.conditionRemarks);
+  const rank = internal.overallRank || internal.sourceRank;
+  const rawRemarks = cleanScrapedValue(remarks || internal.conditionRemarks);
+  const usableRemarks = isSupplierBoilerplate(rawRemarks) ? "" : rawRemarks;
 
-  let de = rank ? rankToGermanCondition(rank) : internal.sourceCondition || "";
-  let en = rank ? RANK_CONDITION_EN[rank] || `Rank ${rank}` : "";
+  const remarksDe = polishWearRemarks(usableRemarks, "de");
+  const remarksEn = polishWearRemarks(usableRemarks, "en");
 
-  if (internal.caseRank && internal.bandRank) {
-    de += ` — Gehäuse Rank ${internal.caseRank}, Band Rank ${internal.bandRank}`;
-    en += ` — Case Rank ${internal.caseRank}, Band Rank ${internal.bandRank}`;
-  }
+  const rankDe = rank ? rankToGermanCondition(rank) : internal.sourceCondition || "";
+  const rankEn = rank ? RANK_CONDITION_EN[rank] || `Condition Rank ${rank}` : "";
 
-  if (cleanRemarks) {
-    de = de ? `${de}. ${cleanRemarks}` : cleanRemarks;
-    en = en ? `${en}. ${cleanRemarks}` : cleanRemarks;
-  }
+  const detailDe = formatRankDetailDe(internal.caseRank, internal.bandRank, rank);
+  const detailEn = formatRankDetailEn(internal.caseRank, internal.bandRank, rank);
 
-  return { de: de.trim(), en: en.trim() };
+  return {
+    de: joinConditionSentences(rankDe, detailDe, remarksDe),
+    en: joinConditionSentences(rankEn, detailEn, remarksEn),
+  };
 }
 
 function buildTitle(
@@ -266,9 +378,18 @@ function buildDescription(
 function isWeakField(value: string | undefined, kind: "condition" | "description" | "title" | "specs" | "scope"): boolean {
   const text = (value || "").trim();
   if (!text) return true;
-  if (kind === "condition") return GENERIC_CONDITION.test(text);
+  if (isSupplierBoilerplate(text)) return true;
+  if (kind === "condition") {
+    return (
+      GENERIC_CONDITION.test(text) ||
+      isMixedLanguageCondition(text) ||
+      text.length > 220 ||
+      /gehäuse rank.*band rank.*(?:slight|small|please refer)/i.test(text)
+    );
+  }
   if (kind === "description") return RAW_LISTING.test(text) || text.length > 800;
   if (kind === "title") return RAW_LISTING.test(text);
+  if (kind === "scope") return isSupplierBoilerplate(text) || WAREHOUSE_BOILERPLATE.test(text);
   return false;
 }
 
@@ -279,8 +400,11 @@ function looksEnglish(text: string): boolean {
 }
 
 function pickBetter(existing: string | undefined, fallback: string, kind: Parameters<typeof isWeakField>[1]): string {
-  if (isWeakField(existing, kind) && fallback.trim()) return fallback;
-  return (existing || fallback || "").trim();
+  const current = (existing || "").trim();
+  const next = (fallback || "").trim();
+  if (isWeakField(current, kind) && next) return next;
+  if (kind === "condition" && next && (isSupplierBoilerplate(current) || isMixedLanguageCondition(current))) return next;
+  return current || next;
 }
 
 function pickBetterDe(existing: string | undefined, fallback: string, kind: Parameters<typeof isWeakField>[1]): string {
@@ -288,6 +412,8 @@ function pickBetterDe(existing: string | undefined, fallback: string, kind: Para
   const next = (fallback || "").trim();
   if (isWeakField(current, kind) && next) return next;
   if (next && looksEnglish(current) && !looksEnglish(next)) return next;
+  if (kind === "condition" && next && (isMixedLanguageCondition(current) || isSupplierBoilerplate(current))) return next;
+  if (kind === "condition" && next && current && looksEnglish(current)) return next;
   return current || next;
 }
 
