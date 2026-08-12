@@ -9,6 +9,7 @@ import {
 import { auth, db } from "../../lib/firebase.ts";
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { calculatePricing, PricingResult } from "../../lib/pricing.ts";
+import { parseLocaleNumber } from "../../lib/numbers.ts";
 import { extractInternalFields } from "../../services/import/internalFields.ts";
 
 const RANK_MAP: Record<string, { de: string; en: string }> = {
@@ -133,9 +134,8 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
 
   // Pricing Calculation Effect
   useEffect(() => {
-    if (formData?.purchasePriceOriginal && formData?.exchangeRate) {
-      const eur = (parseFloat(formData.purchasePriceOriginal) * parseFloat(formData.exchangeRate)).toFixed(2);
-      // Only auto-update if it's the first time or we just changed the original inputs
+    if (formData?.purchasePriceOriginal != null && formData?.exchangeRate != null) {
+      const eur = (parseLocaleNumber(formData.purchasePriceOriginal) * parseLocaleNumber(formData.exchangeRate, 0.0063)).toFixed(2);
       setFormData(prev => ({ ...prev, purchasePriceEur: eur }));
     }
   }, [formData?.purchasePriceOriginal, formData?.exchangeRate]);
@@ -144,12 +144,12 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
   useEffect(() => {
     if (formData) {
       const results = calculatePricing({
-        purchasePriceOriginal: parseFloat(formData.purchasePriceOriginal) || 0,
+        purchasePriceOriginal: parseLocaleNumber(formData.purchasePriceOriginal),
         purchaseCurrency: formData.purchaseCurrency || "JPY",
-        exchangeRate: parseFloat(formData.exchangeRate) || 0.0063,
-        purchasePriceEur: parseFloat(formData.purchasePriceEur) || 0,
-        shippingCost: parseFloat(formData.shippingCost) || 0,
-        insuranceCost: parseFloat(formData.insuranceCost) || 0,
+        exchangeRate: parseLocaleNumber(formData.exchangeRate, 0.0063),
+        purchasePriceEur: parseLocaleNumber(formData.purchasePriceEur),
+        shippingCost: parseLocaleNumber(formData.shippingCost),
+        insuranceCost: parseLocaleNumber(formData.insuranceCost),
         originCountry: formData.originCountry || "JP",
         dispatchCountry: formData.dispatchCountry || "JP",
         destinationCountry: "DE",
@@ -157,17 +157,17 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
         material: formData.material,
         movement: formData.movement,
         hsCode: formData.hsCode,
-        customsRatePercent: formData.customsRatePercent !== undefined && formData.customsRatePercent !== "" ? parseFloat(formData.customsRatePercent) : null,
-        manualCustomsAmountEur: formData.manualCustomsAmountEur !== undefined && formData.manualCustomsAmountEur !== "" ? parseFloat(formData.manualCustomsAmountEur) : null,
-        customsBrokerFee: parseFloat(formData.customsBrokerFee) || 0,
-        customsClearanceFee: parseFloat(formData.customsClearanceFee) || 0,
-        otherImportCosts: parseFloat(formData.otherImportCosts) || 0,
+        customsRatePercent: formData.customsRatePercent !== undefined && formData.customsRatePercent !== "" ? parseLocaleNumber(formData.customsRatePercent) : null,
+        manualCustomsAmountEur: formData.manualCustomsAmountEur !== undefined && formData.manualCustomsAmountEur !== "" ? parseLocaleNumber(formData.manualCustomsAmountEur) : null,
+        customsBrokerFee: parseLocaleNumber(formData.customsBrokerFee),
+        customsClearanceFee: parseLocaleNumber(formData.customsClearanceFee),
+        otherImportCosts: parseLocaleNumber(formData.otherImportCosts),
         taxTreatment: formData.taxTreatment || "MARGIN",
         isInputTaxDeductible: formData.isInputTaxDeductible !== undefined ? formData.isInputTaxDeductible : true,
-        taxRatePercent: parseFloat(formData.taxRatePercent) || 19,
+        taxRatePercent: parseLocaleNumber(formData.taxRatePercent, 19),
         calculationMode: formData.pricingMode === "MANUAL" ? "SALE_PRICE" : "MARGIN",
-        targetMarginPercent: parseFloat(formData.targetMarginPercent) || 23,
-        manualGrossSalePrice: parseFloat(formData.manualGrossSalePrice) || 0
+        targetMarginPercent: parseLocaleNumber(formData.targetMarginPercent, 23),
+        manualGrossSalePrice: parseLocaleNumber(formData.manualGrossSalePrice)
       });
       
       setPricingResults(results);
@@ -253,20 +253,20 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
         taxAmount: pricingResults?.taxAmountEur, // for backward compatibility
         
         // Ensure all pricing inputs are saved
-        purchasePriceOriginal: parseFloat(formData.purchasePriceOriginal),
+        purchasePriceOriginal: parseLocaleNumber(formData.purchasePriceOriginal),
         purchaseCurrency: formData.purchaseCurrency,
-        exchangeRate: parseFloat(formData.exchangeRate),
-        shippingCost: parseFloat(formData.shippingCost),
-        insuranceCost: parseFloat(formData.insuranceCost),
+        exchangeRate: parseLocaleNumber(formData.exchangeRate, 0.0063),
+        shippingCost: parseLocaleNumber(formData.shippingCost),
+        insuranceCost: parseLocaleNumber(formData.insuranceCost),
         type: formData.type,
-        customsRatePercent: formData.customsRatePercent !== undefined && formData.customsRatePercent !== "" ? parseFloat(formData.customsRatePercent) : pricingResults?.customsRateInfo?.rate,
-        manualCustomsAmountEur: formData.manualCustomsAmountEur !== undefined && formData.manualCustomsAmountEur !== "" ? parseFloat(formData.manualCustomsAmountEur) : pricingResults?.customsAmountEur,
-        customsBrokerFee: parseFloat(formData.customsBrokerFee),
-        customsClearanceFee: parseFloat(formData.customsClearanceFee),
-        otherImportCosts: parseFloat(formData.otherImportCosts),
-        targetMarginPercent: parseFloat(formData.targetMarginPercent),
-        manualGrossSalePrice: parseFloat(formData.manualGrossSalePrice),
-        taxRatePercent: parseFloat(formData.taxRatePercent),
+        customsRatePercent: formData.customsRatePercent !== undefined && formData.customsRatePercent !== "" ? parseLocaleNumber(formData.customsRatePercent) : pricingResults?.customsRateInfo?.rate,
+        manualCustomsAmountEur: formData.manualCustomsAmountEur !== undefined && formData.manualCustomsAmountEur !== "" ? parseLocaleNumber(formData.manualCustomsAmountEur) : pricingResults?.customsAmountEur,
+        customsBrokerFee: parseLocaleNumber(formData.customsBrokerFee),
+        customsClearanceFee: parseLocaleNumber(formData.customsClearanceFee),
+        otherImportCosts: parseLocaleNumber(formData.otherImportCosts),
+        targetMarginPercent: parseLocaleNumber(formData.targetMarginPercent, 23),
+        manualGrossSalePrice: parseLocaleNumber(formData.manualGrossSalePrice),
+        taxRatePercent: parseLocaleNumber(formData.taxRatePercent, 19),
         isInputTaxDeductible: formData.isInputTaxDeductible,
         taxTreatment: formData.taxTreatment,
         hsCode: formData.hsCode || pricingResults?.customsRateInfo?.hsCode
@@ -464,9 +464,11 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
             </div>
             <div className="space-y-1">
               <p className="text-[11px] font-black uppercase tracking-wider">{saveError}</p>
-              {saveError !== "Dieses Produkt existiert bereits." && (
-                <p className="text-[10px] opacity-70">Bitte korrigieren Sie die markierten Felder.</p>
-              )}
+              <p className="text-[10px] opacity-70">
+                {saveError.startsWith("Veröffentlichung") || saveError.startsWith("Titel") || saveError.startsWith("Title")
+                  ? "Bitte korrigieren Sie die markierten Felder."
+                  : "Technischer Fehler beim Speichern — Details siehe oben."}
+              </p>
             </div>
           </div>
           {saveError === "Dieses Produkt existiert bereits." && (

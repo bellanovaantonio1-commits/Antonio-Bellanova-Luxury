@@ -519,8 +519,9 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
         movement: data.movement,
         box: data.box ? data.box.toString() : null,
         papers: data.papers ? data.papers.toString() : null,
-        specifications: data.specifications ? JSON.stringify(data.specifications) : JSON.stringify({}),
-        // SEO
+        specifications: typeof data.specifications === "object" && data.specifications !== null
+          ? data.specifications
+          : {},
         seoTitleDe: data.seoTitleDe,
         seoDescriptionDe: data.seoDescriptionDe,
         seoTitleEn: data.seoTitleEn,
@@ -566,15 +567,49 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
         originCountry: data.originCountry,
         dispatchCountry: data.dispatchCountry,
         destinationCountry: data.destinationCountry || "DE",
-        margin: data.margin ? data.margin.toString() : null,
-        stock: data.stock !== undefined ? parseInt(data.stock.toString()) : 1,
+        margin: data.margin != null && data.margin !== "" ? String(data.margin).replace(",", ".") : null,
+        stock: data.stock !== undefined ? parseInt(String(data.stock), 10) || 1 : 1,
         model: data.model || data.modelName,
         sourceUrl: data.sourceUrl || data.url,
         sourceProvider: data.sourceProvider,
         sourceProductId: data.sourceProductId,
         sourceVariantId: data.sourceVariantId,
-        sourceData: data.source ? JSON.stringify(data.source) : null,
+        sourceData: (() => {
+          const raw = data.source || data.sourceData || null;
+          if (typeof raw === "string") {
+            try { return JSON.parse(raw); } catch { return null; }
+          }
+          return raw;
+        })(),
       };
+
+      // Normalize numeric fields (reject NaN for PostgreSQL)
+      const numericFields = [
+        "price", "purchasePrice", "purchasePriceEur", "purchasePriceOriginal", "exchangeRate",
+        "shippingCost", "insuranceCost", "customsRate", "customsRatePercent", "customsAmount",
+        "customsAmountEur", "manualCustomsAmountEur", "importVatEur", "customsBrokerFee",
+        "customsClearanceFee", "otherImportCosts", "landedCost", "netSalePrice", "grossSalePrice",
+        "profitEur", "effectiveMarginPercent", "taxAmount", "taxRatePercent", "margin",
+        "dailyRateSeconds",
+      ] as const;
+
+      for (const field of numericFields) {
+        const raw = sanitizedData[field];
+        if (raw === null || raw === undefined || raw === "") {
+          if (field === "price" && !sanitizedData.price) sanitizedData.price = "0";
+          continue;
+        }
+        const normalized = String(raw).replace(/\s/g, "").replace(",", ".");
+        const n = parseFloat(normalized);
+        if (!Number.isFinite(n)) {
+          if (field === "price") sanitizedData.price = "0";
+          else sanitizedData[field] = null;
+        } else {
+          sanitizedData[field] = n.toString();
+        }
+      }
+
+      if (!sanitizedData.price) sanitizedData.price = "0";
 
       // Handle status and published
       const currentStatus = data.status || "DRAFT";
@@ -658,7 +693,6 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
             slug: data.slug || (sanitizedData.name.toLowerCase().replace(/\s+/g, "-") + "-" + Date.now()),
             images: storedImages,
             mainImage: mainImage,
-            published: "true", // Set to true by default for new imports
             updatedAt: new Date()
           }).returning();
           sqlProduct = inserted;
@@ -727,7 +761,8 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
       });
     } catch (error) {
       console.error("Failed to process product import", error);
-      res.status(500).json({ error: "Failed to process product import" });
+      const message = error instanceof Error ? error.message : "Failed to process product import";
+      res.status(500).json({ error: message });
     }
   });
 
