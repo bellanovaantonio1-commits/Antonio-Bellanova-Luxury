@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import { SourceProductData, ImportProvider } from './types.ts';
-import { normalizeRank } from './internalFields.ts';
+import { normalizeRank, extractFromDescriptionText, formatDailyRateDisplay } from './internalFields.ts';
 
 export class TsTradingProvider implements ImportProvider {
   canHandle(url: string): boolean {
@@ -314,6 +314,39 @@ export class TsTradingProvider implements ImportProvider {
       }
     });
 
+    // dl/dt/dd spec lists (common on Shopify themes)
+    $('dl').each((_, dl) => {
+      $(dl).find('dt').each((_, dt) => {
+        const keyRaw = $(dt).text().trim().replace(/[:：]$/, '');
+        const val = $(dt).next('dd').text().trim();
+        if (keyRaw && val) {
+          const mappedKey = keyMap[keyRaw] || keyRaw;
+          if (!specs[mappedKey]) specs[mappedKey] = val;
+        }
+      });
+    });
+
+    // Shopify product body_html often contains the full spec table
+    if (shopifyProduct?.body_html) {
+      const $body = cheerio.load(shopifyProduct.body_html);
+      $body('table tr').each((_, tr) => {
+        const keyRaw = $body(tr).find('th, td:first-child').text().trim().replace(/[:：]$/, '');
+        const val = $body(tr).find('td:last-child').text().trim();
+        if (keyRaw && val && keyRaw !== val) {
+          const mappedKey = keyMap[keyRaw] || keyRaw;
+          if (!specs[mappedKey]) specs[mappedKey] = val;
+        }
+      });
+      $body('dl dt').each((_, dt) => {
+        const keyRaw = $body(dt).text().trim().replace(/[:：]$/, '');
+        const val = $body(dt).next('dd').text().trim();
+        if (keyRaw && val) {
+          const mappedKey = keyMap[keyRaw] || keyRaw;
+          if (!specs[mappedKey]) specs[mappedKey] = val;
+        }
+      });
+    }
+
     // If name is generic, try to construct a better one from specs immediately
     const genericTerms = ['product', 'item', 'watch', 'uhr', 'trading', 'ts'];
     const isNameGeneric = !name || name === 'TS Trading Product' || genericTerms.some(term => name.toLowerCase().includes(term) && name.split(' ').length <= 2);
@@ -332,21 +365,29 @@ export class TsTradingProvider implements ImportProvider {
 
     // Capture "Remarks", "Details", "Maintenance" from divs if not in table
     const detailSections = $('.product-description, .product-details, #description, .details');
-    const fullDescription = detailSections.text().trim();
+    const fullDescription = [
+      detailSections.text().trim(),
+      shopifyProduct?.body_html ? cheerio.load(shopifyProduct.body_html).text().trim() : '',
+      description,
+    ].filter(Boolean).join('\n');
+
+    const fromText = extractFromDescriptionText(fullDescription);
     
     // Attempt to extract specific fields from text if not in specs
-    const remarksMatch = fullDescription.match(/(?:Remarks|Details|Condition Notes):\s*(.*?)(?:\n|$)/i);
-    const maintenanceMatch = fullDescription.match(/(?:Maintenance|Overhaul|Repair):\s*(.*?)(?:\n|$)/i);
-    const dailyRateMatch = fullDescription.match(/(?:Daily rate|Timing|Accuracy):\s*(.*?)(?:\n|$)/i);
+    const remarksMatch = fullDescription.match(/(?:Remarks|Details|Condition Notes|備考|リマーク)[：:\s]*(.*?)(?:\n|$)/i);
+    const maintenanceMatch = fullDescription.match(/(?:Maintenance|Overhaul|Repair|メンテナンス(?:情報)?|Wartung)[：:\s]*(.*?)(?:\n|$)/i);
+    const dailyRateMatch = fullDescription.match(/(?:Daily rate|Timing|Accuracy|日差|Gangabweichung)[：:\s]*(.*?)(?:\n|$)/i);
 
-    const conditionRemarks = remarksMatch?.[1] || specs['Remarks'] || specs['Condition Details'] || specs['Condition'] || '';
-    const maintenanceDescription = maintenanceMatch?.[1] || specs['Maintenance Info'] || specs['Maintenance'] || '';
-    const dailyRateDisplay = dailyRateMatch?.[1] || specs['Daily Rate'] || specs['Timing accuracy'] || '';
+    const conditionRemarks = specs['Remarks'] || specs['備考'] || fromText.conditionRemarks || remarksMatch?.[1]?.trim() || specs['Condition Details'] || '';
+    const maintenanceDescription = specs['Maintenance Info'] || specs['Maintenance'] || specs['メンテナンス情報'] || fromText.maintenanceDescription || maintenanceMatch?.[1]?.trim() || '';
+    const dailyRateDisplay = formatDailyRateDisplay(
+      specs['Daily Rate'] || specs['日差'] || fromText.dailyRateDisplay || dailyRateMatch?.[1]?.trim() || specs['Timing accuracy'] || ''
+    );
 
     // Special handling for TS Trading specific fields
-    const caseRank = normalizeRank(specs['Case Rank'] || specs['Overall Rank'] || '');
-    const bandRank = normalizeRank(specs['Band Rank'] || '');
-    const overallRank = normalizeRank(specs['Overall Rank'] || caseRank || '');
+    const caseRank = normalizeRank(specs['Case Rank'] || specs['ケースランク'] || fromText.caseRank || specs['Overall Rank'] || '');
+    const bandRank = normalizeRank(specs['Band Rank'] || specs['ベルトランク'] || specs['バンドランク'] || fromText.bandRank || '') || caseRank;
+    const overallRank = normalizeRank(specs['Overall Rank'] || specs['商品ランク'] || fromText.overallRank || caseRank || '');
     const sourceCondition =
       specs['Overall Rank'] ||
       specs['Condition'] ||

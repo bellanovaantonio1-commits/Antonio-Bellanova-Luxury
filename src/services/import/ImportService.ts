@@ -84,10 +84,10 @@ export class ImportService {
           caseRank: rawData.metadata?.caseRank || '',
           bandRank: rawData.metadata?.bandRank || '',
           overallRank: rawData.metadata?.overallRank || '',
-          conditionRemarks: hasJapanese(rawData.metadata?.conditionRemarks || "") ? "" : rawData.metadata?.conditionRemarks,
-          maintenanceDescription: hasJapanese(rawData.metadata?.maintenanceDescription || "") ? "" : rawData.metadata?.maintenanceDescription,
+          conditionRemarks: rawData.metadata?.conditionRemarks || "",
+          maintenanceDescription: rawData.metadata?.maintenanceDescription || "",
           maintenancePerformed: !!rawData.metadata?.maintenanceDescription,
-          dailyRateDisplay: rawData.metadata?.dailyRateDisplay,
+          dailyRateDisplay: rawData.metadata?.dailyRateDisplay || "",
           specifications: rawData.specs || {}
         },
         confidence: {
@@ -109,7 +109,7 @@ export class ImportService {
     }
 
     // Always merge scraped internal fields (ranks, maintenance, daily rate) — Gemini schema omits these
-    analysis.extractedData = mergeInternalFieldsIntoAnalysis(analysis.extractedData, rawData);
+    analysis.extractedData = mergeInternalFieldsIntoAnalysis(analysis.extractedData, rawData, analysis.contentDe);
 
     // Final result reconstruction with guaranteed fields
     const finalResult = {

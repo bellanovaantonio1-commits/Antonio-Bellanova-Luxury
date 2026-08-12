@@ -62,7 +62,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
   useEffect(() => {
     if (data && data.analysis) {
       const isTsTrading = data.source?.provider === "TS TRADING";
-      const internalFields = extractInternalFields({ analysis: data.analysis, source: data.source });
+      const internalFields = extractInternalFields({ analysis: data.analysis, source: data.source, contentDe: data.contentDe });
       const internalRank = internalFields.overallRank || internalFields.sourceRank || "";
       const mappedCondition = isTsTrading ? RANK_MAP[internalRank] : null;
 
@@ -723,6 +723,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
                     label="Gangabweichung (Daily Rate)" 
                     value={formData.dailyRateDisplay} 
                     onChange={(v: string) => setFormData({...formData, dailyRateDisplay: v})}
+                    rawValue
                     placeholder="ca. +5 Sek./Tag"
                   />
                 </div>
