@@ -427,16 +427,42 @@ export function registerExtraRoutes(app: Express) {
       const id = parseInt(req.params.id);
       const { status, paymentStatus } = req.body;
 
+      const [existing] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+      if (!existing) return res.status(404).json({ error: "Bestellung nicht gefunden." });
+
+      if (status === "CANCELLED" && existing.status !== "CANCELLED") {
+        const items = await db.select().from(orderItems).where(eq(orderItems.orderId, id));
+        for (const item of items) {
+          if (!item.productId) continue;
+          const [product] = await db.select().from(products).where(eq(products.id, item.productId)).limit(1);
+          if (product) {
+            await db.update(products)
+              .set({
+                stock: (product.stock ?? 0) + item.quantity,
+                updatedAt: new Date(),
+              })
+              .where(eq(products.id, item.productId));
+          }
+        }
+      }
+
+      const resolvedPaymentStatus =
+        paymentStatus ||
+        (status === "CANCELLED"
+          ? existing.paymentStatus === "PAID"
+            ? "REFUNDED"
+            : "CANCELLED"
+          : undefined);
+
       const [updated] = await db.update(orders)
         .set({
           ...(status && { status }),
-          ...(paymentStatus && { paymentStatus }),
+          ...(resolvedPaymentStatus && { paymentStatus: resolvedPaymentStatus }),
           updatedAt: new Date(),
         })
         .where(eq(orders.id, id))
         .returning();
 
-      if (!updated) return res.status(404).json({ error: "Bestellung nicht gefunden." });
       res.json(updated);
     } catch (error) {
       res.status(500).json({ error: "Update fehlgeschlagen." });
