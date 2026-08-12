@@ -1,10 +1,9 @@
-import * as dotenv from "dotenv";
+import "../src/load-env.ts";
+
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createPgPool } from "../src/db/pool.ts";
-
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

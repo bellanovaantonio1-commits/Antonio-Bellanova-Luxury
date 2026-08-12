@@ -9,9 +9,13 @@ export function createPgPool() {
   if (databaseUrl) {
     const isLocal =
       databaseUrl.includes("localhost") || databaseUrl.includes("127.0.0.1");
+    const useSsl =
+      !isLocal &&
+      !databaseUrl.includes("render-internal.com") &&
+      !databaseUrl.includes("sslmode=disable");
     return new Pool({
       connectionString: databaseUrl,
-      ssl: isLocal ? false : { rejectUnauthorized: false },
+      ssl: useSsl ? { rejectUnauthorized: false } : false,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,

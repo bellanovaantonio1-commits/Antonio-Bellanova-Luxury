@@ -4,6 +4,7 @@ import { AlertTriangle, X } from "lucide-react";
 export default function DbStatusBanner() {
   const [offline, setOffline] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const isProduction = typeof window !== "undefined" && !window.location.hostname.includes("localhost");
 
   useEffect(() => {
     fetch("/api/health")
@@ -21,7 +22,20 @@ export default function DbStatusBanner() {
         <div className="flex-1">
           <p className="font-medium">Datenbank nicht verbunden</p>
           <p className="text-amber-200/70 text-xs mt-1">
-            Trage deine Neon <code className="bg-black/30 px-1 rounded">DATABASE_URL</code> in die <code className="bg-black/30 px-1 rounded">.env</code> ein und führe <code className="bg-black/30 px-1 rounded">npm run db:migrate</code> sowie <code className="bg-black/30 px-1 rounded">npm run db:seed</code> aus.
+            {isProduction ? (
+              <>
+                Auf Render: Dashboard → <strong>Environment</strong> →{" "}
+                <code className="bg-black/30 px-1 rounded">DATABASE_URL</code> = Neon-Connection-String aus deiner{" "}
+                <code className="bg-black/30 px-1 rounded">.env</code> eintragen → Deploy neu starten.
+                Oder Blueprint syncen (legt Render-Postgres automatisch an).
+              </>
+            ) : (
+              <>
+                Trage deine Neon <code className="bg-black/30 px-1 rounded">DATABASE_URL</code> in die{" "}
+                <code className="bg-black/30 px-1 rounded">.env</code> ein und führe{" "}
+                <code className="bg-black/30 px-1 rounded">npm run db:setup</code> aus.
+              </>
+            )}
           </p>
         </div>
         <button onClick={() => setDismissed(true)} className="text-amber-400 hover:text-white shrink-0" aria-label="Schließen">

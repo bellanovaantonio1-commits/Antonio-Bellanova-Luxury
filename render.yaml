@@ -1,3 +1,10 @@
+databases:
+  - name: antonio-bellanova-db
+    databaseName: bellanova_luxury
+    user: bellanova
+    plan: free
+    postgresMajorVersion: "16"
+
 services:
   - type: web
     name: antonio-bellanova-luxury
@@ -5,15 +12,18 @@ services:
     plan: free
     buildCommand: npm install && npm run build
     startCommand: npm run start
-    releaseCommand: npm run db:migrate
+    releaseCommand: npm run db:migrate && npm run db:seed
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: GEMINI_API_KEY
         sync: false
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: antonio-bellanova-db
+          property: connectionString
       - key: APP_URL
-        sync: false
+        value: https://antonio-bellanova-luxury.onrender.com
       - key: ADMIN_EMAILS
         value: antoniobellanova1812@gmail.com,belllanovaantonio1@gmail.com

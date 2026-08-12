@@ -25,6 +25,12 @@ async function startServer() {
   const app = express();
   const PORT = parseInt(process.env.PORT || "3000", 10);
 
+  if (!process.env.DATABASE_URL?.trim()) {
+    console.warn("[DB] DATABASE_URL is not set — API/database features will fail until configured.");
+  } else {
+    console.log("[DB] DATABASE_URL configured.");
+  }
+
   app.use(express.json());
 
   // --- API Routes ---

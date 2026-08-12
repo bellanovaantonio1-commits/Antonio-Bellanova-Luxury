@@ -1,8 +1,6 @@
-import * as dotenv from "dotenv";
-import { createPgPool } from "../src/db/pool.ts";
-import { brands, categories, products } from "../src/db/schema.ts";
+import "../src/load-env.ts";
 
-dotenv.config();
+import { createPgPool } from "../src/db/pool.ts";
 
 const demoBrands = [
   { name: "Rolex", slug: "rolex" },
