@@ -9,6 +9,7 @@ import {
 import { auth, db } from "../../lib/firebase.ts";
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { calculatePricing, PricingResult } from "../../lib/pricing.ts";
+import { extractInternalFields } from "../../services/import/internalFields.ts";
 
 const RANK_MAP: Record<string, { de: string; en: string }> = {
   N: { de: "Neu", en: "New" },
@@ -61,11 +62,13 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
   useEffect(() => {
     if (data && data.analysis) {
       const isTsTrading = data.source?.provider === "TS TRADING";
-      const internalRank = data.analysis.overallRank || data.analysis.sourceRank || "";
+      const internalFields = extractInternalFields({ analysis: data.analysis, source: data.source });
+      const internalRank = internalFields.overallRank || internalFields.sourceRank || "";
       const mappedCondition = isTsTrading ? RANK_MAP[internalRank] : null;
 
       const initialFormData = {
         ...data.analysis,
+        ...internalFields,
         name: data.analysis.name || data.source?.name || "",
         brand: data.analysis.brand || "",
         model: data.analysis.model || "",
@@ -88,20 +91,8 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
         seoTitleEn: data.contentEn?.seoTitle || "",
         seoDescriptionEn: data.contentEn?.seoDescription || "",
         
-        // Detailed Condition
+        // Detailed Condition (internalFields spread above; keep explicit fallbacks for condition group)
         conditionGroup: data.analysis.conditionGroup || "PRE_OWNED",
-        sourceCondition: data.analysis.sourceCondition || "",
-        sourceRank: data.analysis.sourceRank || data.analysis.overallRank || "",
-        caseRank: data.analysis.caseRank || "",
-        bandRank: data.analysis.bandRank || "",
-        overallRank: data.analysis.overallRank || "",
-        conditionRemarks: data.analysis.conditionRemarks || "",
-        maintenancePerformed: data.analysis.maintenancePerformed || false,
-        maintenanceDescription: data.analysis.maintenanceDescription || "",
-        dailyRateSeconds: data.analysis.dailyRateSeconds || 0,
-        dailyRateDisplay: data.analysis.dailyRateDisplay || "",
-
-        // Pricing Inputs
         purchasePriceOriginal: data.analysis.price || 0,
         purchaseCurrency: data.analysis.currency || "EUR",
         exchangeRate: data.analysis.currency === "JPY" ? 0.0063 : 1.0,
@@ -319,9 +310,11 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
     </div>
   );
 
-  const InputField = ({ label, value, onChange, confidence, placeholder, type = "text", rows }: any) => {
-    // If value is a rank code, display the mapped word
-    const displayValue = (value && typeof value === 'string' && RANK_MAP[value]) ? RANK_MAP[value].de : (value || "");
+  const InputField = ({ label, value, onChange, confidence, placeholder, type = "text", rows, rawValue = false }: any) => {
+    const displayValue =
+      !rawValue && value && typeof value === "string" && RANK_MAP[value]
+        ? RANK_MAP[value].de
+        : (value ?? "");
     
     return (
       <div className="space-y-2">
@@ -666,16 +659,19 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
                   label="Source Condition" 
                   value={formData.sourceCondition} 
                   onChange={(v: string) => setFormData({...formData, sourceCondition: v})}
+                  rawValue
                 />
                 <InputField 
                   label="TS Rank (Internal)" 
                   value={formData.sourceRank} 
                   onChange={(v: string) => setFormData({...formData, sourceRank: v})}
+                  rawValue
                 />
                 <InputField 
                   label="Overall Rank (Internal)" 
                   value={formData.overallRank} 
                   onChange={(v: string) => setFormData({...formData, overallRank: v})}
+                  rawValue
                 />
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
@@ -683,11 +679,13 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
                   label="Case Rank (Internal)" 
                   value={formData.caseRank} 
                   onChange={(v: string) => setFormData({...formData, caseRank: v})}
+                  rawValue
                 />
                 <InputField 
                   label="Band Rank (Internal)" 
                   value={formData.bandRank} 
                   onChange={(v: string) => setFormData({...formData, bandRank: v})}
+                  rawValue
                 />
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import { SourceProductData, ImportProvider } from './types.ts';
+import { normalizeRank } from './internalFields.ts';
 
 export class TsTradingProvider implements ImportProvider {
   canHandle(url: string): boolean {
@@ -296,6 +297,8 @@ export class TsTradingProvider implements ImportProvider {
       'バンドランク': 'Band Rank',
       '日差': 'Daily Rate',
       'メンテナンス情報': 'Maintenance Info',
+      '備考': 'Remarks',
+      'リマーク': 'Remarks',
       '製造年': 'Year',
       'ランク': 'Overall Rank',
       '商品番号': 'Product Number',
@@ -341,10 +344,14 @@ export class TsTradingProvider implements ImportProvider {
     const dailyRateDisplay = dailyRateMatch?.[1] || specs['Daily Rate'] || specs['Timing accuracy'] || '';
 
     // Special handling for TS Trading specific fields
-    const caseRank = specs['Case Rank'] || specs['Overall Rank'] || '';
-    const bandRank = specs['Band Rank'] || '';
-    const overallRank = specs['Overall Rank'] || caseRank || '';
-    const sourceCondition = specs['Overall Rank'] || specs['Condition'] || $('.condition-label').text().trim() || (shopifyProduct?.available ? 'Available' : 'Unavailable');
+    const caseRank = normalizeRank(specs['Case Rank'] || specs['Overall Rank'] || '');
+    const bandRank = normalizeRank(specs['Band Rank'] || '');
+    const overallRank = normalizeRank(specs['Overall Rank'] || caseRank || '');
+    const sourceCondition =
+      specs['Overall Rank'] ||
+      specs['Condition'] ||
+      $('.condition-label').text().trim() ||
+      (shopifyProduct?.available ? 'Available' : 'Unavailable');
 
     // Price handling
     let price = '';

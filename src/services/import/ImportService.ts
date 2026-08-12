@@ -1,6 +1,7 @@
 import { ImportProvider, SourceProductData } from './types.ts';
 import { TsTradingProvider } from './TsTradingProvider.ts';
 import { analyzeProductImport } from '../../lib/gemini.ts';
+import { mergeInternalFieldsIntoAnalysis } from './internalFields.ts';
 
 export class ImportService {
   private providers: ImportProvider[] = [];
@@ -106,6 +107,9 @@ export class ImportService {
         }
       };
     }
+
+    // Always merge scraped internal fields (ranks, maintenance, daily rate) — Gemini schema omits these
+    analysis.extractedData = mergeInternalFieldsIntoAnalysis(analysis.extractedData, rawData);
 
     // Final result reconstruction with guaranteed fields
     const finalResult = {
