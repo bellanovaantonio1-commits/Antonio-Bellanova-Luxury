@@ -28,6 +28,7 @@ export type ShopSettings = {
   shippingCostEu: string;
   shippingCostWorld: string;
   shippingFreeFrom: string;
+  priceOnRequestFrom: string;
 };
 
 function toSettings(raw: Record<string, unknown>): ShopSettings {
@@ -59,6 +60,7 @@ function toSettings(raw: Record<string, unknown>): ShopSettings {
     shippingCostEu: str("shippingCostEu"),
     shippingCostWorld: str("shippingCostWorld"),
     shippingFreeFrom: str("shippingFreeFrom"),
+    priceOnRequestFrom: str("priceOnRequestFrom"),
   };
 }
 

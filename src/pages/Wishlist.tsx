@@ -3,10 +3,16 @@ import { Heart, ShoppingBag, Trash2 } from "lucide-react";
 import { useWishlist } from "../contexts/WishlistContext.tsx";
 import { useCart } from "../contexts/CartContext.tsx";
 import { Link } from "react-router-dom";
+import { useShopSettings } from "../contexts/ShopSettingsContext.tsx";
+import { isPriceOnRequest, parsePriceOnRequestThreshold } from "../lib/priceOnRequest.ts";
+import { useLanguage } from "../contexts/LanguageContext.tsx";
 
 export default function Wishlist() {
   const { items, toggleItem } = useWishlist();
   const { addItem } = useCart();
+  const shopSettings = useShopSettings();
+  const priceOnRequestThreshold = parsePriceOnRequestThreshold(shopSettings);
+  const { t } = useLanguage();
 
   const handleAddToCart = (item: any) => {
     addItem({
@@ -62,15 +68,19 @@ export default function Wishlist() {
                   <div className="space-y-2">
                     <h3 className="text-xl font-serif italic">{item.name}</h3>
                     <p className="text-[#c5a059] font-serif">
-                      {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(item.price)}
+                      {isPriceOnRequest(item.price, priceOnRequestThreshold)
+                        ? t("product.price_on_request")
+                        : new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(item.price)}
                     </p>
                   </div>
+                  {!isPriceOnRequest(item.price, priceOnRequestThreshold) && (
                   <button 
                     onClick={() => handleAddToCart(item)}
                     className="w-full border border-white/10 group-hover:border-[#c5a059] group-hover:bg-[#c5a059] group-hover:text-black py-4 text-[10px] tracking-widest uppercase font-bold transition-all flex items-center justify-center gap-3"
                   >
                     <ShoppingBag size={14} /> In den Warenkorb
                   </button>
+                  )}
                 </div>
               </motion.div>
             ))}

@@ -5,6 +5,8 @@ import { motion } from "motion/react";
 import { Product } from "../types.ts";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
 import MetaTags from "../components/common/MetaTags.tsx";
+import { useShopSettings } from "../contexts/ShopSettingsContext.tsx";
+import { isPriceOnRequest, parsePriceOnRequestThreshold } from "../lib/priceOnRequest.ts";
 import { collection, query, where, onSnapshot, gt } from "firebase/firestore";
 import { db as firestoreDb } from "../lib/firebase.ts";
 
@@ -28,6 +30,8 @@ export default function Shop() {
   const [movementFilter, setMovementFilter] = useState(searchParams.get("movement") || "");
   const [diameterFilter, setDiameterFilter] = useState(searchParams.get("diameter") || "");
   const { language, t } = useLanguage();
+  const shopSettings = useShopSettings();
+  const priceOnRequestThreshold = parsePriceOnRequestThreshold(shopSettings);
 
   useEffect(() => {
     fetch("/api/brands").then(r => r.ok ? r.json() : []).then(data =>
@@ -268,7 +272,9 @@ export default function Shop() {
                   </div>
                   <div className="flex items-center justify-between pt-4 border-t border-white/5">
                     <span className="text-sm font-light tracking-widest opacity-80">
-                      {new Intl.NumberFormat(language === "en" ? "en-US" : "de-DE", { style: "currency", currency: "EUR" }).format(parseFloat(product.price))}
+                      {isPriceOnRequest(product.price, priceOnRequestThreshold)
+                        ? t("product.price_on_request")
+                        : new Intl.NumberFormat(language === "en" ? "en-US" : "de-DE", { style: "currency", currency: "EUR" }).format(parseFloat(product.price))}
                     </span>
                     <Link to={`/product/${product.slug}`} className="text-[10px] tracking-[0.2em] uppercase font-bold border-b border-white/20 pb-1 hover:text-[#c5a059] hover:border-[#c5a059] transition-all">Details</Link>
                   </div>

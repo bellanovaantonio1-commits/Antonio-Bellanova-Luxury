@@ -6,6 +6,8 @@ import { allocateInvoiceNumber, allocateCreditNoteNumber } from "./numbering.ts"
 import { buildSellerSnapshot, assertInvoiceSettingsReady } from "./seller.ts";
 import { generateInvoicePdf } from "./pdf.ts";
 import type { Address, InvoiceLineItem, InvoiceRecord } from "./types.ts";
+import { getSettingsMap } from "../settings.ts";
+import { isPriceOnRequest, parsePriceOnRequestThreshold } from "../../lib/priceOnRequest.ts";
 
 const pool = createPgPool();
 
@@ -330,6 +332,9 @@ export async function cancelInvoiceForOrder(
 }
 
 export async function buildOrderLinesFromRequest(items: { id: string; quantity: number }[]) {
+  const settings = await getSettingsMap();
+  const priceOnRequestThreshold = parsePriceOnRequestThreshold(settings as Record<string, string>);
+
   const lines: {
     productId: number;
     name: string;
@@ -358,6 +363,10 @@ export async function buildOrderLinesFromRequest(items: { id: string; quantity: 
     }
 
     const gross = parseFloat(product.price);
+    if (isPriceOnRequest(gross, priceOnRequestThreshold)) {
+      throw new Error(`Produkt „${product.titleDe || product.name}“ ist nur auf Anfrage erhältlich.`);
+    }
+
     const taxTreatment = product.taxTreatment || "REGULAR";
     const rate = parseFloat(product.taxRatePercent || "19");
     const lineGross = round2(gross * item.quantity);

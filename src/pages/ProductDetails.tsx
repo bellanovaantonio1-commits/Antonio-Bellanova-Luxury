@@ -10,6 +10,7 @@ import { useShopSettings } from "../contexts/ShopSettingsContext.tsx";
 import MetaTags from "../components/common/MetaTags.tsx";
 import { mergeSpecRows, parseSpecificationsText, splitDescriptionAndDetails } from "../lib/productDisplay.ts";
 import { buildProductJsonLd } from "../lib/productJsonLd.ts";
+import { isPriceOnRequest, parsePriceOnRequestThreshold } from "../lib/priceOnRequest.ts";
 
 export default function ProductDetails() {
   const { slug } = useParams();
@@ -190,6 +191,8 @@ export default function ProductDetails() {
   };
 
   const isFavorited = product.id ? isInWishlist(String(product.id)) : false;
+  const priceOnRequestThreshold = parsePriceOnRequestThreshold(shopSettings);
+  const priceOnRequest = isPriceOnRequest(product.price, priceOnRequestThreshold);
   const authenticityNote = language === "en" ? shopSettings.authenticityNoteEn : shopSettings.authenticityNoteDe;
   const marginTaxNote = language === "en" ? shopSettings.marginTaxNoteEn : shopSettings.marginTaxNoteDe;
   const seoDescription =
@@ -276,9 +279,13 @@ export default function ProductDetails() {
               </h1>
               <div className="flex items-end justify-between">
                 <span className="text-3xl font-serif italic text-[#c5a059]">
-                  {new Intl.NumberFormat(language === "en" ? 'en-US' : 'de-DE', { style: 'currency', currency: 'EUR' }).format(parseFloat(product.price))}
+                  {priceOnRequest
+                    ? t("product.price_on_request")
+                    : new Intl.NumberFormat(language === "en" ? "en-US" : "de-DE", { style: "currency", currency: "EUR" }).format(parseFloat(product.price))}
                 </span>
-                <span className="text-[10px] tracking-widest text-white/30 uppercase italic font-light">{marginTaxNote}</span>
+                {!priceOnRequest && (
+                  <span className="text-[10px] tracking-widest text-white/30 uppercase italic font-light">{marginTaxNote}</span>
+                )}
               </div>
             </div>
 
@@ -307,19 +314,21 @@ export default function ProductDetails() {
               </div>
 
               <div className="flex flex-col gap-4">
-                <button 
-                  onClick={handleAddToCart}
-                  className="w-full bg-white text-black py-6 text-[11px] tracking-[0.3em] uppercase font-bold transition-all hover:bg-[#c5a059] hover:text-white"
-                >
-                  {t("product.add_to_cart")}
-                </button>
+                {!priceOnRequest && (
+                  <button 
+                    onClick={handleAddToCart}
+                    className="w-full bg-white text-black py-6 text-[11px] tracking-[0.3em] uppercase font-bold transition-all hover:bg-[#c5a059] hover:text-white"
+                  >
+                    {t("product.add_to_cart")}
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setShowReserveModal(true);
                     setReserveSuccess(false);
                     setReserveError(null);
                   }}
-                  className="w-full border border-[#c5a059]/40 text-[#c5a059] hover:bg-[#c5a059] hover:text-black py-6 text-[11px] tracking-[0.3em] uppercase font-bold transition-all flex items-center justify-center gap-3"
+                  className={`w-full border border-[#c5a059]/40 text-[#c5a059] hover:bg-[#c5a059] hover:text-black py-6 text-[11px] tracking-[0.3em] uppercase font-bold transition-all flex items-center justify-center gap-3 ${priceOnRequest ? "bg-[#c5a059]/10" : ""}`}
                 >
                   <MessageSquare size={16} strokeWidth={1.5} /> {t("product.reserve.button")}
                 </button>
@@ -420,7 +429,11 @@ export default function ProductDetails() {
                   <div>
                     <p className="text-[9px] tracking-widest uppercase text-[#c5a059] font-bold">{r.brand?.name}</p>
                     <h3 className="text-lg font-serif italic group-hover:text-[#c5a059] transition-colors">{r.titleDe || r.name}</h3>
-                    <p className="text-sm text-white/50 mt-1">{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(parseFloat(r.price))}</p>
+                    <p className="text-sm text-white/50 mt-1">
+                      {isPriceOnRequest(r.price, priceOnRequestThreshold)
+                        ? t("product.price_on_request")
+                        : new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(parseFloat(r.price))}
+                    </p>
                   </div>
                 </Link>
               ))}

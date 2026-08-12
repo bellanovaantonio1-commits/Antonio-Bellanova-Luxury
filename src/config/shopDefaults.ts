@@ -26,4 +26,5 @@ export const DEFAULT_SHOP_SETTINGS: Record<string, string> = {
   shippingCostEu: "29",
   shippingCostWorld: "79",
   shippingFreeFrom: "500",
+  priceOnRequestFrom: "10000",
 };

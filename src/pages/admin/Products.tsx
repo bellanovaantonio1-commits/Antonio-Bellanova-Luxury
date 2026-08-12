@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, MoreVertical, Edit, Trash2, Eye, ExternalLink, Plus, AlertCircle } from "lucide-react";
+import { Search, Edit, Trash2, ExternalLink, Plus, AlertCircle, Sparkles, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Product } from "../../types.ts";
 import { collection, onSnapshot, query, deleteDoc, doc, writeBatch, getDocs, orderBy, where } from "firebase/firestore";
@@ -15,6 +15,8 @@ export default function Products() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const [error, setError] = useState<string | null>(null);
+  const [reEnrichLoading, setReEnrichLoading] = useState(false);
+  const [reEnrichResult, setReEnrichResult] = useState<{ processed: number; updated: number; errors: { id: number; error: string }[] } | null>(null);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -87,6 +89,29 @@ export default function Products() {
     }
   };
 
+  const handleReEnrich = async () => {
+    if (!confirm("Shop-Texte für ALLE Produkte neu aufbereiten? Bestehende DE/EN-Felder werden anhand der Quelldaten und des Enrichment-Pipelines aktualisiert.")) return;
+
+    setReEnrichLoading(true);
+    setReEnrichResult(null);
+    setError(null);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const response = await fetch("/api/admin/products/re-enrich", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Re-Enrichment fehlgeschlagen");
+      setReEnrichResult(data);
+      await loadProducts();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Re-Enrichment fehlgeschlagen");
+    } finally {
+      setReEnrichLoading(false);
+    }
+  };
+
   const handleDelete = async (product: Product) => {
     if (!product.id) return;
     if (!confirm(`Produkt "${product.name}" wirklich unwiderruflich löschen? Dabei werden auch alle zugehörigen Bilder aus dem Speicher entfernt.`)) return;
@@ -112,6 +137,15 @@ export default function Products() {
           {error}
         </div>
       )}
+      {reEnrichResult && (
+        <div className="p-4 bg-green-50 border border-green-100 text-green-800 rounded-lg text-sm space-y-1">
+          <p className="font-bold">Shop-Texte neu aufbereitet</p>
+          <p>{reEnrichResult.updated} von {reEnrichResult.processed} Produkten aktualisiert.</p>
+          {reEnrichResult.errors.length > 0 && (
+            <p className="text-amber-800">{reEnrichResult.errors.length} Fehler — IDs: {reEnrichResult.errors.map((e) => e.id).join(", ")}</p>
+          )}
+        </div>
+      )}
       <div className="flex flex-col md:flex-row gap-6 justify-between items-center border-b border-gray-100 pb-8">
         <div className="relative w-full md:w-96">
            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -123,6 +157,15 @@ export default function Products() {
            />
         </div>
         <div className="flex gap-4 w-full md:w-auto">
+           <button
+             type="button"
+             onClick={handleReEnrich}
+             disabled={reEnrichLoading || loading}
+             className="flex items-center justify-center gap-2 px-6 py-3 border border-[#D4AF37]/40 text-[#8B6914] rounded-lg text-[10px] tracking-widest uppercase font-bold hover:bg-[#D4AF37]/10 transition-all disabled:opacity-50 whitespace-nowrap"
+           >
+             {reEnrichLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+             {reEnrichLoading ? "Wird aufbereitet…" : "Shop-Texte neu aufbereiten"}
+           </button>
            <Link 
              to="/admin/products/new" 
              className="bg-[#D4AF37] text-white px-6 py-3 rounded-lg text-[10px] tracking-widest uppercase font-bold flex items-center gap-2 hover:bg-[#C19B2E] transition-all shadow-md whitespace-nowrap"

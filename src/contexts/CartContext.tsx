@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { useShopSettings } from "./ShopSettingsContext.tsx";
+import { isPriceOnRequest, parsePriceOnRequestThreshold } from "../lib/priceOnRequest.ts";
 
 interface CartItem {
   id: string;
@@ -22,6 +24,8 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const shopSettings = useShopSettings();
+  const priceOnRequestThreshold = parsePriceOnRequestThreshold(shopSettings);
   const [items, setItems] = useState<CartItem[]>(() => {
     const saved = localStorage.getItem("cart");
     return saved ? JSON.parse(saved) : [];
@@ -32,6 +36,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [items]);
 
   const addItem = (item: CartItem) => {
+    if (isPriceOnRequest(item.price, priceOnRequestThreshold)) return;
     setItems(prev => {
       const existing = prev.find(i => i.id === item.id);
       if (existing) {

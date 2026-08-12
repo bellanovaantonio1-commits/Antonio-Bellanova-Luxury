@@ -22,6 +22,10 @@ import { imageStorageService } from "./src/services/import/ImageStorageService.t
 import { registerExtraRoutes } from "./src/server/extraRoutes.ts";
 import { handleStripeWebhook } from "./src/server/stripeWebhook.ts";
 import { buildProductJsonLd, injectProductMeta, loadSpaIndexHtml } from "./src/server/seo.ts";
+import {
+  reEnrichProductFields,
+  resolvedContentToDbFields,
+} from "./src/services/admin/reEnrichShopContent.ts";
 
 function toEntitySlug(value: string): string {
   return value.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -886,6 +890,58 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
       console.error("Failed to process product import", error);
       const message = error instanceof Error ? error.message : "Failed to process product import";
       res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/admin/products/re-enrich", requireAuth, requireRole(["ADMIN"]), async (_req: AuthRequest, res) => {
+    try {
+      const rows = await db
+        .select({ product: products, brand: brands })
+        .from(products)
+        .leftJoin(brands, eq(products.brandId, brands.id));
+
+      let processed = 0;
+      let updated = 0;
+      const errors: { id: number; error: string }[] = [];
+
+      for (const row of rows) {
+        processed++;
+        try {
+          const resolved = reEnrichProductFields(row.product, row.brand?.name);
+          const updatedFields = {
+            ...resolvedContentToDbFields(resolved),
+            updatedAt: new Date(),
+          };
+
+          await db.update(products).set(updatedFields).where(eq(products.id, row.product.id));
+
+          if (adminDb) {
+            try {
+              const snapshot = await adminDb.collection("products").where("sqlId", "==", row.product.id).get();
+              if (!snapshot.empty) {
+                await snapshot.docs[0].ref.update({
+                  ...updatedFields,
+                  updatedAt: new Date().toISOString(),
+                });
+              }
+            } catch (fsErr) {
+              console.warn(`Firestore re-enrich sync failed for product ${row.product.id}:`, fsErr);
+            }
+          }
+
+          updated++;
+        } catch (err) {
+          errors.push({
+            id: row.product.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
+      res.json({ processed, updated, errors });
+    } catch (error: unknown) {
+      console.error("Bulk re-enrich failed:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Re-enrichment failed" });
     }
   });
 

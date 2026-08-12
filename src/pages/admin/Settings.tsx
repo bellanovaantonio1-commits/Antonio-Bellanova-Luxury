@@ -142,6 +142,11 @@ export default function Settings() {
         { key: "shippingFreeFrom", label: "Versand frei ab Bestellwert (EUR)" },
       ],
     },
+    {
+      title: "Preis auf Anfrage",
+      desc: "Produkte ab diesem Preis (EUR) zeigen „Preis auf Anfrage“ statt Warenkorb-Button.",
+      fields: [{ key: "priceOnRequestFrom", label: "Schwellenwert Preis auf Anfrage (EUR)" }],
+    },
   ];
 
   if (loading) return <p className="text-gray-400 italic text-sm">Einstellungen werden geladen...</p>;
