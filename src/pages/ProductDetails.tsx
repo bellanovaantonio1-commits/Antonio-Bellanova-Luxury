@@ -6,13 +6,12 @@ import { Product } from "../types.ts";
 import { useCart } from "../contexts/CartContext.tsx";
 import { useWishlist } from "../contexts/WishlistContext.tsx";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
-
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
-import { db } from "../lib/firebase.ts";
+import MetaTags from "../components/common/MetaTags.tsx";
 
 export default function ProductDetails() {
   const { slug } = useParams();
   const [product, setProduct] = useState<Product | null>(null);
+  const [related, setRelated] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(0);
   const [showAddedToast, setShowAddedToast] = useState(false);
@@ -25,23 +24,13 @@ export default function ProductDetails() {
     const fetchProduct = async () => {
       if (!slug) return;
       try {
-        // Try SQL API first
         const response = await fetch(`/api/products/${slug}`);
         if (response.ok) {
           const data = await response.json();
           setProduct(data);
-        }
-
-        // Also check Firestore for latest/real-time
-        const q = query(
-          collection(db, "products"), 
-          where("slug", "==", slug),
-          limit(1)
-        );
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-          const doc = snapshot.docs[0];
-          setProduct({ id: doc.id, ...doc.data() } as Product);
+          const cat = data.type === "JEWELRY" ? "jewelry" : "watches";
+          const relRes = await fetch(`/api/products?cat=${cat}&limit=4&exclude=${slug}`);
+          if (relRes.ok) setRelated(await relRes.json());
         }
       } catch (e) {
         console.error("Failed to fetch product", e);
@@ -78,9 +67,18 @@ export default function ProductDetails() {
       id: String(product.id),
       name: displayTitle,
       price: parseFloat(product.price),
-      image: product.images[0],
+      image: product.images?.[0] || "",
       slug: product.slug
     });
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      await navigator.share({ title: displayTitle, url: window.location.href });
+    } else {
+      await navigator.clipboard.writeText(window.location.href);
+      alert("Link kopiert!");
+    }
   };
 
   if (loading) return <div className="pt-48 pb-24 text-center text-[10px] tracking-widest uppercase">{t("common.loading")}</div>;
@@ -90,6 +88,11 @@ export default function ProductDetails() {
 
   return (
     <div className="pt-32 pb-24 px-10 bg-[#050505]">
+      <MetaTags
+        title={displayTitle}
+        description={product.seoDescriptionDe || product.shortDescriptionDe || displayTitle}
+        image={product.images?.[0]}
+      />
       <AnimatePresence>
         {showAddedToast && (
           <motion.div 
@@ -133,7 +136,7 @@ export default function ProductDetails() {
                 >
                   <Heart size={18} strokeWidth={1.5} fill={isFavorited ? "currentColor" : "none"} />
                 </button>
-                <button className="p-3 bg-black/40 backdrop-blur-md rounded-full border border-white/10 hover:text-[#c5a059] transition-colors">
+                <button onClick={handleShare} className="p-3 bg-black/40 backdrop-blur-md rounded-full border border-white/10 hover:text-[#c5a059] transition-colors">
                   <Share2 size={18} strokeWidth={1.5} />
                 </button>
               </div>
@@ -327,6 +330,27 @@ export default function ProductDetails() {
             </div>
           </div>
         </div>
+
+        {/* Related Products */}
+        {related.length > 0 && (
+          <div className="mt-32 border-t border-white/10 pt-20">
+            <h2 className="text-3xl font-serif mb-12 italic font-light text-[#c5a059]">Ähnliche Stücke</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+              {related.map(r => (
+                <Link key={r.id} to={`/product/${r.slug}`} className="group space-y-4">
+                  <div className="aspect-[4/5] bg-[#0a0a0a] overflow-hidden">
+                    <img src={r.images?.[0] || ""} alt={r.name} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" loading="lazy" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] tracking-widest uppercase text-[#c5a059] font-bold">{r.brand?.name}</p>
+                    <h3 className="text-lg font-serif italic group-hover:text-[#c5a059] transition-colors">{r.titleDe || r.name}</h3>
+                    <p className="text-sm text-white/50 mt-1">{new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(parseFloat(r.price))}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

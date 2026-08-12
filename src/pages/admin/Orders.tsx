@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ShoppingCart, Package, CreditCard } from "lucide-react";
+import { ShoppingCart, Package, CreditCard, Download } from "lucide-react";
 import { auth } from "../../lib/firebase.ts";
 
 interface AdminOrder {
@@ -51,14 +51,32 @@ export default function Orders() {
     CANCELLED: "bg-red-100 text-red-800",
   };
 
+  const exportCsv = async () => {
+    const token = await auth.currentUser?.getIdToken();
+    const res = await fetch("/api/admin/orders/export", { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "bestellungen.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-4 text-gray-400">
-        <ShoppingCart size={32} />
-        <div>
-          <h3 className="text-xl font-serif text-gray-900">Bestellungen</h3>
-          <p className="text-sm">Verwalten Sie Kundenbestellungen und Zahlungsstatus.</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4 text-gray-400">
+          <ShoppingCart size={32} />
+          <div>
+            <h3 className="text-xl font-serif text-gray-900">Bestellungen</h3>
+            <p className="text-sm">Verwalten Sie Kundenbestellungen und Zahlungsstatus.</p>
+          </div>
         </div>
+        <button onClick={exportCsv} className="flex items-center gap-2 bg-gray-900 text-white px-5 py-3 rounded-xl text-[10px] tracking-widest uppercase font-bold hover:bg-[#D4AF37] transition-colors">
+          <Download size={14} /> CSV Export
+        </button>
       </div>
 
       {loading ? (

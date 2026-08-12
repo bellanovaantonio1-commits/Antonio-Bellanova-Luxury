@@ -207,3 +207,10 @@ export const wishlistItems = pgTable('wishlist_items', {
   productId: integer('product_id').references(() => products.id),
   createdAt: timestamp('created_at').defaultNow(),
 });
+
+export const newsletterSubscribers = pgTable('newsletter_subscribers', {
+  id: serial('id').primaryKey(),
+  email: text('email').notNull().unique(),
+  status: text('status').default('ACTIVE'),
+  createdAt: timestamp('created_at').defaultNow(),
+});

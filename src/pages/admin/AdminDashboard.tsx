@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link, Routes, Route, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -5,11 +6,18 @@ import {
   Users, 
   ShoppingCart, 
   Settings as SettingsIcon, 
-  PlusCircle, 
   LogOut,
   BrainCircuit,
-  Warehouse
+  Warehouse,
+  MessageSquare,
+  Tag,
+  HelpCircle,
+  PlusCircle,
+  ExternalLink
 } from "lucide-react";
+import Inquiries from "./Inquiries.tsx";
+import Brands from "./Brands.tsx";
+import AdminHelp from "./AdminHelp.tsx";
 import { useAuth } from "../../contexts/AuthContext.tsx";
 import Overview from "./Overview.tsx";
 import Products from "./Products.tsx";
@@ -19,19 +27,38 @@ import Inventory from "./Inventory.tsx";
 import Customers from "./Customers.tsx";
 import Settings from "./Settings.tsx";
 import NewProduct from "./NewProduct.tsx";
+import { auth } from "../../lib/firebase.ts";
 
 export default function AdminDashboard() {
   const { logout } = useAuth();
   const location = useLocation();
+  const [badges, setBadges] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    async function loadBadges() {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        const res = await fetch("/api/admin/badges", { headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok) setBadges(await res.json());
+      } catch { /* ignore */ }
+    }
+    loadBadges();
+    const interval = setInterval(loadBadges, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const navItems = [
-    { label: "Übersicht", icon: <LayoutDashboard size={18} />, path: "/admin" },
-    { label: "Produkte", icon: <Package size={18} />, path: "/admin/products" },
-    { label: "AI Import", icon: <BrainCircuit size={18} />, path: "/admin/ai-import" },
-    { label: "Bestellungen", icon: <ShoppingCart size={18} />, path: "/admin/orders" },
-    { label: "Bestand", icon: <Warehouse size={18} />, path: "/admin/inventory" },
-    { label: "Kunden (CRM)", icon: <Users size={18} />, path: "/admin/crm" },
-    { label: "Einstellungen", icon: <SettingsIcon size={18} />, path: "/admin/settings" },
+    { label: "Übersicht", icon: <LayoutDashboard size={18} />, path: "/admin", badge: 0 },
+    { label: "Anleitung", icon: <HelpCircle size={18} />, path: "/admin/help", badge: 0 },
+    { label: "Produkte", icon: <Package size={18} />, path: "/admin/products", badge: 0 },
+    { label: "Neues Produkt", icon: <PlusCircle size={18} />, path: "/admin/products/new", badge: 0 },
+    { label: "AI Import", icon: <BrainCircuit size={18} />, path: "/admin/ai-import", badge: 0 },
+    { label: "Bestellungen", icon: <ShoppingCart size={18} />, path: "/admin/orders", badge: badges.orders },
+    { label: "Anfragen", icon: <MessageSquare size={18} />, path: "/admin/inquiries", badge: badges.inquiries },
+    { label: "Bestand", icon: <Warehouse size={18} />, path: "/admin/inventory", badge: badges.lowStock },
+    { label: "Marken", icon: <Tag size={18} />, path: "/admin/brands", badge: 0 },
+    { label: "Kunden (CRM)", icon: <Users size={18} />, path: "/admin/crm", badge: 0 },
+    { label: "Einstellungen", icon: <SettingsIcon size={18} />, path: "/admin/settings", badge: 0 },
   ];
 
   return (
@@ -57,7 +84,10 @@ export default function AdminDashboard() {
               }`}
             >
               {item.icon}
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.badge > 0 && (
+                <span className="bg-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">{item.badge}</span>
+              )}
             </Link>
           ))}
         </nav>
@@ -77,21 +107,26 @@ export default function AdminDashboard() {
       <div className="flex-1 ml-64 p-12">
         <header className="flex justify-between items-center mb-12">
           <h2 className="text-3xl font-serif tracking-tight text-gray-900">
-            {navItems.find(n => n.path === (location.pathname === "/admin" ? "/admin" : location.pathname))?.label || "Produkte"}
+            {navItems.find(n => location.pathname === n.path || (n.path !== "/admin" && location.pathname.startsWith(n.path)))?.label || "Admin"}
           </h2>
+          <Link to="/shop" className="flex items-center gap-2 text-[10px] tracking-widest uppercase font-bold text-gray-400 hover:text-[#D4AF37] transition-colors">
+            <ExternalLink size={14} /> Shop ansehen
+          </Link>
         </header>
 
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 min-h-[600px]">
           <Routes>
             <Route path="/" element={<Overview />} />
+            <Route path="/help" element={<AdminHelp />} />
             <Route path="/products" element={<Products />} />
             <Route path="/products/new" element={<NewProduct />} />
             <Route path="/ai-import" element={<AIImport />} />
             <Route path="/orders" element={<Orders />} />
+            <Route path="/inquiries" element={<Inquiries />} />
             <Route path="/inventory" element={<Inventory />} />
+            <Route path="/brands" element={<Brands />} />
             <Route path="/crm" element={<Customers />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<div className="flex items-center justify-center h-[400px] text-gray-400 italic">In Kürze verfügbar...</div>} />
           </Routes>
         </div>
       </div>

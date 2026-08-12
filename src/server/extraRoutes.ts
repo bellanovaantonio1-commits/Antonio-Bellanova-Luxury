@@ -4,7 +4,7 @@ import { requireAuth, requireRole, AuthRequest } from "../middleware/auth.ts";
 import { db } from "../db/index.ts";
 import {
   users, products, brands, categories, orders, orderItems,
-  shopSettings, inquiries, wishlistItems
+  shopSettings, inquiries, wishlistItems, newsletterSubscribers
 } from "../db/schema.ts";
 import { generateOrderNumber, DEFAULT_SHOP_SETTINGS } from "./helpers.ts";
 import { extractProductFromText } from "../lib/gemini.ts";
@@ -28,6 +28,80 @@ async function ensureDefaultSettings() {
 }
 
 export function registerExtraRoutes(app: Express) {
+  // Health check
+  app.get("/api/health", async (_req, res) => {
+    try {
+      await db.select({ n: sql`1` }).from(users).limit(1);
+      res.json({ status: "ok", db: "connected", timestamp: new Date().toISOString() });
+    } catch {
+      res.status(503).json({ status: "degraded", db: "disconnected", timestamp: new Date().toISOString() });
+    }
+  });
+
+  // Newsletter
+  app.post("/api/newsletter", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ error: "Gültige E-Mail erforderlich." });
+      }
+      const existing = await db.select().from(newsletterSubscribers).where(eq(newsletterSubscribers.email, email.toLowerCase())).limit(1);
+      if (existing.length > 0) {
+        return res.json({ message: "Bereits angemeldet." });
+      }
+      await db.insert(newsletterSubscribers).values({ email: email.toLowerCase() });
+      res.status(201).json({ message: "Erfolgreich angemeldet." });
+    } catch (error) {
+      console.error("Newsletter signup failed", error);
+      res.status(500).json({ error: "Anmeldung fehlgeschlagen." });
+    }
+  });
+
+  // Admin badges (nav notification counts)
+  app.get("/api/admin/badges", requireAuth, requireRole(["ADMIN"]), async (_req, res) => {
+    try {
+      const [newInquiries] = await db.select({ count: count() }).from(inquiries).where(eq(inquiries.status, "NEW"));
+      const [pendingOrders] = await db.select({ count: count() }).from(orders).where(eq(orders.status, "PENDING"));
+      const [lowStock] = await db.select({ count: count() }).from(products)
+        .where(and(inArray(products.status, ["ACTIVE", "RESERVED"]), sql`${products.stock} <= 1`));
+      res.json({
+        inquiries: newInquiries?.count || 0,
+        orders: pendingOrders?.count || 0,
+        lowStock: lowStock?.count || 0,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Badges konnten nicht geladen werden." });
+    }
+  });
+
+  // CSV export orders
+  app.get("/api/admin/orders/export", requireAuth, requireRole(["ADMIN"]), async (_req, res) => {
+    try {
+      const rows = await db.select({ order: orders, user: users })
+        .from(orders)
+        .leftJoin(users, eq(orders.userId, users.uid))
+        .orderBy(desc(orders.createdAt));
+
+      const header = "Bestellnummer;Datum;Kunde;Status;Zahlung;Gesamt\n";
+      const csv = rows.map(r =>
+        [
+          r.order.orderNumber || r.order.id,
+          r.order.createdAt ? new Date(r.order.createdAt).toLocaleDateString("de-DE") : "",
+          r.user?.email || r.order.userId,
+          r.order.status,
+          r.order.paymentStatus,
+          r.order.total,
+        ].join(";")
+      ).join("\n");
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=bestellungen.csv");
+      res.send("\uFEFF" + header + csv);
+    } catch (error) {
+      res.status(500).json({ error: "Export fehlgeschlagen." });
+    }
+  });
+
   // Fix AI extract admin check
   app.post("/api/admin/ai/extract", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
     try {
@@ -425,6 +499,28 @@ export function registerExtraRoutes(app: Express) {
     } catch (error) {
       console.error("Stats failed", error);
       res.status(500).json({ error: "Statistiken konnten nicht geladen werden." });
+    }
+  });
+
+  // Admin brands
+  app.get("/api/admin/brands", requireAuth, requireRole(["ADMIN"]), async (_req, res) => {
+    try {
+      const result = await db.select().from(brands).orderBy(brands.name);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Marken konnten nicht geladen werden." });
+    }
+  });
+
+  app.post("/api/admin/brands", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
+    try {
+      const { name } = req.body;
+      if (!name) return res.status(400).json({ error: "Name erforderlich" });
+      const slug = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      const [brand] = await db.insert(brands).values({ name, slug }).returning();
+      res.status(201).json(brand);
+    } catch (error) {
+      res.status(500).json({ error: "Marke konnte nicht erstellt werden." });
     }
   });
 

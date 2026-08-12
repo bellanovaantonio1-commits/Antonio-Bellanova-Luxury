@@ -1,6 +1,7 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext.tsx";
+import { isAdminEmail } from "../../config/admin.ts";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -23,7 +24,9 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
-  if (requireAdmin && role !== "ADMIN" && role !== "SUPER_ADMIN") {
+  const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN" || isAdminEmail(user?.email);
+
+  if (requireAdmin && !isAdmin) {
     return <Navigate to="/" replace />;
   }
 

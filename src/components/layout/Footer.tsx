@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Instagram, Facebook, Mail, MapPin, Phone } from "lucide-react";
 import { FOOTER_NAV } from "../../config/navigation.ts";
 import { useLanguage } from "../../contexts/LanguageContext.tsx";
+import NewsletterForm from "../common/NewsletterForm.tsx";
 
 export default function Footer() {
   const { t } = useLanguage();
@@ -64,6 +65,17 @@ export default function Footer() {
               <span className="break-all">antonio.bellanova@luxury.com</span>
             </li>
           </ul>
+        </div>
+      </div>
+
+      {/* Newsletter */}
+      <div className="max-w-7xl mx-auto px-10 py-12 border-b border-white/10">
+        <div className="max-w-md space-y-4">
+          <h4 className="text-[10px] tracking-[0.3em] uppercase font-bold text-[#c5a059]">Newsletter</h4>
+          <p className="text-[12px] text-white/40 font-light">Neuheiten und exklusive Angebote — direkt in Ihr Postfach.</p>
+          <div className="relative">
+            <NewsletterForm />
+          </div>
         </div>
       </div>
 

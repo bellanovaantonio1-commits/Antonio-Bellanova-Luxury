@@ -1,0 +1,10 @@
+{
+  "name": "Antonio Bellanova Luxury",
+  "short_name": "Bellanova",
+  "description": "Exklusive Uhren und Schmuck in Köln",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#c5a059",
+  "lang": "de"
+}

@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext.tsx";
 import { useWishlist } from "../contexts/WishlistContext.tsx";
 import { Link, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { Order, OrderStatus } from "../types.ts";
+import { isAdminEmail } from "../config/admin.ts";
 
 function OrderTracking({ status }: { status: OrderStatus }) {
   const steps = [
@@ -62,6 +63,7 @@ function OrdersView() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -75,6 +77,8 @@ function OrdersView() {
         if (res.ok) {
           const data = await res.json();
           setOrders(data);
+        } else {
+          setApiError(true);
         }
       } catch (error) {
         console.error("Failed to fetch orders", error);
@@ -91,6 +95,15 @@ function OrdersView() {
       <div className="p-20 text-center text-white/20 italic animate-pulse">
         Bestellungen werden geladen...
       </div>
+    );
+  }
+
+  if (apiError) {
+    return (
+      <section className="p-10 bg-white/5 rounded-2xl border border-amber-500/20">
+        <h3 className="text-sm uppercase tracking-widest text-amber-400">Bestellungen</h3>
+        <p className="mt-4 text-white/50 text-sm">Datenbank nicht verbunden — Bestellungen können erst geladen werden, wenn <code className="text-[#c5a059]">DATABASE_URL</code> in der .env gesetzt ist.</p>
+      </section>
     );
   }
 
@@ -335,6 +348,7 @@ export default function Account() {
   const { user, logout, role } = useAuth();
   const { items: wishlistItems } = useWishlist();
   const location = useLocation();
+  const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN" || isAdminEmail(user?.email);
 
   if (!user) return <Navigate to="/" />;
 
@@ -404,7 +418,7 @@ export default function Account() {
               </Link>
             ))}
             
-            {(role === "ADMIN" || role === "SUPER_ADMIN") && (
+            {(isAdmin) && (
               <Link 
                 to="/admin"
                 className="flex items-center justify-between p-6 bg-[#c5a059]/10 border border-[#c5a059]/20 rounded-xl hover:bg-[#c5a059]/20 transition-all group mt-8"

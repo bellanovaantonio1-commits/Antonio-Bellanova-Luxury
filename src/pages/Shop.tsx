@@ -1,80 +1,106 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { Filter, ChevronDown, LayoutGrid, List } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { Filter, LayoutGrid, List, ChevronDown, X } from "lucide-react";
+import { motion } from "motion/react";
 import { Product } from "../types.ts";
-import { collection, query, where, getDocs, onSnapshot, or, and } from "firebase/firestore";
-import { db } from "../lib/firebase.ts";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
+import MetaTags from "../components/common/MetaTags.tsx";
+import { collection, query, where, onSnapshot, gt } from "firebase/firestore";
+import { db as firestoreDb } from "../lib/firebase.ts";
+
+type SortOption = "newest" | "price-asc" | "price-desc" | "name";
 
 export default function Shop() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const cat = searchParams.get("cat");
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [showFilters, setShowFilters] = useState(false);
+  const [sort, setSort] = useState<SortOption>((searchParams.get("sort") as SortOption) || "newest");
+  const [brandFilter, setBrandFilter] = useState(searchParams.get("brand") || "");
+  const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "");
+  const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "");
   const { language, t } = useLanguage();
 
   useEffect(() => {
+    fetch("/api/brands").then(r => r.ok ? r.json() : []).then(data =>
+      setBrandOptions(data.map((b: { slug: string; name: string }) => [b.slug, b.name] as [string, string]))
+    ).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const loadProducts = async () => {
+      setLoading(true);
       try {
-        const url = cat ? `/api/products?cat=${cat}` : '/api/products';
-        const response = await fetch(url);
+        const params = new URLSearchParams();
+        if (cat) params.set("cat", cat);
+        if (sort !== "newest") params.set("sort", sort);
+        if (brandFilter) params.set("brand", brandFilter);
+        if (minPrice) params.set("minPrice", minPrice);
+        if (maxPrice) params.set("maxPrice", maxPrice);
+        const response = await fetch(`/api/products?${params}`);
         if (response.ok) {
           const data = await response.json();
-          setProducts(data);
+          if (data.length > 0) {
+            setProducts(data);
+            setLoading(false);
+            return;
+          }
         }
       } catch (err) {
-        console.error("Failed to load products from API", err);
-      } finally {
+        console.error("Failed to load products", err);
+      }
+
+      // Firestore fallback wenn DB leer/offline
+      let q = query(
+        collection(firestoreDb, "products"),
+        where("status", "==", "ACTIVE"),
+        where("stock", ">", 0)
+      );
+      if (cat === "watches") q = query(collection(firestoreDb, "products"), where("status", "==", "ACTIVE"), where("stock", ">", 0), where("type", "==", "WATCH"));
+      else if (cat === "jewelry") q = query(collection(firestoreDb, "products"), where("status", "==", "ACTIVE"), where("stock", ">", 0), where("type", "==", "JEWELRY"));
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
+        if (list.length > 0) setProducts(list);
         setLoading(false);
-      }
+      }, () => setLoading(false));
+
+      return () => unsubscribe();
     };
-
     loadProducts();
+  }, [cat, sort, brandFilter, minPrice, maxPrice]);
 
-      // Note: Firestore published is string 'true'/'false' in schema, but might be boolean in old Firestore docs
-    // We try both or rely on status
-    let q = query(
-      collection(db, "products"),
-      where("status", "==", "ACTIVE"),
-      where("stock", ">", 0)
-    );
-    
-    if (cat) {
-      const type = cat === "watches" ? "WATCH" : cat === "jewelry" ? "JEWELRY" : null;
-      if (type) {
-        q = query(
-          collection(db, "products"), 
-          where("status", "==", "ACTIVE"),
-          where("stock", ">", 0),
-          where("type", "==", type)
-        );
-      }
-    }
+  const [brandOptions, setBrandOptions] = useState<[string, string][]>([]);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const productList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Product[];
-      
-      if (productList.length > 0) {
-        setProducts(productList);
-      }
-      setLoading(false);
-    }, (error) => {
-      console.warn("Firestore shop restricted:", error.message);
-      // Fallback is already handled by loadProducts
-    });
+  const applyFilters = () => {
+    const params = new URLSearchParams();
+    if (cat) params.set("cat", cat);
+    if (sort !== "newest") params.set("sort", sort);
+    if (brandFilter) params.set("brand", brandFilter);
+    if (minPrice) params.set("minPrice", minPrice);
+    if (maxPrice) params.set("maxPrice", maxPrice);
+    setSearchParams(params);
+    setShowFilters(false);
+  };
 
-    return () => unsubscribe();
-  }, [cat]);
+  const clearFilters = () => {
+    setBrandFilter("");
+    setMinPrice("");
+    setMaxPrice("");
+    setSort("newest");
+    const params = new URLSearchParams();
+    if (cat) params.set("cat", cat);
+    setSearchParams(params);
+  };
+
+  const pageTitle = cat === "watches" ? t("shop.title") : cat === "jewelry" ? t("home.categories.jewelry") : cat === "new" ? "Neuheiten" : t("nav.shop");
 
   return (
     <div className="pt-32 pb-24 px-10 bg-[#050505]">
+      <MetaTags title={pageTitle} description="Entdecken Sie unsere kuratierte Kollektion exklusiver Luxusuhren und Schmuckstücke." />
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-12 border-b border-white/10 pb-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
@@ -83,13 +109,20 @@ export default function Shop() {
                 <span>/</span>
                 <span className="text-[#F4F4F4]">{t("nav.shop")}</span>
               </nav>
-              <h1 className="text-4xl md:text-5xl font-serif tracking-tight capitalize italic font-light">
-                {cat === "watches" ? t("shop.title") : cat === "jewelry" ? t("home.categories.jewelry") : cat === "new" ? "Neuheiten" : t("nav.shop")}
-              </h1>
+              <h1 className="text-4xl md:text-5xl font-serif tracking-tight capitalize italic font-light">{pageTitle}</h1>
+              {!loading && <p className="text-white/30 text-sm mt-2">{products.length} Produkte</p>}
             </div>
             
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2 border-r border-white/10 pr-6 mr-6">
+            <div className="flex flex-wrap items-center gap-4">
+              <select value={sort} onChange={e => setSort(e.target.value as SortOption)}
+                className="bg-transparent border border-white/10 px-4 py-2 text-[10px] tracking-widest uppercase font-bold outline-none focus:border-[#c5a059] rounded-lg">
+                <option value="newest" className="bg-[#0a0a0a]">Neueste</option>
+                <option value="price-asc" className="bg-[#0a0a0a]">Preis ↑</option>
+                <option value="price-desc" className="bg-[#0a0a0a]">Preis ↓</option>
+                <option value="name" className="bg-[#0a0a0a]">Name A–Z</option>
+              </select>
+
+              <div className="flex items-center gap-2 border-r border-white/10 pr-4">
                 <button onClick={() => setViewMode("grid")} className={`p-2 transition-colors ${viewMode === "grid" ? "text-[#c5a059]" : "text-white/30 hover:text-[#F4F4F4]"}`}>
                   <LayoutGrid size={18} strokeWidth={1.5} />
                 </button>
@@ -98,48 +131,67 @@ export default function Shop() {
                 </button>
               </div>
               
-              <button className="flex items-center gap-2 text-[10px] tracking-[0.2em] uppercase font-bold hover:text-[#c5a059] transition-colors">
+              <button onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2 text-[10px] tracking-[0.2em] uppercase font-bold hover:text-[#c5a059] transition-colors">
                 <Filter size={16} strokeWidth={1.5} /> {t("shop.filter")}
+                <ChevronDown size={14} className={`transition-transform ${showFilters ? "rotate-180" : ""}`} />
               </button>
             </div>
           </div>
+
+          {showFilters && (
+            <div className="mt-8 p-6 bg-white/5 border border-white/10 rounded-2xl grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div>
+                <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Marke</label>
+                <select value={brandFilter} onChange={e => setBrandFilter(e.target.value)}
+                  className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg">
+                  <option value="">Alle Marken</option>
+                  {brandOptions.map(([slug, name]) => <option key={slug} value={slug}>{name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Min. Preis (€)</label>
+                <input type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)} placeholder="0"
+                  className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
+              </div>
+              <div>
+                <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Max. Preis (€)</label>
+                <input type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} placeholder="50000"
+                  className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
+              </div>
+              <div className="flex items-end gap-3">
+                <button onClick={applyFilters} className="flex-1 bg-[#c5a059] text-black py-3 rounded-lg text-[10px] tracking-widest uppercase font-bold">Anwenden</button>
+                <button onClick={clearFilters} className="p-3 border border-white/10 rounded-lg hover:text-[#c5a059]" aria-label="Filter zurücksetzen"><X size={16} /></button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Product Grid */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-16">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
+            {[1, 2, 3, 4, 5, 6].map(i => (
               <div key={i} className="animate-pulse space-y-6">
                 <div className="aspect-[4/5] bg-[#0a0a0a]" />
-                <div className="space-y-3">
-                  <div className="h-4 bg-[#0a0a0a] w-1/2" />
-                  <div className="h-6 bg-[#0a0a0a] w-3/4" />
-                </div>
+                <div className="space-y-3"><div className="h-4 bg-[#0a0a0a] w-1/2" /><div className="h-6 bg-[#0a0a0a] w-3/4" /></div>
               </div>
             ))}
           </div>
-        ) : (!Array.isArray(products) || products.length === 0) ? (
+        ) : products.length === 0 ? (
           <div className="text-center py-24 border border-dashed border-white/10">
-             <p className="text-white/30 text-sm italic font-light">{t("shop.no_products")}</p>
-             <Link to="/contact" className="inline-block mt-6 text-[10px] tracking-widest uppercase border-b border-white/20 pb-1 hover:text-[#c5a059] hover:border-[#c5a059] font-bold">{t("shop.send_request")}</Link>
+            <p className="text-white/30 text-sm italic font-light">{t("shop.no_products")}</p>
+            <button onClick={clearFilters} className="inline-block mt-4 text-[10px] tracking-widest uppercase text-[#c5a059]">Filter zurücksetzen</button>
+            <Link to="/contact" className="block mt-4 text-[10px] tracking-widest uppercase border-b border-white/20 pb-1 hover:text-[#c5a059] hover:border-[#c5a059] font-bold">{t("shop.send_request")}</Link>
           </div>
         ) : (
           <div className={`grid ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"} gap-x-16 gap-y-24`}>
-            {Array.isArray(products) && products.map((product) => (
-              <motion.div 
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                key={product.id} 
-                className={`group ${viewMode === "list" ? "flex gap-16 items-center" : ""}`}
-              >
+            {products.map(product => (
+              <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={product.id}
+                className={`group ${viewMode === "list" ? "flex gap-16 items-center" : ""}`}>
                 <Link to={`/product/${product.slug}`} className={`block overflow-hidden bg-[#0a0a0a] ${viewMode === "list" ? "w-1/3" : "w-full"}`}>
                   <div className="aspect-[4/5] relative">
-                    <img 
-                      src={product.images && product.images.length > 0 ? product.images[0] : "https://images.unsplash.com/photo-1547996160-81dfa63595aa?auto=format&fit=crop&w=800"} 
+                    <img src={product.images?.[0] || "https://images.unsplash.com/photo-1547996160-81dfa63595aa?auto=format&fit=crop&w=800"}
                       className="absolute inset-0 w-full h-full object-cover opacity-60 transition-all duration-1000 group-hover:scale-105 group-hover:opacity-100"
-                      alt={language === "en" && product.titleEn ? product.titleEn : (product.titleDe || product.name)}
-                    />
+                      alt={language === "en" && product.titleEn ? product.titleEn : (product.titleDe || product.name)} loading="lazy" />
                     {product.status === "RESERVED" && (
                       <span className="absolute top-4 right-4 bg-[#c5a059] text-black text-[8px] tracking-[0.2em] uppercase px-3 py-1 font-bold">Reserviert</span>
                     )}
@@ -156,11 +208,9 @@ export default function Shop() {
                   </div>
                   <div className="flex items-center justify-between pt-4 border-t border-white/5">
                     <span className="text-sm font-light tracking-widest opacity-80">
-                      {new Intl.NumberFormat(language === "en" ? 'en-US' : 'de-DE', { style: 'currency', currency: 'EUR' }).format(parseFloat(product.price))}
+                      {new Intl.NumberFormat(language === "en" ? "en-US" : "de-DE", { style: "currency", currency: "EUR" }).format(parseFloat(product.price))}
                     </span>
-                    <Link to={`/product/${product.slug}`} className="text-[10px] tracking-[0.2em] uppercase font-bold border-b border-white/20 pb-1 hover:text-[#c5a059] hover:border-[#c5a059] transition-all">
-                      Details
-                    </Link>
+                    <Link to={`/product/${product.slug}`} className="text-[10px] tracking-[0.2em] uppercase font-bold border-b border-white/20 pb-1 hover:text-[#c5a059] hover:border-[#c5a059] transition-all">Details</Link>
                   </div>
                 </div>
               </motion.div>

@@ -1,10 +1,9 @@
+import "./src/load-env.ts";
+
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { fileURLToPath } from "url";
-import * as dotenv from "dotenv";
-
-dotenv.config();
 
 // ES Module path resolution (with fallback for CJS)
 const __filename = fileURLToPath(import.meta.url || `file://${process.cwd()}/server.ts`);
@@ -15,7 +14,7 @@ import { adminAuth, adminDb, adminStorage, FieldValue } from "./src/lib/firebase
 import firebaseConfig from "./firebase-applet-config.json";
 import { db } from "./src/db/index.ts";
 import { users, products, categories, brands } from "./src/db/schema.ts";
-import { eq, or, like, and, sql, desc, gt, inArray } from "drizzle-orm";
+import { eq, or, like, and, sql, desc, asc, gt, inArray, ne, gte, lte } from "drizzle-orm";
 import { importService } from "./src/services/import/ImportService.ts";
 import { imageStorageService } from "./src/services/import/ImageStorageService.ts";
 
@@ -35,7 +34,9 @@ async function startServer() {
       console.log("Syncing user to SQL & Firestore:", req.user!.uid);
       
       const email = req.user!.email!;
-      const isAdminEmail = email === "antoniobellanova1812@gmail.com";
+      const adminEmails = (process.env.ADMIN_EMAILS || "antoniobellanova1812@gmail.com,belllanovaantonio1@gmail.com")
+        .split(",").map(e => e.trim().toLowerCase());
+      const isAdminEmail = adminEmails.includes(email.toLowerCase());
       const role = isAdminEmail ? "ADMIN" : "CUSTOMER";
 
       // SQL Sync
@@ -81,7 +82,12 @@ async function startServer() {
       res.json(userData);
     } catch (error: any) {
       console.error("Sync failed:", error);
-      res.status(500).json({ error: "Sync failed" });
+      // Graceful fallback wenn DB nicht erreichbar
+      const email = req.user!.email!;
+      const adminEmails = (process.env.ADMIN_EMAILS || "antoniobellanova1812@gmail.com,belllanovaantonio1@gmail.com")
+        .split(",").map(e => e.trim().toLowerCase());
+      const role = adminEmails.includes(email.toLowerCase()) ? "ADMIN" : "CUSTOMER";
+      res.json({ uid: req.user!.uid, email, role, dbOffline: true });
     }
   });
 
@@ -96,26 +102,39 @@ async function startServer() {
   });
 
   // Products
+  // Public brands list
+  app.get("/api/brands", async (_req, res) => {
+    try {
+      const result = await db.select().from(brands).orderBy(brands.name);
+      res.json(result);
+    } catch {
+      res.status(500).json({ error: "Failed to fetch brands" });
+    }
+  });
+
   app.get("/api/products", async (req, res) => {
     try {
-      const { cat, all, limit: limitParam } = req.query;
-      console.log("Querying SQL products. Cat:", cat, "All:", all);
+      const { cat, all, limit: limitParam, sort, brand: brandSlug, minPrice, maxPrice, exclude } = req.query;
       
       let conditions: any[] = [];
       
-      // If not "all" (admin view), only show ACTIVE products with stock
       if (all !== "true") {
         conditions.push(inArray(products.status, ["ACTIVE"]));
         conditions.push(gt(products.stock, 0));
       }
       
-      if (cat === "watches") {
-        conditions.push(eq(products.type, "WATCH"));
-      } else if (cat === "jewelry") {
-        conditions.push(eq(products.type, "JEWELRY"));
-      } else if (cat === "new") {
-        // Neuheiten: newest active products (no extra type filter)
-      }
+      if (cat === "watches") conditions.push(eq(products.type, "WATCH"));
+      else if (cat === "jewelry") conditions.push(eq(products.type, "JEWELRY"));
+
+      if (brandSlug) conditions.push(eq(brands.slug, brandSlug as string));
+      if (minPrice) conditions.push(gte(products.price, minPrice as string));
+      if (maxPrice) conditions.push(lte(products.price, maxPrice as string));
+      if (exclude) conditions.push(ne(products.slug, exclude as string));
+
+      let orderBy = desc(products.createdAt);
+      if (sort === "price-asc") orderBy = asc(products.price);
+      else if (sort === "price-desc") orderBy = desc(products.price);
+      else if (sort === "name") orderBy = asc(products.name);
 
       let query = db.select({
         product: products,
@@ -126,17 +145,14 @@ async function startServer() {
       .leftJoin(brands, eq(products.brandId, brands.id))
       .leftJoin(categories, eq(products.categoryId, categories.id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(products.createdAt));
+      .orderBy(orderBy);
 
       if (limitParam) {
         query = query.limit(parseInt(limitParam as string)) as typeof query;
       }
 
       const allProducts = await query;
-
-      console.log(`Found ${allProducts.length} products for customer view`);
       
-      // Map to include brand/category structure for frontend compatibility
       const mappedProducts = allProducts.map(item => ({
         ...item.product,
         images: Array.isArray(item.product.images) ? item.product.images : (typeof item.product.images === 'string' ? JSON.parse(item.product.images) : []),
@@ -148,6 +164,32 @@ async function startServer() {
     } catch (error: any) {
       console.error("Failed to fetch products:", error);
       res.status(500).json({ error: "Failed to fetch products" });
+    }
+  });
+
+  // Sitemap
+  app.get("/sitemap.xml", async (_req, res) => {
+    try {
+      const activeProducts = await db.select({ slug: products.slug, updatedAt: products.updatedAt })
+        .from(products)
+        .where(and(inArray(products.status, ["ACTIVE"]), gt(products.stock, 0)));
+
+      const base = process.env.APP_URL || "https://antonio-bellanova-luxury.onrender.com";
+      const staticPages = ["", "shop", "contact", "sell", "faq", "legal", "privacy", "terms", "shipping", "returns"];
+      const urls = [
+        ...staticPages.map(p => `${base}/${p}`),
+        ...activeProducts.map(p => `${base}/product/${p.slug}`),
+      ];
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
+</urlset>`;
+
+      res.setHeader("Content-Type", "application/xml");
+      res.send(xml);
+    } catch {
+      res.status(500).send("");
     }
   });
 

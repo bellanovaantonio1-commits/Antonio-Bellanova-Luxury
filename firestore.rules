@@ -15,7 +15,8 @@ service cloud.firestore {
       return isSignedIn() && (
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN']) ||
-        request.auth.token.email == 'antoniobellanova1812@gmail.com'
+        request.auth.token.email == 'antoniobellanova1812@gmail.com' ||
+        request.auth.token.email == 'belllanovaantonio1@gmail.com'
       );
     }
 

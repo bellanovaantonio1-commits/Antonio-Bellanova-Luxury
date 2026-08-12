@@ -6,6 +6,7 @@ import { useAuth } from "../../contexts/AuthContext.tsx";
 import { useCart } from "../../contexts/CartContext.tsx";
 import { useLanguage } from "../../contexts/LanguageContext.tsx";
 import { MAIN_NAV } from "../../config/navigation.ts";
+import { isAdminEmail } from "../../config/admin.ts";
 import SearchOverlay from "./SearchOverlay.tsx";
 
 export default function Navbar() {
@@ -16,6 +17,7 @@ export default function Navbar() {
   const { count } = useCart();
   const { language, setLanguage, t } = useLanguage();
   const location = useLocation();
+  const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN" || isAdminEmail(user?.email);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
@@ -90,6 +92,11 @@ export default function Navbar() {
           </Link>
           
           <div className="relative group">
+            {user && isAdmin && (
+              <Link to="/admin" className="hidden md:flex items-center gap-1.5 bg-[#c5a059]/20 text-[#c5a059] px-3 py-1.5 rounded-full text-[9px] tracking-widest uppercase font-bold hover:bg-[#c5a059]/30 transition-all mr-2">
+                Admin
+              </Link>
+            )}
             <button 
               onClick={() => !user && signIn()}
               className="hover:text-[#c5a059] transition-colors flex items-center gap-2 opacity-90 hover:opacity-100"
@@ -99,7 +106,7 @@ export default function Navbar() {
             </button>
             {user && (
               <div className="absolute right-0 top-full mt-4 w-48 bg-[#0a0a0a] shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 py-2 border border-white/10">
-                {(role === "ADMIN" || role === "SUPER_ADMIN") && (
+                {isAdmin && (
                   <Link to="/admin" className="block px-4 py-3 text-[10px] tracking-widest uppercase hover:bg-white/5 transition-colors">Admin Panel</Link>
                 )}
                 <Link to="/account" className="block px-4 py-3 text-[10px] tracking-widest uppercase hover:bg-white/5 transition-colors">{t("nav.profile")}</Link>

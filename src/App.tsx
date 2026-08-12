@@ -1,9 +1,15 @@
 import { Routes, Route } from "react-router-dom";
 import Navbar from "./components/layout/Navbar.tsx";
 import Footer from "./components/layout/Footer.tsx";
+import CookieBanner from "./components/common/CookieBanner.tsx";
+import ScrollToTop from "./components/common/ScrollToTop.tsx";
+import WhatsAppButton from "./components/common/WhatsAppButton.tsx";
+import MetaTags from "./components/common/MetaTags.tsx";
+import DbStatusBanner from "./components/common/DbStatusBanner.tsx";
 import Home from "./pages/Home.tsx";
 import Shop from "./pages/Shop.tsx";
 import ProductDetails from "./pages/ProductDetails.tsx";
+import NotFound from "./pages/NotFound.tsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
 import Sell from "./pages/Sell.tsx";
 import Contact from "./pages/Contact.tsx";
@@ -33,6 +39,8 @@ function AuthErrorBanner() {
 export default function App() {
   return (
     <div className="min-h-screen bg-[#050505] text-[#F4F4F4] selection:bg-[#c5a059] selection:text-black">
+      <MetaTags />
+      <DbStatusBanner />
       <Navbar />
       <AuthErrorBanner />
       <main>
@@ -75,9 +83,13 @@ export default function App() {
               </ProtectedRoute>
             } 
           />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
       <Footer />
+      <CookieBanner />
+      <ScrollToTop />
+      <WhatsAppButton />
     </div>
   );
 }

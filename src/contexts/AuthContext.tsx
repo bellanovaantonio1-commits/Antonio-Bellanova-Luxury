@@ -8,6 +8,7 @@ import {
   signOut,
 } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase.ts';
+import { isAdminEmail } from '../config/admin.ts';
 
 interface AuthContextType {
   user: User | null;
@@ -62,9 +63,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (res.ok) {
             const data = await res.json();
             setRole(data.role);
+          } else {
+            // DB offline — fallback: admin by email
+            setRole(isAdminEmail(user.email) ? "ADMIN" : "CUSTOMER");
           }
         } catch (e) {
           console.error("Sync failed", e);
+          setRole(isAdminEmail(user.email) ? "ADMIN" : "CUSTOMER");
         }
       } else {
         setRole(null);

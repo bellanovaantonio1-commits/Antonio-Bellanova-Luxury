@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { 
   TrendingUp, Users, Package, ShoppingCart,
-  ArrowUpRight, Calendar
+  ArrowUpRight, Calendar, PlusCircle, BrainCircuit, MessageSquare, HelpCircle
 } from "lucide-react";
 import RevenueChart, { SalesTrendChart } from "../../components/admin/RevenueChart.tsx";
 import { auth } from "../../lib/firebase.ts";
@@ -52,8 +53,22 @@ export default function Overview() {
 
   if (loading) return <p className="text-gray-400 italic text-sm">Dashboard wird geladen...</p>;
 
+  const quickActions = [
+    { label: "Neues Produkt", path: "/admin/products/new", icon: PlusCircle },
+    { label: "AI Import", path: "/admin/ai-import", icon: BrainCircuit },
+    { label: "Anfragen", path: "/admin/inquiries", icon: MessageSquare },
+    { label: "Anleitung", path: "/admin/help", icon: HelpCircle },
+  ];
+
   return (
     <div className="space-y-12">
+      <div className="flex flex-wrap gap-3">
+        {quickActions.map(a => (
+          <Link key={a.path} to={a.path} className="flex items-center gap-2 bg-[#D4AF37]/10 hover:bg-[#D4AF37] hover:text-white text-[#D4AF37] px-5 py-3 rounded-full text-[10px] tracking-widest uppercase font-bold transition-all">
+            <a.icon size={14} /> {a.label}
+          </Link>
+        ))}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         {statCards.map((stat, i) => (
           <div key={i} className="p-8 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
