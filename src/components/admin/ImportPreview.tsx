@@ -172,13 +172,13 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
       
       setPricingResults(results);
       
-      // Update form price if in margin mode to reflect the target price
-      if (formData.pricingMode === "MARGIN" && results) {
+      // Sync derived price / margin fields from calculation
+      if (results) {
         setFormData(prev => ({
           ...prev,
           price: !isNaN(results.grossSalePrice) ? results.grossSalePrice.toFixed(2) : "0.00",
           actualMargin: !isNaN(results.effectiveMarginPercent) ? results.effectiveMarginPercent.toFixed(2) : "0",
-          actualProfit: !isNaN(results.profitEur) ? results.profitEur.toFixed(2) : "0"
+          actualProfit: !isNaN(results.profitEur) ? results.profitEur.toFixed(2) : "0",
         }));
       }
     }
@@ -191,12 +191,27 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
     formData?.isInputTaxDeductible, formData?.taxRatePercent
   ]);
 
-  // Handle Manual Price Change
+  // Handle gross sale price — switches to manual mode and recalculates margin backwards
+  const handleGrossPriceChange = (value: string) => {
+    const numeric = parseFloat(value);
+    setFormData(prev => ({
+      ...prev,
+      pricingMode: "MANUAL",
+      manualGrossSalePrice: value === "" ? 0 : (isNaN(numeric) ? prev.manualGrossSalePrice : numeric),
+      price: value,
+    }));
+  };
+
   const handleManualPriceChange = (value: string) => {
-    setFormData(prev => ({ 
-      ...prev, 
-      manualGrossSalePrice: parseFloat(value) || 0,
-      price: value // Keep legacy price field in sync for UI
+    handleGrossPriceChange(value);
+  };
+
+  const switchToManualPricing = () => {
+    setFormData(prev => ({
+      ...prev,
+      pricingMode: "MANUAL",
+      manualGrossSalePrice: pricingResults?.grossSalePrice ?? prev.manualGrossSalePrice ?? 0,
+      price: pricingResults?.grossSalePrice?.toFixed(2) ?? prev.price,
     }));
   };
 
@@ -1040,7 +1055,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
                   Zielmarge
                 </button>
                 <button 
-                  onClick={() => setFormData({...formData, pricingMode: 'MANUAL'})}
+                  onClick={() => setFormData({...formData, pricingMode: 'MANUAL', manualGrossSalePrice: pricingResults?.grossSalePrice ?? formData.manualGrossSalePrice ?? 0, price: pricingResults?.grossSalePrice?.toFixed(2) ?? formData.price})}
                   className={`flex-1 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${formData.pricingMode === 'MANUAL' ? 'bg-[#D4AF37] text-white' : 'text-gray-400 hover:text-white'}`}
                 >
                   Verkaufspreis
@@ -1056,7 +1071,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
                     onChange={e => setFormData({...formData, targetMarginPercent: e.target.value})}
                     className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-4 text-[24px] font-black text-white outline-none focus:border-[#D4AF37] transition-all"
                   />
-                  <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest italic">System berechnet Brutto-VK rückwärts</p>
+                  <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest italic">Brutto-VK unten direkt editierbar — Marge wird rückwärts berechnet</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1086,12 +1101,34 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
                 </div>
 
                 <div className="p-8 bg-[#D4AF37] rounded-[32px] text-black shadow-2xl">
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="space-y-1">
+                  <div className="flex justify-between items-start mb-6 gap-4">
+                    <div className="space-y-1 flex-1 min-w-0">
                       <span className="text-[11px] uppercase tracking-[0.2em] font-black opacity-60">Brutto Verkaufspreis</span>
-                      <h4 className="text-3xl font-black">{pricingResults?.grossSalePrice?.toFixed(2) || "0.00"} €</h4>
+                      <div className="flex items-baseline gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={
+                            formData.pricingMode === "MANUAL"
+                              ? formData.manualGrossSalePrice
+                              : (pricingResults?.grossSalePrice?.toFixed(2) ?? "")
+                          }
+                          onChange={(e) => handleGrossPriceChange(e.target.value)}
+                          onFocus={() => {
+                            if (formData.pricingMode === "MARGIN" && pricingResults) {
+                              switchToManualPricing();
+                            }
+                          }}
+                          className="text-3xl font-black bg-transparent border-b-2 border-black/20 outline-none focus:border-black/50 w-full max-w-[220px] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <span className="text-3xl font-black shrink-0">€</span>
+                      </div>
+                      {formData.pricingMode === "MANUAL" && (
+                        <p className="text-[9px] font-bold uppercase tracking-widest opacity-50">Marge wird aus diesem Preis berechnet</p>
+                      )}
                     </div>
-                    <div className="p-3 bg-black/10 rounded-2xl">
+                    <div className="p-3 bg-black/10 rounded-2xl shrink-0">
                       <Tag size={24} />
                     </div>
                   </div>
