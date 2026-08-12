@@ -10,4 +10,9 @@ export const DEFAULT_SHOP_SETTINGS: Record<string, string> = {
   bankAccountHolder: "Antonio Bellanova",
   paymentInstructionsDe: "Bitte überweisen Sie den Betrag unter Angabe Ihrer Bestellnummer als Verwendungszweck.",
   paymentInstructionsEn: "Please transfer the amount using your order number as payment reference.",
+  vatId: "",
+  instagramUrl: "",
+  facebookUrl: "",
+  whatsappNumber: "491637607805",
+  googleMapsUrl: "https://maps.google.com/?q=Ahornstraße+8+50765+Köln+Deutschland",
 };

@@ -12,6 +12,11 @@ export type ShopSettings = {
   bankAccountHolder: string;
   paymentInstructionsDe: string;
   paymentInstructionsEn: string;
+  vatId: string;
+  instagramUrl: string;
+  facebookUrl: string;
+  whatsappNumber: string;
+  googleMapsUrl: string;
 };
 
 function toSettings(raw: Record<string, unknown>): ShopSettings {
@@ -27,6 +32,11 @@ function toSettings(raw: Record<string, unknown>): ShopSettings {
     bankAccountHolder: str("bankAccountHolder"),
     paymentInstructionsDe: str("paymentInstructionsDe"),
     paymentInstructionsEn: str("paymentInstructionsEn"),
+    vatId: str("vatId"),
+    instagramUrl: str("instagramUrl"),
+    facebookUrl: str("facebookUrl"),
+    whatsappNumber: str("whatsappNumber"),
+    googleMapsUrl: str("googleMapsUrl"),
   };
 }
 
@@ -73,4 +83,11 @@ export function formatAddressLines(address: string): string[] {
     .split(/\n|<br\s*\/?>/i)
     .map((l) => l.trim())
     .filter(Boolean);
+}
+
+/** Normalize phone for wa.me / tel links (digits only, DE country code) */
+export function normalizePhoneForLink(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("0")) return "49" + digits.slice(1);
+  return digits;
 }

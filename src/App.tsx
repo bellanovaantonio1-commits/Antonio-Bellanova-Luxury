@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound.tsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
 import Sell from "./pages/Sell.tsx";
 import Contact from "./pages/Contact.tsx";
+import BookAppointment from "./pages/BookAppointment.tsx";
 import InfoPage, { ShippingContent, ReturnsContent } from "./pages/InfoPage.tsx";
 import { FAQContent, PrivacyContent, TermsContent, LegalContent } from "./content/legal.tsx";
 import { useAuth } from "./contexts/AuthContext.tsx";
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/product/:slug" element={<ProductDetails />} />
           <Route path="/sell" element={<Sell />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/termin" element={<BookAppointment />} />
           <Route 
             path="/shipping" 
             element={<InfoPage title="Versand & Lieferung" subtitle="Logistik" content={<ShippingContent />} />} 

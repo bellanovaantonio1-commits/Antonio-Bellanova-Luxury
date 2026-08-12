@@ -23,8 +23,12 @@ export default function Footer() {
             {t("footer.brand.desc")}
           </p>
           <div className="flex gap-6">
-            <a href="#" className="text-white/70 hover:text-[#c5a059] transition-colors"><Instagram size={18} strokeWidth={1.5} /></a>
-            <a href="#" className="text-white/70 hover:text-[#c5a059] transition-colors"><Facebook size={18} strokeWidth={1.5} /></a>
+            {settings.instagramUrl && (
+              <a href={settings.instagramUrl} target="_blank" rel="noopener noreferrer" className="text-white/70 hover:text-[#c5a059] transition-colors"><Instagram size={18} strokeWidth={1.5} /></a>
+            )}
+            {settings.facebookUrl && (
+              <a href={settings.facebookUrl} target="_blank" rel="noopener noreferrer" className="text-white/70 hover:text-[#c5a059] transition-colors"><Facebook size={18} strokeWidth={1.5} /></a>
+            )}
           </div>
         </div>
 
@@ -59,14 +63,25 @@ export default function Footer() {
             {addressLines.length > 0 && (
               <li className="flex items-start gap-3">
                 <MapPin size={16} className="mt-0.5 text-[#c5a059] shrink-0" strokeWidth={1.5} />
-                <span>
-                  {addressLines.map((line, i) => (
-                    <span key={i}>
-                      {line}
-                      {i < addressLines.length - 1 && <br />}
-                    </span>
-                  ))}
-                </span>
+                {settings.googleMapsUrl ? (
+                  <a href={settings.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="hover:text-[#c5a059] transition-colors">
+                    {addressLines.map((line, i) => (
+                      <span key={i}>
+                        {line}
+                        {i < addressLines.length - 1 && <br />}
+                      </span>
+                    ))}
+                  </a>
+                ) : (
+                  <span>
+                    {addressLines.map((line, i) => (
+                      <span key={i}>
+                        {line}
+                        {i < addressLines.length - 1 && <br />}
+                      </span>
+                    ))}
+                  </span>
+                )}
               </li>
             )}
             {settings.contactPhone && (

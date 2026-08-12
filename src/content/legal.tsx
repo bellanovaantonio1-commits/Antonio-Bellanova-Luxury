@@ -114,7 +114,7 @@ export const LegalContent = () => {
         <br />
         <strong className="text-white">Telefon:</strong> {s.contactPhone}
       </p>
-      <p><strong className="text-white">USt-IdNr.:</strong> DE123456789 (Platzhalter)</p>
+      <p><strong className="text-white">USt-IdNr.:</strong> {s.vatId || "—"}</p>
       <p><strong className="text-white">Verantwortlich für den Inhalt:</strong> {s.bankAccountHolder}</p>
       <p className="text-sm opacity-60">Online-Streitbeilegung: Die EU-Kommission stellt eine Plattform zur Online-Streitbeilegung bereit: https://ec.europa.eu/consumers/odr</p>
     </div>

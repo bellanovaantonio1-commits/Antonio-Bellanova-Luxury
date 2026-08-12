@@ -1,7 +1,9 @@
 import { MessageCircle } from "lucide-react";
+import { normalizePhoneForLink, useShopSettings } from "../../contexts/ShopSettingsContext.tsx";
 
 export default function WhatsAppButton() {
-  const phone = "49221123456";
+  const settings = useShopSettings();
+  const phone = normalizePhoneForLink(settings.whatsappNumber || settings.contactPhone || "491637607805");
   const message = encodeURIComponent("Guten Tag, ich interessiere mich für ein Produkt von Antonio Bellanova Luxury.");
 
   return (

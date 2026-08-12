@@ -19,7 +19,7 @@ interface Inquiry {
 export default function Inquiries() {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"ALL" | "CONTACT" | "SELL">("ALL");
+  const [filter, setFilter] = useState<"ALL" | "CONTACT" | "SELL" | "APPOINTMENT">("ALL");
 
   const load = async () => {
     try {
@@ -52,14 +52,14 @@ export default function Inquiries() {
           <MessageSquare size={32} className="text-gray-400" />
           <div>
             <h3 className="text-xl font-serif text-gray-900">Anfragen</h3>
-            <p className="text-sm text-gray-500">Kontakt- und Ankaufanfragen von der Website</p>
+            <p className="text-sm text-gray-500">Kontakt-, Ankauf- und Terminanfragen von der Website</p>
           </div>
         </div>
         <div className="flex gap-2">
-          {(["ALL", "CONTACT", "SELL"] as const).map(f => (
+          {(["ALL", "CONTACT", "SELL", "APPOINTMENT"] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className={`px-4 py-2 rounded-full text-[10px] tracking-widest uppercase font-bold transition-all ${filter === f ? "bg-[#D4AF37] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
-              {f === "ALL" ? "Alle" : f === "CONTACT" ? "Kontakt" : "Ankauf"}
+              {f === "ALL" ? "Alle" : f === "CONTACT" ? "Kontakt" : f === "SELL" ? "Ankauf" : "Termine"}
             </button>
           ))}
         </div>
@@ -75,7 +75,13 @@ export default function Inquiries() {
             <div key={inq.id} className="border border-gray-100 rounded-xl p-6 hover:shadow-sm transition-shadow">
               <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
                 <div className="flex items-center gap-3">
-                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${inq.type === "SELL" ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"}`}>{inq.type === "SELL" ? "Ankauf" : "Kontakt"}</span>
+                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                    inq.type === "SELL" ? "bg-purple-100 text-purple-800"
+                    : inq.type === "APPOINTMENT" ? "bg-amber-100 text-amber-800"
+                    : "bg-blue-100 text-blue-800"
+                  }`}>
+                    {inq.type === "SELL" ? "Ankauf" : inq.type === "APPOINTMENT" ? "Termin" : "Kontakt"}
+                  </span>
                   <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${inq.status === "NEW" ? "bg-yellow-100 text-yellow-800" : inq.status === "CLOSED" ? "bg-gray-100 text-gray-600" : "bg-green-100 text-green-800"}`}>{inq.status}</span>
                 </div>
                 <span className="text-xs text-gray-400">{new Date(inq.createdAt).toLocaleString("de-DE")}</span>
@@ -94,6 +100,12 @@ export default function Inquiries() {
                       <p>Marke: {(inq.metadata as any).brand}</p>
                       <p>Modell: {(inq.metadata as any).model}</p>
                       {(inq.metadata as any).priceExpectation && <p>Preisvorstellung: {(inq.metadata as any).priceExpectation} €</p>}
+                    </div>
+                  )}
+                  {inq.metadata && inq.type === "APPOINTMENT" && (
+                    <div className="mt-2 text-xs text-gray-500 space-y-1">
+                      <p>Wunschdatum: {(inq.metadata as any).preferredDate}</p>
+                      <p>Uhrzeit: {(inq.metadata as any).preferredTime}</p>
                     </div>
                   )}
                 </div>

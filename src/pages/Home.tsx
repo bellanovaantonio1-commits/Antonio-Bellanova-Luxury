@@ -4,11 +4,13 @@ import { ArrowRight, ShieldCheck, Gem, Clock, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Product } from "../types.ts";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
+import { useShopSettings } from "../contexts/ShopSettingsContext.tsx";
 
 export default function Home() {
   const [highlights, setHighlights] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const { language, t } = useLanguage();
+  const shopSettings = useShopSettings();
 
   useEffect(() => {
     async function fetchHighlights() {
@@ -121,8 +123,12 @@ export default function Home() {
               {t("home.service.description")}
             </p>
             <div className="flex gap-8">
-              <span className="text-[11px] tracking-widest border-b border-[#c5a059] pb-0.5 cursor-pointer hover:opacity-60 transition-opacity uppercase font-bold">{t("home.service.book")}</span>
-              <span className="text-[11px] tracking-widest border-b border-white/20 pb-0.5 cursor-pointer hover:opacity-60 transition-opacity uppercase font-light">{t("home.service.directions")}</span>
+              <Link to="/termin" className="text-[11px] tracking-widest border-b border-[#c5a059] pb-0.5 hover:opacity-60 transition-opacity uppercase font-bold">{t("home.service.book")}</Link>
+              {shopSettings.googleMapsUrl ? (
+                <a href={shopSettings.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] tracking-widest border-b border-white/20 pb-0.5 hover:opacity-60 transition-opacity uppercase font-light">{t("home.service.directions")}</a>
+              ) : (
+                <span className="text-[11px] tracking-widest border-b border-white/20 pb-0.5 uppercase font-light opacity-50">{t("home.service.directions")}</span>
+              )}
             </div>
           </div>
         </div>

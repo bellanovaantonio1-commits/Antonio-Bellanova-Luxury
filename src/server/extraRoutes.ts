@@ -8,6 +8,7 @@ import {
 } from "../db/schema.ts";
 import { generateOrderNumber, DEFAULT_SHOP_SETTINGS } from "./helpers.ts";
 import { extractProductFromText } from "../lib/gemini.ts";
+import { sendOrderEmails, sendInquiryEmails } from "./email.ts";
 
 async function getSettingsMap(): Promise<Record<string, unknown>> {
   const rows = await db.select().from(shopSettings);
@@ -132,6 +133,18 @@ export function registerExtraRoutes(app: Express) {
         message,
       }).returning();
 
+      const settings = await getSettingsMap();
+      sendInquiryEmails({
+        type: "CONTACT",
+        typeLabel: "Kontaktanfrage",
+        firstName,
+        lastName,
+        email,
+        subject,
+        message,
+        settings,
+      }).catch((e) => console.error("Contact email failed", e));
+
       res.status(201).json({ id: inquiry.id, message: "Anfrage erfolgreich übermittelt." });
     } catch (error) {
       console.error("Contact form failed", error);
@@ -154,10 +167,62 @@ export function registerExtraRoutes(app: Express) {
         metadata: { productType, brand, model, condition, priceExpectation },
       }).returning();
 
+      const settings = await getSettingsMap();
+      sendInquiryEmails({
+        type: "SELL",
+        typeLabel: "Ankaufanfrage",
+        firstName,
+        lastName,
+        email,
+        phone,
+        message: description,
+        metadata: { productType, brand, model, condition, priceExpectation },
+        settings,
+      }).catch((e) => console.error("Sell email failed", e));
+
       res.status(201).json({ id: inquiry.id, message: "Ankaufanfrage erfolgreich übermittelt." });
     } catch (error) {
       console.error("Sell form failed", error);
       res.status(500).json({ error: "Anfrage konnte nicht gespeichert werden." });
+    }
+  });
+
+  app.post("/api/appointments", async (req, res) => {
+    try {
+      const { firstName, lastName, email, phone, preferredDate, preferredTime, message } = req.body;
+      if (!email || !firstName || !lastName || !preferredDate || !preferredTime) {
+        return res.status(400).json({ error: "Pflichtfelder fehlen." });
+      }
+
+      const [inquiry] = await db.insert(inquiries).values({
+        type: "APPOINTMENT",
+        firstName,
+        lastName,
+        email,
+        phone,
+        subject: `Termin ${preferredDate} ${preferredTime}`,
+        message,
+        metadata: { preferredDate, preferredTime },
+      }).returning();
+
+      const settings = await getSettingsMap();
+      sendInquiryEmails({
+        type: "APPOINTMENT",
+        typeLabel: "Terminanfrage",
+        firstName,
+        lastName,
+        email,
+        phone,
+        subject: `Termin ${preferredDate} ${preferredTime}`,
+        message,
+        metadata: { preferredDate, preferredTime },
+        settings,
+      }).catch((e) => console.error("Appointment email failed", e));
+
+      res.status(201).json({ id: inquiry.id, message: "Terminanfrage erfolgreich übermittelt." });
+    } catch (error) {
+      console.error("Appointment form failed", error);
+      res.status(500).json({ error: "Termin konnte nicht gespeichert werden." });
     }
   });
 
@@ -237,6 +302,8 @@ export function registerExtraRoutes(app: Express) {
         shippingAddress: shippingAddress || null,
       }).returning();
 
+      const orderItemsForEmail: { name: string; quantity: number; price: number }[] = [];
+
       for (const item of items) {
         const productId = parseInt(item.id);
         const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
@@ -250,6 +317,8 @@ export function registerExtraRoutes(app: Express) {
           price: item.price.toString(),
         });
 
+        orderItemsForEmail.push({ name: item.name, quantity: item.quantity, price: item.price });
+
         if (product && product.stock !== null && product.stock > 0) {
           await db.update(products)
             .set({ stock: Math.max(0, product.stock - item.quantity), updatedAt: new Date() })
@@ -258,6 +327,17 @@ export function registerExtraRoutes(app: Express) {
       }
 
       const settings = await getSettingsMap();
+      const customerEmail = req.user!.email;
+      if (customerEmail) {
+        sendOrderEmails({
+          customerEmail,
+          orderNumber,
+          total: totalAmount.toString(),
+          items: orderItemsForEmail,
+          settings,
+        }).catch((e) => console.error("Order email failed", e));
+      }
+
       res.status(201).json({ ...order, paymentInfo: settings });
     } catch (error) {
       console.error("Failed to create order", error);

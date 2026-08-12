@@ -73,6 +73,11 @@ export default function Settings() {
     { key: "bankIban", label: "IBAN" },
     { key: "bankBic", label: "BIC" },
     { key: "paymentInstructionsDe", label: "Zahlungshinweise (DE)", multiline: true },
+    { key: "vatId", label: "USt-IdNr." },
+    { key: "instagramUrl", label: "Instagram URL" },
+    { key: "facebookUrl", label: "Facebook URL" },
+    { key: "whatsappNumber", label: "WhatsApp (nur Ziffern, z.B. 491637607805)" },
+    { key: "googleMapsUrl", label: "Google Maps Link (Anfahrt)" },
   ];
 
   if (loading) return <p className="text-gray-400 italic text-sm">Einstellungen werden geladen...</p>;
@@ -83,7 +88,7 @@ export default function Settings() {
         <SettingsIcon size={32} />
         <div>
           <h3 className="text-xl font-serif text-gray-900">Einstellungen</h3>
-          <p className="text-sm text-gray-500">Diese Daten erscheinen im Footer, auf der Kontaktseite und beim Checkout.</p>
+          <p className="text-sm text-gray-500">Diese Daten erscheinen im Footer, auf der Kontaktseite, beim Checkout und im Impressum.</p>
         </div>
       </div>
 
