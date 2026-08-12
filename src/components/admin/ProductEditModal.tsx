@@ -110,7 +110,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
           <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
             <div className="flex items-center gap-6">
               <div>
-                <h2 className="text-xl font-serif italic tracking-wide">Produkt bearbeiten</h2>
+                <h2 className="text-xl font-serif italic tracking-wide text-gray-900">Produkt bearbeiten</h2>
                 <p className="text-[10px] text-gray-400 tracking-widest uppercase mt-1">{product.sku}</p>
               </div>
               
@@ -151,7 +151,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                     type="text"
                     value={formData.name || ""}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
                     required
                   />
                 </div>
@@ -164,7 +164,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                       step="0.01"
                       value={formData.price || ""}
                       onChange={(e) => setFormData({...formData, price: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
                       required
                     />
                   </div>
@@ -173,7 +173,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                     <select 
                       value={formData.status || ""}
                       onChange={(e) => setFormData({...formData, status: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all cursor-pointer"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all cursor-pointer"
                     >
                       <option value="DRAFT">Entwurf</option>
                       <option value="ACTIVE">Aktiv</option>
@@ -190,7 +190,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                       type="number"
                       value={formData.stock || 0}
                       onChange={(e) => setFormData({...formData, stock: parseInt(e.target.value)})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
                     />
                   </div>
                   <div className="space-y-2">
@@ -200,7 +200,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                       placeholder="z.B. 2023"
                       value={formData.year || ""}
                       onChange={(e) => setFormData({...formData, year: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
                     />
                   </div>
                 </div>
@@ -212,7 +212,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                       type="text"
                       value={formData.brand?.name || formData.brandName || ""}
                       onChange={(e) => setFormData({...formData, brandName: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
                     />
                   </div>
                   <div className="space-y-2">
@@ -221,7 +221,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                       type="text"
                       value={formData.category?.nameDe || formData.categoryName || ""}
                       onChange={(e) => setFormData({...formData, categoryName: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
                     />
                   </div>
                 </div>
@@ -238,7 +238,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                       type="text"
                       value={formData.material || ""}
                       onChange={(e) => setFormData({...formData, material: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
                     />
                   </div>
                   <div className="space-y-2">
@@ -247,7 +247,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                       type="text"
                       value={formData.diameter || ""}
                       onChange={(e) => setFormData({...formData, diameter: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
                     />
                   </div>
                 </div>
@@ -258,7 +258,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                     <select 
                       value={formData.box || ""}
                       onChange={(e) => setFormData({...formData, box: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all cursor-pointer"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all cursor-pointer"
                     >
                       <option value="">Nicht angegeben</option>
                       <option value="true">Ja</option>
@@ -270,7 +270,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                     <select 
                       value={formData.papers || ""}
                       onChange={(e) => setFormData({...formData, papers: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all cursor-pointer"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all cursor-pointer"
                     >
                       <option value="">Nicht angegeben</option>
                       <option value="true">Ja</option>
@@ -285,7 +285,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                     type="text"
                     value={formData.movement || ""}
                     onChange={(e) => setFormData({...formData, movement: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
                   />
                 </div>
 
@@ -295,7 +295,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                     rows={4}
                     value={formData.descriptionDe || ""}
                     onChange={(e) => setFormData({...formData, descriptionDe: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all resize-none"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all resize-none"
                   />
                 </div>
               </div>

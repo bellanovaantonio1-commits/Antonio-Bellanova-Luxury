@@ -114,7 +114,7 @@ export default function AdminDashboard() {
           </Link>
         </header>
 
-        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 min-h-[600px]">
+        <div className="admin-panel bg-white rounded-2xl p-8 shadow-sm border border-gray-100 min-h-[600px] text-gray-900 [&_input:not([type=checkbox]):not([type=radio])]:text-gray-900 [&_input]:placeholder:text-gray-400 [&_textarea]:text-gray-900 [&_textarea]:placeholder:text-gray-400 [&_select]:text-gray-900 [&_option]:text-gray-900 [&_h2]:text-gray-900 [&_h3]:text-gray-900 [&_h4]:text-gray-900">
           <Routes>
             <Route path="/" element={<Overview />} />
             <Route path="/help" element={<AdminHelp />} />

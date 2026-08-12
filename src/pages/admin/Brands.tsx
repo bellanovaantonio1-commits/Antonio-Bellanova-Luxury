@@ -51,7 +51,7 @@ export default function Brands() {
 
       <form onSubmit={handleAdd} className="flex gap-3 max-w-md">
         <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="z.B. Rolex, Patek Philippe"
-          className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm outline-none focus:ring-1 focus:ring-[#D4AF37]" />
+          className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-[#D4AF37]" />
         <button type="submit" className="bg-[#D4AF37] text-white px-6 py-3 rounded-lg text-[10px] tracking-widest uppercase font-bold hover:bg-[#C19B2E]">Hinzufügen</button>
       </form>
 

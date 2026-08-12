@@ -82,7 +82,7 @@ export default function AIImport() {
   return (
     <div className="max-w-4xl space-y-8">
       <div className="bg-gray-50 p-8 rounded-xl border border-gray-100">
-        <h3 className="text-lg font-serif mb-4 flex items-center gap-3">
+        <h3 className="text-lg font-serif mb-4 flex items-center gap-3 text-gray-900">
           <BrainCircuit className="text-[#D4AF37]" /> AI Product Importer
         </h3>
         <p className="text-gray-500 text-[12px] mb-6 leading-relaxed">
@@ -93,7 +93,7 @@ export default function AIImport() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Beispiel: Rolex Submariner Date, Referenz 126610LN, Jahr 2023, Full Set, Box & Papiere vorhanden, Zustand Ungetragen..."
-          className="w-full h-48 bg-white border border-gray-200 rounded-lg p-6 text-[13px] focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all resize-none mb-6"
+          className="w-full h-48 bg-white border border-gray-200 rounded-lg p-6 text-[13px] text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all resize-none mb-6"
         />
         
         <button 
@@ -109,7 +109,7 @@ export default function AIImport() {
       {result && (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm animate-in fade-in slide-in-from-bottom-4">
           <div className="bg-[#FAFAFA] px-8 py-4 border-b border-gray-200 flex justify-between items-center">
-            <span className="text-[10px] tracking-widest uppercase font-bold">Vorschau der extrahierten Daten</span>
+            <span className="text-[10px] tracking-widest uppercase font-bold text-gray-700">Vorschau der extrahierten Daten</span>
             <div className="flex gap-4">
                <button onClick={() => setResult(null)} className="text-gray-400 hover:text-red-500 transition-colors"><X size={18} /></button>
             </div>
@@ -122,7 +122,7 @@ export default function AIImport() {
                 <input 
                   value={result.titleDe || result.name || ""} 
                   onChange={(e) => updateResult("titleDe", e.target.value)}
-                  className="w-full border-b border-gray-200 py-2 text-[13px] outline-none focus:border-[#D4AF37]" 
+                  className="w-full border-b border-gray-200 py-2 text-[13px] text-gray-900 outline-none focus:border-[#D4AF37]" 
                 />
               </div>
               <div className="space-y-1">
@@ -130,7 +130,7 @@ export default function AIImport() {
                 <input 
                   value={result.titleEn || result.name || ""} 
                   onChange={(e) => updateResult("titleEn", e.target.value)}
-                  className="w-full border-b border-gray-200 py-2 text-[13px] outline-none focus:border-[#D4AF37]" 
+                  className="w-full border-b border-gray-200 py-2 text-[13px] text-gray-900 outline-none focus:border-[#D4AF37]" 
                 />
               </div>
               <div className="space-y-1">
@@ -138,7 +138,7 @@ export default function AIImport() {
                 <input 
                   value={result.brand || ""} 
                   onChange={(e) => updateResult("brand", e.target.value)}
-                  className="w-full border-b border-gray-200 py-2 text-[13px] outline-none focus:border-[#D4AF37]" 
+                  className="w-full border-b border-gray-200 py-2 text-[13px] text-gray-900 outline-none focus:border-[#D4AF37]" 
                 />
               </div>
               <div className="space-y-1">
@@ -146,7 +146,7 @@ export default function AIImport() {
                 <input 
                   value={result.sku || result.reference || ""} 
                   onChange={(e) => updateResult("sku", e.target.value)}
-                  className="w-full border-b border-gray-200 py-2 text-[13px] outline-none focus:border-[#D4AF37]" 
+                  className="w-full border-b border-gray-200 py-2 text-[13px] text-gray-900 outline-none focus:border-[#D4AF37]" 
                 />
               </div>
             </div>
@@ -156,7 +156,7 @@ export default function AIImport() {
                 <input 
                   value={result.price || ""} 
                   onChange={(e) => updateResult("price", e.target.value)}
-                  className="w-full border-b border-gray-200 py-2 text-[13px] outline-none focus:border-[#D4AF37]" 
+                  className="w-full border-b border-gray-200 py-2 text-[13px] text-gray-900 outline-none focus:border-[#D4AF37]" 
                 />
               </div>
               <div className="space-y-1">
@@ -164,7 +164,7 @@ export default function AIImport() {
                 <input 
                   value={result.year || ""} 
                   onChange={(e) => updateResult("year", e.target.value)}
-                  className="w-full border-b border-gray-200 py-2 text-[13px] outline-none focus:border-[#D4AF37]" 
+                  className="w-full border-b border-gray-200 py-2 text-[13px] text-gray-900 outline-none focus:border-[#D4AF37]" 
                 />
               </div>
               <div className="space-y-1 flex items-center gap-6 pt-4">
@@ -175,7 +175,7 @@ export default function AIImport() {
                     onChange={(e) => updateResult("box", e.target.checked)}
                     className="accent-[#D4AF37]" 
                   />
-                  <span className="text-[10px] tracking-widest uppercase">Box</span>
+                  <span className="text-[10px] tracking-widest uppercase text-gray-700">Box</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <input 

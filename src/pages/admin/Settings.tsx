@@ -78,7 +78,7 @@ export default function Settings() {
         <SettingsIcon size={32} />
         <div>
           <h3 className="text-xl font-serif text-gray-900">Einstellungen</h3>
-          <p className="text-sm">Shop-Informationen und Bankverbindung für Checkout.</p>
+          <p className="text-sm text-gray-500">Shop-Informationen und Bankverbindung für Checkout.</p>
         </div>
       </div>
 
@@ -91,13 +91,13 @@ export default function Settings() {
                 rows={3}
                 value={settings[field.key] || ""}
                 onChange={e => setSettings(s => ({ ...s, [field.key]: e.target.value }))}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm outline-none focus:ring-1 focus:ring-[#D4AF37] resize-none"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-[#D4AF37] resize-none"
               />
             ) : (
               <input
                 value={settings[field.key] || ""}
                 onChange={e => setSettings(s => ({ ...s, [field.key]: e.target.value }))}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-[#D4AF37]"
               />
             )}
           </div>

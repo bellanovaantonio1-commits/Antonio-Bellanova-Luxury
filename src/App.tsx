@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import Navbar from "./components/layout/Navbar.tsx";
 import Footer from "./components/layout/Footer.tsx";
 import CookieBanner from "./components/common/CookieBanner.tsx";
@@ -37,11 +37,20 @@ function AuthErrorBanner() {
 }
 
 export default function App() {
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith("/admin");
+
   return (
-    <div className="min-h-screen bg-[#050505] text-[#F4F4F4] selection:bg-[#c5a059] selection:text-black">
+    <div
+      className={
+        isAdmin
+          ? "min-h-screen bg-gray-50 text-gray-900 selection:bg-[#c5a059] selection:text-black"
+          : "min-h-screen bg-[#050505] text-[#F4F4F4] selection:bg-[#c5a059] selection:text-black"
+      }
+    >
       <MetaTags />
       <DbStatusBanner />
-      <Navbar />
+      {!isAdmin && <Navbar />}
       <AuthErrorBanner />
       <main>
         <Routes>
@@ -86,10 +95,10 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
-      <Footer />
-      <CookieBanner />
+      {!isAdmin && <Footer />}
+      {!isAdmin && <CookieBanner />}
       <ScrollToTop />
-      <WhatsAppButton />
+      {!isAdmin && <WhatsAppButton />}
     </div>
   );
 }

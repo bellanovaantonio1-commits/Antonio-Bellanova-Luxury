@@ -111,13 +111,13 @@ export default function NewProduct() {
         <div className="flex items-center gap-4">
           <button 
             onClick={() => navigate("/admin/products")}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-700"
           >
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h2 className="text-2xl font-serif tracking-tight">Neues Produkt anlegen</h2>
-            <p className="text-[11px] text-gray-400 uppercase tracking-widest mt-1">Manuell oder via Import</p>
+            <h2 className="text-2xl font-serif tracking-tight text-gray-900">Neues Produkt anlegen</h2>
+            <p className="text-[11px] text-gray-500 uppercase tracking-widest mt-1">Manuell oder via Import</p>
           </div>
         </div>
 
@@ -149,7 +149,7 @@ export default function NewProduct() {
                     required
                     value={formData.name}
                     onChange={e => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] text-gray-900 placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-[#D4AF37]"
                     placeholder="z.B. Rolex Submariner Date"
                   />
                 </div>
@@ -161,7 +161,7 @@ export default function NewProduct() {
                       required
                       value={formData.sku}
                       onChange={e => setFormData({...formData, sku: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] text-gray-900 placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-[#D4AF37]"
                       placeholder="126610LN"
                     />
                   </div>
@@ -173,7 +173,7 @@ export default function NewProduct() {
                       step="0.01"
                       value={formData.price}
                       onChange={e => setFormData({...formData, price: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] text-gray-900 placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-[#D4AF37]"
                       placeholder="14500"
                     />
                   </div>
@@ -185,7 +185,7 @@ export default function NewProduct() {
                     rows={6}
                     value={formData.descriptionDe}
                     onChange={e => setFormData({...formData, descriptionDe: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] outline-none focus:ring-1 focus:ring-[#D4AF37] resize-none"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] text-gray-900 placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-[#D4AF37] resize-none"
                     placeholder="Detaillierte Beschreibung des Produkts..."
                   />
                 </div>
@@ -201,13 +201,13 @@ export default function NewProduct() {
                     type="url"
                     value={imageUrl}
                     onChange={e => setImageUrl(e.target.value)}
-                    className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] outline-none focus:ring-1 focus:ring-[#D4AF37]"
+                    className="flex-1 px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] text-gray-900 placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-[#D4AF37]"
                     placeholder="Bild URL hinzufügen..."
                   />
                   <button 
                     type="button"
                     onClick={handleAddImage}
-                    className="px-6 py-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="px-6 py-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors text-gray-700"
                   >
                     <Plus size={18} />
                   </button>
@@ -247,7 +247,7 @@ export default function NewProduct() {
                   <select 
                     value={formData.type}
                     onChange={e => setFormData({...formData, type: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] outline-none appearance-none"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] text-gray-900 outline-none appearance-none"
                   >
                     <option value="WATCH">Armbanduhr</option>
                     <option value="JEWELRY">Schmuck</option>
@@ -258,7 +258,7 @@ export default function NewProduct() {
                   <select 
                     value={formData.condition}
                     onChange={e => setFormData({...formData, condition: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] outline-none appearance-none"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] text-gray-900 outline-none appearance-none"
                   >
                     <option value="NEW">Neu (Ungetragen)</option>
                     <option value="PRE_OWNED">Gebraucht</option>
@@ -270,7 +270,7 @@ export default function NewProduct() {
                   <select 
                     value={formData.status}
                     onChange={e => setFormData({...formData, status: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] outline-none appearance-none"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] text-gray-900 outline-none appearance-none"
                   >
                     <option value="DRAFT">Entwurf</option>
                     <option value="ACTIVE">Verfügbar</option>

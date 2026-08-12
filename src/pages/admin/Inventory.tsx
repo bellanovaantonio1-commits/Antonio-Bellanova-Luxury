@@ -51,11 +51,11 @@ export default function Inventory() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
           <p className="text-[10px] tracking-widest uppercase font-bold text-gray-400">Gesamtbestand</p>
-          <p className="text-2xl font-serif mt-2">{stats.totalStock}</p>
+          <p className="text-2xl font-serif mt-2 text-gray-900">{stats.totalStock}</p>
         </div>
         <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
           <p className="text-[10px] tracking-widest uppercase font-bold text-gray-400">Verfügbar (Active)</p>
-          <p className="text-2xl font-serif mt-2">{stats.available}</p>
+          <p className="text-2xl font-serif mt-2 text-gray-900">{stats.available}</p>
         </div>
         <div className="bg-gray-50 p-6 rounded-xl border border-gray-100">
           <p className="text-[10px] tracking-widest uppercase font-bold text-gray-400">Reserviert</p>
