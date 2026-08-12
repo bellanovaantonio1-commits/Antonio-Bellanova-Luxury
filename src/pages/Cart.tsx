@@ -171,11 +171,13 @@ export default function Cart() {
             <div className="space-y-2 pt-2">
               <p className="text-[10px] tracking-widest uppercase text-white/30">{t("cart.success.orderNumber")}</p>
               <p className="text-[#c5a059] font-serif text-xl">{orderNumber}</p>
-              {invoiceNumber && (
+              {invoiceNumber ? (
                 <>
                   <p className="text-[10px] tracking-widest uppercase text-white/30 pt-2">{t("cart.success.invoiceNumber")}</p>
                   <p className="text-white/80 font-mono text-sm">{invoiceNumber}</p>
                 </>
+              ) : (
+                <p className="text-white/30 text-xs pt-4 leading-relaxed">{t("cart.success.invoicePending")}</p>
               )}
             </div>
           </div>

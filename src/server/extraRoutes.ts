@@ -8,9 +8,10 @@ import {
 } from "../db/schema.ts";
 import { generateOrderNumber, DEFAULT_SHOP_SETTINGS } from "./helpers.ts";
 import { extractProductFromText } from "../lib/gemini.ts";
-import { sendOrderEmails, sendInquiryEmails } from "./email.ts";
+import { sendOrderEmails, sendInquiryEmails, sendInvoiceIssuedEmail } from "./email.ts";
 import {
   createInvoiceForOrder,
+  cancelInvoiceForOrder,
   buildOrderLinesFromRequest,
   getInvoicePdfBufferByOrderId,
   getInvoicePdfBufferById,
@@ -369,34 +370,22 @@ export function registerExtraRoutes(app: Express) {
       }
 
       const settings = await getSettingsMap();
-      let invoice = null;
-      try {
-        invoice = await createInvoiceForOrder(order.id, settings);
-      } catch (invErr: unknown) {
-        console.error("Invoice creation failed:", invErr);
-      }
 
       const customerEmail = req.user!.email;
       if (customerEmail) {
-        let pdfBuffer: Buffer | undefined;
-        if (invoice) {
-          pdfBuffer = (await getInvoicePdfBufferByOrderId(order.id)) || undefined;
-        }
         sendOrderEmails({
           customerEmail,
           orderNumber,
-          invoiceNumber: invoice?.invoiceNumber,
           total: totalGross.toString(),
           items: orderItemsForEmail,
           settings,
           language: language === "en" ? "en" : "de",
-          pdfBuffer,
         }).catch((e) => console.error("Order email failed", e));
       }
 
       res.status(201).json({
         ...order,
-        invoiceNumber: invoice?.invoiceNumber || null,
+        invoiceNumber: null,
         paymentInfo: settings,
         invoiceSettingsWarning: getMissingInvoiceSettings(settings),
       });
@@ -414,8 +403,14 @@ export function registerExtraRoutes(app: Express) {
 
       const enriched = await Promise.all(userOrders.map(async (order) => {
         const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
-        const [inv] = await db.select({ invoiceNumber: invoices.invoiceNumber, invoiceId: invoices.id })
-          .from(invoices).where(eq(invoices.orderId, order.id)).limit(1);
+        const [inv] = await db.select({
+          invoiceNumber: invoices.invoiceNumber,
+          invoiceId: invoices.id,
+          invoiceStatus: invoices.invoiceStatus,
+        })
+          .from(invoices)
+          .where(and(eq(invoices.orderId, order.id), eq(invoices.invoiceType, "INVOICE")))
+          .limit(1);
         return {
           ...order,
           orderNumber: order.orderNumber || `ORD-${order.id}`,
@@ -446,10 +441,9 @@ export function registerExtraRoutes(app: Express) {
       if (!order) return res.status(404).json({ error: "Bestellung nicht gefunden." });
       if (order.userId !== req.user!.uid) return res.status(403).json({ error: "Zugriff verweigert." });
 
-      let invoice = await getInvoiceByOrderId(orderId);
+      const invoice = await getInvoiceByOrderId(orderId);
       if (!invoice) {
-        const settings = await getSettingsMap();
-        invoice = await createInvoiceForOrder(orderId, settings);
+        return res.status(404).json({ error: "Für diese Bestellung wurde noch keine Rechnung ausgestellt." });
       }
 
       const pdf = await getInvoicePdfBufferByOrderId(orderId);
@@ -499,14 +493,20 @@ export function registerExtraRoutes(app: Express) {
 
       const enriched = await Promise.all(allOrders.map(async ({ order, user }) => {
         const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
-        const [inv] = await db.select({ invoiceNumber: invoices.invoiceNumber })
-          .from(invoices).where(eq(invoices.orderId, order.id)).limit(1);
+        const [inv] = await db.select({
+          invoiceNumber: invoices.invoiceNumber,
+          invoiceStatus: invoices.invoiceStatus,
+        })
+          .from(invoices)
+          .where(and(eq(invoices.orderId, order.id), eq(invoices.invoiceType, "INVOICE")))
+          .limit(1);
         return {
           ...order,
           orderNumber: order.orderNumber || `ORD-${order.id}`,
           customerEmail: user?.email,
           itemCount: items.length,
           invoiceNumber: inv?.invoiceNumber || null,
+          invoiceStatus: inv?.invoiceStatus || null,
         };
       }));
 
@@ -557,6 +557,37 @@ export function registerExtraRoutes(app: Express) {
         .where(eq(orders.id, id))
         .returning();
 
+      if (status === "CANCELLED" && existing.status !== "CANCELLED") {
+        await cancelInvoiceForOrder(id, "Bestellung storniert");
+      }
+
+      const settings = await getSettingsMap();
+      const becamePaid =
+        resolvedPaymentStatus === "PAID" &&
+        existing.paymentStatus !== "PAID" &&
+        updated.status !== "CANCELLED";
+
+      if (becamePaid) {
+        try {
+          const invoice = await createInvoiceForOrder(id, settings);
+          const pdfBuffer = (await getInvoicePdfBufferByOrderId(id)) || undefined;
+          const [user] = await db.select().from(users).where(eq(users.uid, updated.userId)).limit(1);
+          if (user?.email) {
+            sendInvoiceIssuedEmail({
+              customerEmail: user.email,
+              orderNumber: updated.orderNumber || `ORD-${id}`,
+              invoiceNumber: invoice.invoiceNumber,
+              total: updated.total,
+              settings,
+              language: updated.language === "en" ? "en" : "de",
+              pdfBuffer,
+            }).catch((e) => console.error("Invoice email failed", e));
+          }
+        } catch (invErr) {
+          console.error("Auto invoice on PAID failed:", invErr);
+        }
+      }
+
       res.json(updated);
     } catch (error) {
       res.status(500).json({ error: "Update fehlgeschlagen." });
@@ -599,9 +630,31 @@ export function registerExtraRoutes(app: Express) {
     try {
       const orderId = parseInt(req.params.orderId, 10);
       if (isNaN(orderId)) return res.status(400).json({ error: "Ungültige Bestellung." });
+
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      if (!order) return res.status(404).json({ error: "Bestellung nicht gefunden." });
+      if (order.status === "CANCELLED") {
+        return res.status(400).json({ error: "Stornierte Bestellungen können keine Rechnung erhalten." });
+      }
+
       await ensureDefaultSettings();
       const settings = await getSettingsMap();
       const invoice = await createInvoiceForOrder(orderId, settings);
+
+      const pdfBuffer = (await getInvoicePdfBufferByOrderId(orderId)) || undefined;
+      const [user] = await db.select().from(users).where(eq(users.uid, order.userId)).limit(1);
+      if (user?.email) {
+        sendInvoiceIssuedEmail({
+          customerEmail: user.email,
+          orderNumber: order.orderNumber || `ORD-${orderId}`,
+          invoiceNumber: invoice.invoiceNumber,
+          total: order.total,
+          settings,
+          language: order.language === "en" ? "en" : "de",
+          pdfBuffer,
+        }).catch((e) => console.error("Invoice email failed", e));
+      }
+
       res.status(201).json(invoice);
     } catch (error: unknown) {
       res.status(500).json({ error: error instanceof Error ? error.message : "Rechnung konnte nicht erstellt werden." });

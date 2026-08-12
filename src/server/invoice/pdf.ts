@@ -10,20 +10,25 @@ function fmtMoney(amount: number, currency: string, locale: string) {
 function formatAddress(addr: InvoiceRecord["billingAddress"]): string[] {
   if (!addr) return [];
   const lines: string[] = [];
-  const name = [addr.firstName, addr.lastName].filter(Boolean).join(" ");
+  const name = addr.name || [addr.firstName, addr.lastName].filter(Boolean).join(" ");
   if (name) lines.push(name);
-  if (addr.street) lines.push(addr.street);
-  const cityLine = [addr.zip, addr.city].filter(Boolean).join(" ");
+  if (addr.street || addr.line1) lines.push(addr.street || addr.line1 || "");
+  const cityLine = [addr.postalCode || addr.zip, addr.city].filter(Boolean).join(" ");
   if (cityLine) lines.push(cityLine);
+  if (addr.line2 && addr.line2 !== cityLine) lines.push(addr.line2);
   if (addr.country) lines.push(addr.country);
-  return lines;
+  return lines.filter(Boolean);
 }
 
 const LABELS = {
   de: {
     invoice: "RECHNUNG",
+    creditNote: "STORNORECHNUNG",
     invoiceNo: "Rechnungsnummer",
+    creditNoteNo: "Stornorechnungsnummer",
+    refInvoice: "Bezug Rechnung",
     invoiceDate: "Rechnungsdatum",
+    cancelledBanner: "STORNIERT",
     orderNo: "Bestellnummer",
     customer: "Rechnungsempfänger",
     delivery: "Lieferadresse",
@@ -51,8 +56,12 @@ const LABELS = {
   },
   en: {
     invoice: "INVOICE",
+    creditNote: "CREDIT NOTE",
     invoiceNo: "Invoice number",
+    creditNoteNo: "Credit note number",
+    refInvoice: "Reference invoice",
     invoiceDate: "Invoice date",
+    cancelledBanner: "CANCELLED",
     orderNo: "Order number",
     customer: "Bill to",
     delivery: "Ship to",
@@ -92,6 +101,8 @@ export function generateInvoicePdf(invoice: InvoiceRecord): Promise<Buffer> {
     const lang = invoice.language === "en" ? "en" : "de";
     const L = LABELS[lang];
     const locale = lang === "en" ? "en-GB" : "de-DE";
+    const isCreditNote = invoice.invoiceType === "CREDIT_NOTE";
+    const isCancelled = invoice.invoiceStatus === "CANCELLED";
     const doc = new PDFDocument({ size: "A4", margin: 50 });
     const chunks: Buffer[] = [];
     doc.on("data", (c) => chunks.push(c));
@@ -102,7 +113,10 @@ export function generateInvoicePdf(invoice: InvoiceRecord): Promise<Buffer> {
 
     doc.fontSize(10).fillColor(GOLD).text(invoice.seller.shopBrandName.toUpperCase());
     doc.moveDown(0.3);
-    doc.fontSize(22).fillColor("#111").text(L.invoice);
+    doc.fontSize(22).fillColor("#111").text(isCreditNote ? L.creditNote : L.invoice);
+    if (isCancelled && !isCreditNote) {
+      doc.fontSize(12).fillColor("#b91c1c").text(L.cancelledBanner);
+    }
     doc.moveDown(1);
 
     doc.fontSize(9).fillColor("#333");
@@ -124,9 +138,12 @@ export function generateInvoicePdf(invoice: InvoiceRecord): Promise<Buffer> {
       doc.fillColor("#666");
       metaY += 16;
     };
-    metaRow(L.invoiceNo, invoice.invoiceNumber);
+    metaRow(isCreditNote ? L.creditNoteNo : L.invoiceNo, invoice.invoiceNumber);
     metaRow(L.invoiceDate, issued.toLocaleDateString(locale));
     metaRow(L.orderNo, invoice.orderNumber);
+    if (isCreditNote && invoice.originalInvoiceNumber) {
+      metaRow(L.refInvoice, invoice.originalInvoiceNumber);
+    }
 
     doc.y = Math.max(doc.y, metaY + 10);
     doc.moveDown(1);

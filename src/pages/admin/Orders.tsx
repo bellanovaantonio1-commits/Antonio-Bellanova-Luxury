@@ -12,6 +12,7 @@ interface AdminOrder {
   itemCount: number;
   createdAt: string;
   invoiceNumber?: string | null;
+  invoiceStatus?: string | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -220,14 +221,19 @@ export default function Orders() {
                               <CreditCard size={14} />
                             </button>
                           )}
-                          {!order.invoiceNumber && (
+                          {!order.invoiceNumber && !isCancelled && (
                             <button
                               onClick={() => generateInvoice(order.id)}
-                              title="Rechnung nachträglich erzeugen"
+                              title="Rechnung ausstellen"
                               className="p-2 hover:bg-amber-50 rounded-lg text-amber-700"
                             >
                               <FileText size={14} />
                             </button>
+                          )}
+                          {order.invoiceNumber && (
+                            <span className="text-[9px] font-mono text-gray-400 px-1" title={order.invoiceStatus === "CANCELLED" ? "Rechnung storniert" : order.invoiceNumber}>
+                              {order.invoiceNumber}
+                            </span>
                           )}
                           <button
                             onClick={() => cancelOrder(order)}

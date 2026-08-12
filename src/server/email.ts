@@ -162,3 +162,36 @@ export async function sendInquiryEmails(opts: {
 export function isEmailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY?.trim());
 }
+
+export async function sendInvoiceIssuedEmail(opts: {
+  customerEmail: string;
+  orderNumber: string;
+  invoiceNumber: string;
+  total: string;
+  settings: Record<string, unknown>;
+  language?: "de" | "en";
+  pdfBuffer?: Buffer;
+}) {
+  const lang = opts.language === "en" ? "en" : "de";
+  const locale = lang === "en" ? "en-GB" : "de-DE";
+  const shopName = String(opts.settings.shopName || "Antonio Bellanova Luxury");
+
+  const attachments = opts.pdfBuffer
+    ? [{ filename: `${opts.invoiceNumber}.pdf`, content: opts.pdfBuffer.toString("base64") }]
+    : undefined;
+
+  const subject = lang === "en"
+    ? `Invoice ${opts.invoiceNumber} — ${shopName}`
+    : `Rechnung ${opts.invoiceNumber} — ${shopName}`;
+
+  const title = lang === "en" ? "Your invoice" : "Ihre Rechnung";
+  const body = lang === "en"
+    ? `<p>Your invoice <strong>${opts.invoiceNumber}</strong> for order <strong>${opts.orderNumber}</strong> has been issued.</p>
+       <p>Total: <strong>${parseFloat(opts.total).toLocaleString(locale, { style: "currency", currency: "EUR" })}</strong></p>
+       ${opts.pdfBuffer ? "<p>The invoice is attached as a PDF.</p>" : ""}`
+    : `<p>Ihre Rechnung <strong>${opts.invoiceNumber}</strong> zur Bestellung <strong>${opts.orderNumber}</strong> wurde ausgestellt.</p>
+       <p>Gesamtbetrag: <strong>${parseFloat(opts.total).toLocaleString(locale, { style: "currency", currency: "EUR" })}</strong></p>
+       ${opts.pdfBuffer ? "<p>Die Rechnung finden Sie im PDF-Anhang.</p>" : ""}`;
+
+  await sendEmail({ to: opts.customerEmail, subject, html: layout(title, body), attachments });
+}

@@ -1,10 +1,14 @@
 export type Address = {
   firstName?: string;
   lastName?: string;
+  name?: string;
   street?: string;
   zip?: string;
+  postalCode?: string;
   city?: string;
   country?: string;
+  line1?: string;
+  line2?: string;
 };
 
 export type InvoiceLineItem = {
@@ -34,9 +38,14 @@ export type SellerSnapshot = {
   bankAccountHolder: string;
 };
 
+export type InvoiceType = "INVOICE" | "CREDIT_NOTE";
+export type InvoiceStatus = "ISSUED" | "CANCELLED";
+
 export type InvoiceRecord = {
   id: number;
   invoiceNumber: string;
+  invoiceType: InvoiceType;
+  invoiceStatus: InvoiceStatus;
   orderId: number;
   orderNumber: string;
   userId: string;
@@ -60,6 +69,10 @@ export type InvoiceRecord = {
   paymentMethod: string;
   paymentStatus: string;
   issuedAt: Date;
+  cancelledAt?: Date | null;
+  cancellationReason?: string | null;
+  originalInvoiceId?: number | null;
+  originalInvoiceNumber?: string | null;
 };
 
 export const REQUIRED_INVOICE_SETTING_KEYS = [

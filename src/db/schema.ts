@@ -236,10 +236,17 @@ export const invoiceSequences = pgTable('invoice_sequences', {
   lastNumber: integer('last_number').notNull().default(0),
 });
 
+export const creditNoteSequences = pgTable('credit_note_sequences', {
+  year: integer('year').primaryKey(),
+  lastNumber: integer('last_number').notNull().default(0),
+});
+
 export const invoices = pgTable('invoices', {
   id: serial('id').primaryKey(),
   invoiceNumber: text('invoice_number').notNull().unique(),
-  orderId: integer('order_id').notNull().unique().references(() => orders.id),
+  invoiceType: text('invoice_type').notNull().default('INVOICE'),
+  invoiceStatus: text('invoice_status').notNull().default('ISSUED'),
+  orderId: integer('order_id').notNull().references(() => orders.id),
   userId: text('user_id').notNull(),
   language: text('language').notNull().default('de'),
   customerEmail: text('customer_email'),
@@ -263,6 +270,9 @@ export const invoices = pgTable('invoices', {
   orderNumber: text('order_number'),
   eInvoiceFormat: text('e_invoice_format'),
   eInvoiceMetadata: jsonb('e_invoice_metadata'),
+  cancelledAt: timestamp('cancelled_at'),
+  cancellationReason: text('cancellation_reason'),
+  originalInvoiceId: integer('original_invoice_id'),
   issuedAt: timestamp('issued_at').defaultNow(),
   createdAt: timestamp('created_at').defaultNow(),
 });

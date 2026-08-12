@@ -1,8 +1,8 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db } from "../../db/index.ts";
 import { createPgPool } from "../../db/pool.ts";
 import { orders, orderItems, products, users, invoices } from "../../db/schema.ts";
-import { allocateInvoiceNumber } from "./numbering.ts";
+import { allocateInvoiceNumber, allocateCreditNoteNumber } from "./numbering.ts";
 import { buildSellerSnapshot, assertInvoiceSettingsReady } from "./seller.ts";
 import { generateInvoicePdf } from "./pdf.ts";
 import type { Address, InvoiceLineItem, InvoiceRecord } from "./types.ts";
@@ -23,10 +23,19 @@ function computeLineTax(gross: number, taxTreatment: string | null | undefined, 
   return { net, tax, rate };
 }
 
-function rowToInvoiceRecord(row: typeof invoices.$inferSelect): InvoiceRecord {
+async function getOriginalInvoiceNumber(originalInvoiceId: number | null | undefined): Promise<string | null> {
+  if (!originalInvoiceId) return null;
+  const [row] = await db.select({ invoiceNumber: invoices.invoiceNumber })
+    .from(invoices).where(eq(invoices.id, originalInvoiceId)).limit(1);
+  return row?.invoiceNumber || null;
+}
+
+function rowToInvoiceRecord(row: typeof invoices.$inferSelect, originalInvoiceNumber?: string | null): InvoiceRecord {
   return {
     id: row.id,
     invoiceNumber: row.invoiceNumber,
+    invoiceType: (row.invoiceType === "CREDIT_NOTE" ? "CREDIT_NOTE" : "INVOICE") as InvoiceRecord["invoiceType"],
+    invoiceStatus: (row.invoiceStatus === "CANCELLED" ? "CANCELLED" : "ISSUED") as InvoiceRecord["invoiceStatus"],
     orderId: row.orderId,
     orderNumber: row.orderNumber || "",
     userId: row.userId,
@@ -50,17 +59,37 @@ function rowToInvoiceRecord(row: typeof invoices.$inferSelect): InvoiceRecord {
     paymentMethod: row.paymentMethod || "BANK_TRANSFER",
     paymentStatus: row.paymentStatus || "PENDING",
     issuedAt: row.issuedAt ? new Date(row.issuedAt) : new Date(),
+    cancelledAt: row.cancelledAt ? new Date(row.cancelledAt) : null,
+    cancellationReason: row.cancellationReason || null,
+    originalInvoiceId: row.originalInvoiceId || null,
+    originalInvoiceNumber: originalInvoiceNumber ?? undefined,
   };
 }
 
-export async function getInvoiceByOrderId(orderId: number) {
-  const [row] = await db.select().from(invoices).where(eq(invoices.orderId, orderId)).limit(1);
-  return row ? rowToInvoiceRecord(row) : null;
+export async function getInvoiceByOrderId(orderId: number): Promise<InvoiceRecord | null> {
+  const [row] = await db.select().from(invoices)
+    .where(and(eq(invoices.orderId, orderId), eq(invoices.invoiceType, "INVOICE")))
+    .limit(1);
+  if (!row) return null;
+  return rowToInvoiceRecord(row);
 }
 
-export async function getInvoiceById(id: number) {
+export async function getCreditNoteByInvoiceId(invoiceId: number): Promise<InvoiceRecord | null> {
+  const [row] = await db.select().from(invoices)
+    .where(and(eq(invoices.originalInvoiceId, invoiceId), eq(invoices.invoiceType, "CREDIT_NOTE")))
+    .limit(1);
+  if (!row) return null;
+  const originalInvoiceNumber = await getOriginalInvoiceNumber(row.originalInvoiceId);
+  return rowToInvoiceRecord(row, originalInvoiceNumber);
+}
+
+export async function getInvoiceById(id: number): Promise<InvoiceRecord | null> {
   const [row] = await db.select().from(invoices).where(eq(invoices.id, id)).limit(1);
-  return row ? rowToInvoiceRecord(row) : null;
+  if (!row) return null;
+  const originalInvoiceNumber = row.originalInvoiceId
+    ? await getOriginalInvoiceNumber(row.originalInvoiceId)
+    : null;
+  return rowToInvoiceRecord(row, originalInvoiceNumber);
 }
 
 export async function getInvoicePdfBufferByOrderId(orderId: number): Promise<Buffer | null> {
@@ -75,25 +104,8 @@ export async function getInvoicePdfBufferById(id: number): Promise<Buffer | null
   return generateInvoicePdf(invoice);
 }
 
-export async function createInvoiceForOrder(
-  orderId: number,
-  settings: Record<string, unknown>
-): Promise<InvoiceRecord> {
-  const existing = await getInvoiceByOrderId(orderId);
-  if (existing) return existing;
-
-  assertInvoiceSettingsReady(settings);
-
-  const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
-  if (!order) throw new Error("Bestellung nicht gefunden.");
-
-  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
-  if (!items.length) throw new Error("Bestellung enthält keine Positionen.");
-
-  const [user] = await db.select().from(users).where(eq(users.uid, order.userId)).limit(1);
-  const seller = buildSellerSnapshot(settings);
-
-  const lineItems: InvoiceLineItem[] = items.map((item) => {
+function buildLineItemsFromOrderItems(items: typeof orderItems.$inferSelect[]) {
+  return items.map((item) => {
     const gross = parseFloat(item.unitPriceGross || item.price);
     const qty = item.quantity;
     const lineGross = round2(gross * qty);
@@ -111,8 +123,31 @@ export async function createInvoiceForOrder(
       taxAmount: tax,
       taxRatePercent: taxTreatment === "MARGIN" ? 0 : rate,
       taxTreatment,
-    };
+    } satisfies InvoiceLineItem;
   });
+}
+
+export async function createInvoiceForOrder(
+  orderId: number,
+  settings: Record<string, unknown>
+): Promise<InvoiceRecord> {
+  const existing = await getInvoiceByOrderId(orderId);
+  if (existing) return existing;
+
+  assertInvoiceSettingsReady(settings);
+
+  const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  if (!order) throw new Error("Bestellung nicht gefunden.");
+  if (order.status === "CANCELLED") {
+    throw new Error("Für stornierte Bestellungen kann keine Rechnung ausgestellt werden.");
+  }
+
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  if (!items.length) throw new Error("Bestellung enthält keine Positionen.");
+
+  const [user] = await db.select().from(users).where(eq(users.uid, order.userId)).limit(1);
+  const seller = buildSellerSnapshot(settings);
+  const lineItems = buildLineItemsFromOrderItems(items);
 
   const hasMargin = lineItems.some((l) => l.taxTreatment === "MARGIN");
   const subtotalNet = round2(lineItems.reduce((s, l) => s + l.lineTotalNet, 0));
@@ -128,45 +163,169 @@ export async function createInvoiceForOrder(
       : "Differenzbesteuerung gemäß § 25a UStG."
     : undefined;
 
-  const invoiceNumber = await allocateInvoiceNumber(pool);
-
+  const client = await pool.connect();
   try {
-    const [inserted] = await db.insert(invoices).values({
-      invoiceNumber,
-      orderId: order.id,
-      userId: order.userId,
-      language: lang,
-      customerEmail: user?.email || "",
-      customerName: order.customerName || "",
-      companyName: order.companyName || null,
-      customerVatId: order.customerVatId || null,
-      billingAddress: order.billingAddress || null,
-      shippingAddress: order.shippingAddress || null,
-      lineItems,
-      sellerSnapshot: seller,
-      subtotalNet: subtotalNet.toString(),
-      taxAmount: taxAmount.toString(),
-      shippingCost: shippingCost.toString(),
-      discountAmount: discountAmount.toString(),
-      totalGross: totalGross.toString(),
-      taxRatePercent: hasMargin ? "0" : String(order.taxRatePercent || "19"),
-      taxNote: taxNote || null,
-      currency: "EUR",
-      paymentMethod: order.paymentMethod || "BANK_TRANSFER",
-      paymentStatus: order.paymentStatus || "PENDING",
-      orderNumber: order.orderNumber || `ORD-${order.id}`,
-      eInvoiceFormat: null,
-      eInvoiceMetadata: { version: "1.0", readyForZugferd: true },
-    }).returning();
+    await client.query("BEGIN");
 
-    return rowToInvoiceRecord(inserted);
+    const dupCheck = await client.query<{ id: number }>(
+      `SELECT id FROM invoices WHERE order_id = $1 AND invoice_type = 'INVOICE' FOR UPDATE`,
+      [orderId]
+    );
+    if (dupCheck.rows.length > 0) {
+      await client.query("ROLLBACK");
+      const again = await getInvoiceByOrderId(orderId);
+      if (again) return again;
+      throw new Error("Rechnung existiert bereits.");
+    }
+
+    const invoiceNumber = await allocateInvoiceNumber(client);
+
+    const insertResult = await client.query(
+      `INSERT INTO invoices (
+        invoice_number, invoice_type, invoice_status, order_id, user_id, language,
+        customer_email, customer_name, company_name, customer_vat_id,
+        billing_address, shipping_address, line_items, seller_snapshot,
+        subtotal_net, tax_amount, shipping_cost, discount_amount, total_gross,
+        tax_rate_percent, tax_note, currency, payment_method, payment_status,
+        order_number, e_invoice_metadata
+      ) VALUES (
+        $1, 'INVOICE', 'ISSUED', $2, $3, $4,
+        $5, $6, $7, $8,
+        $9, $10, $11, $12,
+        $13, $14, $15, $16, $17,
+        $18, $19, 'EUR', $20, $21,
+        $22, $23
+      ) RETURNING id`,
+      [
+        invoiceNumber,
+        order.id,
+        order.userId,
+        lang,
+        user?.email || "",
+        order.customerName || "",
+        order.companyName || null,
+        order.customerVatId || null,
+        JSON.stringify(order.billingAddress || null),
+        JSON.stringify(order.shippingAddress || null),
+        JSON.stringify(lineItems),
+        JSON.stringify(seller),
+        subtotalNet.toString(),
+        taxAmount.toString(),
+        shippingCost.toString(),
+        discountAmount.toString(),
+        totalGross.toString(),
+        hasMargin ? "0" : String(order.taxRatePercent || "19"),
+        taxNote || null,
+        order.paymentMethod || "BANK_TRANSFER",
+        order.paymentStatus || "PENDING",
+        order.orderNumber || `ORD-${order.id}`,
+        JSON.stringify({ version: "1.0", readyForZugferd: true }),
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    const insertedId = insertResult.rows[0]?.id as number;
+    const created = await getInvoiceById(insertedId);
+    if (!created) throw new Error("Rechnung konnte nicht geladen werden.");
+    return created;
   } catch (err: unknown) {
+    await client.query("ROLLBACK");
     const pgErr = err as { code?: string };
     if (pgErr.code === "23505") {
       const again = await getInvoiceByOrderId(orderId);
       if (again) return again;
     }
     throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function cancelInvoiceForOrder(
+  orderId: number,
+  reason?: string
+): Promise<{ invoice: InvoiceRecord | null; creditNote: InvoiceRecord | null }> {
+  const invoice = await getInvoiceByOrderId(orderId);
+  if (!invoice) {
+    return { invoice: null, creditNote: null };
+  }
+
+  if (invoice.invoiceStatus === "CANCELLED") {
+    const existingCredit = await getCreditNoteByInvoiceId(invoice.id);
+    return { invoice, creditNote: existingCredit };
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const lock = await client.query<{ id: number; invoice_status: string }>(
+      `SELECT id, invoice_status FROM invoices WHERE id = $1 AND invoice_type = 'INVOICE' FOR UPDATE`,
+      [invoice.id]
+    );
+    if (!lock.rows.length) {
+      await client.query("ROLLBACK");
+      return { invoice: null, creditNote: null };
+    }
+
+    if (lock.rows[0].invoice_status === "CANCELLED") {
+      await client.query("ROLLBACK");
+      const existingCredit = await getCreditNoteByInvoiceId(invoice.id);
+      const current = await getInvoiceByOrderId(orderId);
+      return { invoice: current, creditNote: existingCredit };
+    }
+
+    const now = new Date();
+    await client.query(
+      `UPDATE invoices SET invoice_status = 'CANCELLED', cancelled_at = $1, cancellation_reason = $2
+       WHERE id = $3`,
+      [now, reason || "Bestellung storniert", invoice.id]
+    );
+
+    const creditCheck = await client.query<{ id: number }>(
+      `SELECT id FROM invoices WHERE original_invoice_id = $1 AND invoice_type = 'CREDIT_NOTE'`,
+      [invoice.id]
+    );
+
+    let creditNoteId: number | null = null;
+    if (!creditCheck.rows.length) {
+      const creditNoteNumber = await allocateCreditNoteNumber(client);
+      const creditInsert = await client.query(
+        `INSERT INTO invoices (
+          invoice_number, invoice_type, invoice_status, order_id, user_id, language,
+          customer_email, customer_name, company_name, customer_vat_id,
+          billing_address, shipping_address, line_items, seller_snapshot,
+          subtotal_net, tax_amount, shipping_cost, discount_amount, total_gross,
+          tax_rate_percent, tax_note, currency, payment_method, payment_status,
+          order_number, original_invoice_id, issued_at
+        )
+        SELECT
+          $1, 'CREDIT_NOTE', 'ISSUED', order_id, user_id, language,
+          customer_email, customer_name, company_name, customer_vat_id,
+          billing_address, shipping_address, line_items, seller_snapshot,
+          subtotal_net, tax_amount, shipping_cost, discount_amount, total_gross,
+          tax_rate_percent, tax_note, currency, payment_method, 'REFUNDED',
+          order_number, id, $2
+        FROM invoices WHERE id = $3
+        RETURNING id`,
+        [creditNoteNumber, now, invoice.id]
+      );
+      creditNoteId = creditInsert.rows[0]?.id ?? null;
+    }
+
+    await client.query("COMMIT");
+
+    const updatedInvoice = await getInvoiceByOrderId(orderId);
+    const creditNote = creditNoteId
+      ? await getInvoiceById(creditNoteId)
+      : await getCreditNoteByInvoiceId(invoice.id);
+    return { invoice: updatedInvoice, creditNote };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
   }
 }
 
@@ -242,16 +401,42 @@ export async function listInvoicesForAdmin() {
     .leftJoin(users, eq(invoices.userId, users.uid))
     .orderBy(desc(invoices.issuedAt));
 
-  return rows.map(({ invoice, order, user }) => ({
-    id: invoice.id,
-    invoiceNumber: invoice.invoiceNumber,
-    orderId: order.id,
-    orderNumber: invoice.orderNumber || order.orderNumber,
-    customerEmail: user?.email || invoice.customerEmail,
-    customerName: invoice.customerName,
-    totalGross: invoice.totalGross,
-    paymentStatus: invoice.paymentStatus,
-    issuedAt: invoice.issuedAt,
-    orderStatus: order.status,
-  }));
+  const creditNotesByOriginal = new Map<number, typeof invoices.$inferSelect>();
+  for (const { invoice } of rows) {
+    if (invoice.invoiceType === "CREDIT_NOTE" && invoice.originalInvoiceId) {
+      creditNotesByOriginal.set(invoice.originalInvoiceId, invoice);
+    }
+  }
+
+  const invoiceById = new Map(rows.map((r) => [r.invoice.id, r.invoice]));
+
+  return rows.map(({ invoice, order, user }) => {
+    const creditNote = invoice.invoiceType === "INVOICE"
+      ? creditNotesByOriginal.get(invoice.id)
+      : null;
+    const originalInvoice = invoice.originalInvoiceId
+      ? invoiceById.get(invoice.originalInvoiceId)
+      : null;
+
+    return {
+      id: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceType: invoice.invoiceType,
+      invoiceStatus: invoice.invoiceStatus,
+      orderId: order.id,
+      orderNumber: invoice.orderNumber || order.orderNumber,
+      customerEmail: user?.email || invoice.customerEmail,
+      customerName: invoice.customerName,
+      totalGross: invoice.totalGross,
+      paymentStatus: invoice.paymentStatus,
+      issuedAt: invoice.issuedAt,
+      cancelledAt: invoice.cancelledAt,
+      cancellationReason: invoice.cancellationReason,
+      orderStatus: order.status,
+      originalInvoiceId: invoice.originalInvoiceId,
+      originalInvoiceNumber: originalInvoice?.invoiceNumber || null,
+      creditNoteNumber: creditNote?.invoiceNumber || null,
+      creditNoteId: creditNote?.id || null,
+    };
+  });
 }
