@@ -21,6 +21,60 @@ import { imageStorageService } from "./src/services/import/ImageStorageService.t
 
 import { registerExtraRoutes } from "./src/server/extraRoutes.ts";
 
+function toEntitySlug(value: string): string {
+  return value.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+}
+
+async function findOrCreateBrandId(brandName: string): Promise<number | null> {
+  const name = brandName.trim();
+  if (!name) return null;
+
+  const slug = toEntitySlug(name);
+  const bySlug = await db.select().from(brands).where(eq(brands.slug, slug)).limit(1);
+  if (bySlug.length > 0) return bySlug[0].id;
+
+  const byName = await db
+    .select()
+    .from(brands)
+    .where(sql`lower(${brands.name}) = lower(${name})`)
+    .limit(1);
+  if (byName.length > 0) return byName[0].id;
+
+  try {
+    const [created] = await db.insert(brands).values({ name, slug }).returning();
+    return created.id;
+  } catch {
+    const existing = await db.select().from(brands).where(eq(brands.slug, slug)).limit(1);
+    if (existing.length > 0) return existing[0].id;
+    throw new Error(`Marke "${name}" konnte nicht gespeichert werden.`);
+  }
+}
+
+async function findOrCreateCategoryId(categoryName: string): Promise<number | null> {
+  const name = categoryName.trim();
+  if (!name) return null;
+
+  const slug = toEntitySlug(name);
+  const bySlug = await db.select().from(categories).where(eq(categories.slug, slug)).limit(1);
+  if (bySlug.length > 0) return bySlug[0].id;
+
+  const byName = await db
+    .select()
+    .from(categories)
+    .where(sql`lower(${categories.nameDe}) = lower(${name})`)
+    .limit(1);
+  if (byName.length > 0) return byName[0].id;
+
+  try {
+    const [created] = await db.insert(categories).values({ nameDe: name, slug }).returning();
+    return created.id;
+  } catch {
+    const existing = await db.select().from(categories).where(eq(categories.slug, slug)).limit(1);
+    if (existing.length > 0) return existing[0].id;
+    throw new Error(`Kategorie "${name}" konnte nicht gespeichert werden.`);
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -624,55 +678,33 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
       if (data.brandName || data.brand) {
         const rawBrand = data.brandName || data.brand;
         let brandName = "";
-        
-        if (typeof rawBrand === 'string') {
+
+        if (typeof rawBrand === "string") {
           brandName = rawBrand;
-        } else if (rawBrand && typeof rawBrand === 'object') {
+        } else if (rawBrand && typeof rawBrand === "object") {
           brandName = (rawBrand as any).name || (rawBrand as any).title || String(rawBrand);
         } else {
           brandName = String(rawBrand || "");
         }
-        
-        brandName = brandName.trim();
-        if (brandName) {
-          let brand = await db.select().from(brands).where(eq(brands.name, brandName)).limit(1);
-          if (brand.length === 0) {
-            const [newBrand] = await db.insert(brands).values({
-              name: brandName,
-              slug: brandName.toLowerCase().replace(/\s+/g, "-")
-            }).returning();
-            sanitizedData.brandId = newBrand.id;
-          } else {
-            sanitizedData.brandId = brand[0].id;
-          }
-        }
+
+        const brandId = await findOrCreateBrandId(brandName);
+        if (brandId) sanitizedData.brandId = brandId;
       }
 
       if (data.categoryName || data.category) {
         const rawCat = data.categoryName || data.category;
         let catName = "";
 
-        if (typeof rawCat === 'string') {
+        if (typeof rawCat === "string") {
           catName = rawCat;
-        } else if (rawCat && typeof rawCat === 'object') {
+        } else if (rawCat && typeof rawCat === "object") {
           catName = (rawCat as any).name || (rawCat as any).titleDe || (rawCat as any).titleEn || String(rawCat);
         } else {
           catName = String(rawCat || "");
         }
 
-        catName = catName.trim();
-        if (catName) {
-          let category = await db.select().from(categories).where(eq(categories.nameDe, catName)).limit(1);
-          if (category.length === 0) {
-            const [newCat] = await db.insert(categories).values({
-              nameDe: catName,
-              slug: catName.toLowerCase().replace(/\s+/g, "-")
-            }).returning();
-            sanitizedData.categoryId = newCat.id;
-          } else {
-            sanitizedData.categoryId = category[0].id;
-          }
-        }
+        const categoryId = await findOrCreateCategoryId(catName);
+        if (categoryId) sanitizedData.categoryId = categoryId;
       }
 
       let sqlProduct;
