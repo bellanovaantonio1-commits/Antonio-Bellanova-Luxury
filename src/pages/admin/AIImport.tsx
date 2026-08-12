@@ -184,7 +184,7 @@ export default function AIImport() {
                     onChange={(e) => updateResult("papers", e.target.checked)}
                     className="accent-[#D4AF37]" 
                   />
-                  <span className="text-[10px] tracking-widest uppercase">Papiere</span>
+                  <span className="text-[10px] tracking-widest uppercase text-gray-700">Papiere</span>
                 </div>
               </div>
             </div>
