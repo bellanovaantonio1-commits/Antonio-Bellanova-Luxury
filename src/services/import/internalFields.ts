@@ -89,7 +89,7 @@ export function extractFromDescriptionText(text: string): Record<string, string>
     ],
     [
       "maintenanceDescription",
-      /(?:Maintenance(?: Info)?|Overhaul|Wartung)[：:\s]*([\s\S]*?)(?=\n\s*(?:Daily|Remarks|Case Rank)|$)/im,
+      /(?:Maintenance(?: Info)?|Overhaul|Wartung)[：:\s]*([\s\S]*?)(?=(?:Daily deviation|Daily Rate|Timing accuracy|Guarantee information|Year of manufacture|Remarks|Case Rank|Band Rank)|$)/im,
     ],
     ["dailyRateDisplay", /(?:Daily Rate|Timing|Accuracy|Gangabweichung)[：:\s]*([^\n|]+)/im],
   ];
@@ -211,8 +211,12 @@ export function extractInternalFields({ analysis = {}, source = {}, contentDe }:
     specs["Condition Details"]
   );
 
-  const maintenanceDescription =
-    pickFirstGerman(fromText.maintenanceDescription, analysis.maintenanceDescription) ||
+    const maintenanceDescription = cleanMaintenanceSnippet(
+      pickFirstGerman(fromText.maintenanceDescription, analysis.maintenanceDescription) ||
+        meta.maintenanceDescription ||
+        specs["Maintenance Info"] ||
+        specs["Maintenance"]
+    ) ||
     translateMaintenanceToDe(meta.maintenanceDescription) ||
     translateMaintenanceToDe(specs["Maintenance Info"]) ||
     translateMaintenanceToDe(specs["Maintenance"]);
@@ -239,6 +243,16 @@ export function extractInternalFields({ analysis = {}, source = {}, contentDe }:
     maintenancePerformed: Boolean(analysis.maintenancePerformed) || !!maintenanceDescription,
     dailyRateSeconds: analysis.dailyRateSeconds ?? 0,
   };
+}
+
+export function cleanMaintenanceSnippet(value: unknown): string {
+  const text = cleanScrapedValue(value);
+  if (!text) return "";
+  return text
+    .replace(/^(?:Maintenance(?: Info)?|Wartung)[：:\s]*/i, "")
+    .replace(/\s*(?:Daily deviation|Daily Rate|Timing|Guarantee information|Year of manufacture|Notes).*$/is, "")
+    .trim()
+    .replace(/\.$/, "");
 }
 
 export function mergeInternalFieldsIntoAnalysis<T extends Record<string, unknown>>(

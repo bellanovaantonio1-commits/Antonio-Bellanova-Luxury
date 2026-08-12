@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio';
 import { SourceProductData, ImportProvider } from './types.ts';
-import { normalizeRank, extractFromDescriptionText, formatDailyRateDisplay, cleanScrapedValue, translateMaintenanceToDe, rankToGermanCondition } from './internalFields.ts';
+import { normalizeRank, extractFromDescriptionText, formatDailyRateDisplay, cleanScrapedValue, translateMaintenanceToDe, rankToGermanCondition, cleanMaintenanceSnippet } from './internalFields.ts';
 
 export class TsTradingProvider implements ImportProvider {
   canHandle(url: string): boolean {
@@ -384,8 +384,9 @@ export class TsTradingProvider implements ImportProvider {
     const dailyRateMatch = fullDescription.match(/(?:Daily rate|Timing|Accuracy|日差|Gangabweichung)[：:\s]*(.*?)(?:\n|$)/i);
 
     const conditionRemarks = cleanScrapedValue(specs['Remarks'] || specs['Condition Details'] || fromText.conditionRemarks || remarksMatch?.[1] || '');
-    const maintenanceDescription =
-      translateMaintenanceToDe(specs['Maintenance Info'] || specs['Maintenance'] || fromText.maintenanceDescription || maintenanceMatch?.[1] || '');
+    const maintenanceDescription = cleanMaintenanceSnippet(
+      specs['Maintenance Info'] || specs['Maintenance'] || fromText.maintenanceDescription || maintenanceMatch?.[1] || ''
+    ) || translateMaintenanceToDe(specs['Maintenance Info'] || specs['Maintenance'] || maintenanceMatch?.[1] || '');
     const dailyRateDisplay = formatDailyRateDisplay(
       specs['Daily Rate'] || fromText.dailyRateDisplay || dailyRateMatch?.[1] || specs['Timing accuracy'] || ''
     );

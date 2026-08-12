@@ -2,6 +2,7 @@ import { ImportProvider, SourceProductData } from './types.ts';
 import { TsTradingProvider } from './TsTradingProvider.ts';
 import { analyzeProductImport } from '../../lib/gemini.ts';
 import { mergeInternalFieldsIntoAnalysis } from './internalFields.ts';
+import { enrichAnalysisContent, sanitizeSourceDescription } from './shopContent.ts';
 
 export class ImportService {
   private providers: ImportProvider[] = [];
@@ -47,9 +48,9 @@ export class ImportService {
       const sku = rawData.sku || rawData.specs?.['Ref No.'] || rawData.specs?.['Product No.'] || '';
       
       // Clean HTML from description even in fallback
-      let cleanDescription = stripHtml(rawData.description || "");
-      if (hasJapanese(cleanDescription)) {
-        cleanDescription = "Details are available in the source data. Please review manually.";
+      let cleanDescription = sanitizeSourceDescription(stripHtml(rawData.description || ""));
+      if (!cleanDescription) {
+        cleanDescription = "";
       }
       
       // Construct a descriptive name if the original is too generic or in Japanese
@@ -98,18 +99,25 @@ export class ImportService {
         contentDe: { 
           title: displayName, 
           description: cleanDescription,
-          conditionText: "Zustand siehe Quellseite."
         },
         contentEn: { 
           title: displayName, 
           description: cleanDescription,
-          conditionText: "Condition see source website."
         }
       };
     }
 
     // Always merge scraped internal fields (ranks, maintenance, daily rate) — Gemini schema omits these
     analysis.extractedData = mergeInternalFieldsIntoAnalysis(analysis.extractedData, rawData, analysis.contentDe);
+
+    const enriched = enrichAnalysisContent(
+      analysis.extractedData,
+      rawData,
+      analysis.contentDe,
+      analysis.contentEn
+    );
+    analysis.contentDe = enriched.contentDe;
+    analysis.contentEn = enriched.contentEn;
 
     // Final result reconstruction with guaranteed fields
     const finalResult = {

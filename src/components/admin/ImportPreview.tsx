@@ -11,6 +11,7 @@ import { collection, addDoc, serverTimestamp, query, where, getDocs } from "fire
 import { calculatePricing, PricingResult } from "../../lib/pricing.ts";
 import { parseLocaleNumber } from "../../lib/numbers.ts";
 import { extractInternalFields } from "../../services/import/internalFields.ts";
+import { resolveShopContentFields } from "../../services/import/shopContent.ts";
 
 const RANK_MAP: Record<string, { de: string; en: string }> = {
   N: { de: "Neu", en: "New" },
@@ -62,10 +63,13 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
 
   useEffect(() => {
     if (data && data.analysis) {
-      const isTsTrading = data.source?.provider === "TS TRADING";
       const internalFields = extractInternalFields({ analysis: data.analysis, source: data.source, contentDe: data.contentDe });
-      const internalRank = internalFields.overallRank || internalFields.sourceRank || "";
-      const mappedCondition = isTsTrading ? RANK_MAP[internalRank] : null;
+      const shopContent = resolveShopContentFields({
+        analysis: data.analysis,
+        source: data.source,
+        contentDe: data.contentDe,
+        contentEn: data.contentEn,
+      });
 
       const initialFormData = {
         ...data.analysis,
@@ -75,22 +79,22 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
         model: data.analysis.model || "",
         sku: data.analysis.sku || data.source?.sku || "",
         year: data.analysis.year || "",
-        descriptionDe: data.contentDe?.description || "",
-        descriptionEn: data.contentEn?.description || "",
-        shortDescriptionDe: data.contentDe?.shortDescription || "",
-        shortDescriptionEn: data.contentEn?.shortDescription || "",
-        titleDe: data.contentDe?.title || "",
-        titleEn: data.contentEn?.title || "",
-        conditionDe: data.contentDe?.conditionText || "",
-        conditionEn: data.contentEn?.conditionText || "",
-        specificationsDe: data.contentDe?.specificationsText || "",
-        specificationsEn: data.contentEn?.specificationsText || "",
-        scopeOfDeliveryDe: data.contentDe?.scopeOfDelivery || "",
-        scopeOfDeliveryEn: data.contentEn?.scopeOfDelivery || "",
-        seoTitleDe: data.contentDe?.seoTitle || "",
-        seoDescriptionDe: data.contentDe?.seoDescription || "",
-        seoTitleEn: data.contentEn?.seoTitle || "",
-        seoDescriptionEn: data.contentEn?.seoDescription || "",
+        descriptionDe: shopContent.descriptionDe,
+        descriptionEn: shopContent.descriptionEn,
+        shortDescriptionDe: shopContent.shortDescriptionDe,
+        shortDescriptionEn: shopContent.shortDescriptionEn,
+        titleDe: shopContent.titleDe,
+        titleEn: shopContent.titleEn,
+        conditionDe: shopContent.conditionDe,
+        conditionEn: shopContent.conditionEn,
+        specificationsDe: shopContent.specificationsDe,
+        specificationsEn: shopContent.specificationsEn,
+        scopeOfDeliveryDe: shopContent.scopeOfDeliveryDe,
+        scopeOfDeliveryEn: shopContent.scopeOfDeliveryEn,
+        seoTitleDe: shopContent.seoTitleDe,
+        seoDescriptionDe: shopContent.seoDescriptionDe,
+        seoTitleEn: shopContent.seoTitleEn,
+        seoDescriptionEn: shopContent.seoDescriptionEn,
         
         // Detailed Condition (internalFields spread above; keep explicit fallbacks for condition group)
         conditionGroup: data.analysis.conditionGroup || "PRE_OWNED",
@@ -718,7 +722,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
                     label="Wartung / Maintenance" 
                     value={formData.maintenanceDescription} 
                     onChange={(v: string) => setFormData({...formData, maintenanceDescription: v})}
-                    rows={2}
+                    rows={4}
                     placeholder="z.B. leichte Politur + Timing Adjustment..."
                   />
                   <InputField 
