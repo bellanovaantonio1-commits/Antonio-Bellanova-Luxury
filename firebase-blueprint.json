@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profiles and roles",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "description": "User's email address" },
+        "role": { "type": "string", "description": "User role: ADMIN, SUPER_ADMIN, CUSTOMER" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the user was created" },
+        "uid": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "CRM - Customer Relationship Management",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "phone": { "type": "string" },
+        "status": { "type": "string", "description": "LEAD, ACTIVE, INACTIVE" },
+        "tags": { "type": "array", "description": "Customer tags (e.g. 'VIP', 'Watch Collector')" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Brand": {
+      "title": "Brand",
+      "description": "Luxury brands catalog",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Product categories",
+      "type": "object",
+      "properties": {
+        "nameDe": { "type": "string" },
+        "nameEn": { "type": "string" },
+        "slug": { "type": "string" }
+      }
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Luxury product catalog",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "sku": { "type": "string" },
+        "brandId": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "price": { "type": "number" },
+        "currency": { "type": "string" },
+        "status": { "type": "string", "description": "ACTIVE, RESERVED, SOLD, ARCHIVED" },
+        "condition": { "type": "string", "description": "NEW, UNWORN, VERY_GOOD, GOOD" },
+        "images": { "type": "array" },
+        "watchDetails": { "type": "object" },
+        "descriptionDe": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Inventory": {
+      "title": "Inventory",
+      "description": "Stock tracking",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "onHand": { "type": "number" },
+        "reserved": { "type": "number" },
+        "available": { "type": "number" }
+      }
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer orders",
+      "type": "object",
+      "properties": {
+        "orderNumber": { "type": "string" },
+        "customerId": { "type": "string" },
+        "status": { "type": "string", "description": "PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED" },
+        "totalAmount": { "type": "number" },
+        "currency": { "type": "string" },
+        "items": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "users/{uid}": { "schema": "User", "description": "User profiles" },
+    "customers/{customerId}": { "schema": "Customer", "description": "CRM data" },
+    "brands/{brandId}": { "schema": "Brand", "description": "Brand catalog" },
+    "categories/{categoryId}": { "schema": "Category", "description": "Category catalog" },
+    "products/{productId}": { "schema": "Product", "description": "Product catalog" },
+    "inventory/{inventoryId}": { "schema": "Inventory", "description": "Inventory data" },
+    "orders/{orderId}": { "schema": "Order", "description": "Order data" }
+  }
+}

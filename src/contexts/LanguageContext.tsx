@@ -1,0 +1,214 @@
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+
+type Language = "de" | "en";
+
+interface LanguageContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: string) => string;
+}
+
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [language, setLanguage] = useState<Language>(() => {
+    const saved = localStorage.getItem("language");
+    return (saved as Language) || "de";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("language", language);
+    document.documentElement.lang = language;
+  }, [language]);
+
+  const t = (key: string) => {
+    return translations[language][key] || key;
+  };
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
+}
+
+export function useLanguage() {
+  const context = useContext(LanguageContext);
+  if (!context) {
+    throw new Error("useLanguage must be used within a LanguageProvider");
+  }
+  return context;
+}
+
+const translations: Record<Language, Record<string, string>> = {
+  de: {
+    "nav.shop": "Kollektion",
+    "nav.brands": "Marken",
+    "nav.sell": "Ankauf",
+    "nav.service": "Service",
+    "nav.account": "Konto",
+    "nav.profile": "Mein Profil",
+    "nav.logout": "Abmelden",
+    "nav.menu": "Menü",
+    "shop.title": "Exklusive Zeitmesser",
+    "shop.filter": "Filter",
+    "shop.no_products": "Aktuell sind keine Produkte in dieser Kategorie verfügbar.",
+    "shop.send_request": "Anfrage senden",
+    "product.condition": "Zustand",
+    "product.scope": "Lieferumfang",
+    "product.specifications": "Spezifikationen",
+    "product.description": "Beschreibung",
+    "product.price_on_request": "Preis auf Anfrage",
+    "product.add_to_cart": "In den Warenkorb",
+    "product.view_details": "Details ansehen",
+    "common.back": "Zurück",
+    "common.save": "Speichern",
+    "common.cancel": "Abbrechen",
+    "common.loading": "Laden...",
+    "home.hero.subtitle": "Haute Horlogerie",
+    "home.hero.view_details": "Details ansehen",
+    "home.categories.title": "Kategorien",
+    "home.categories.watches": "Uhren",
+    "home.categories.jewelry": "Schmuck",
+    "home.categories.explore": "Entdecken",
+    "home.service.title": "Concierge Service",
+    "home.service.description": "Besuchen Sie unser Atelier in Köln für eine persönliche Beratung oder nutzen Sie unseren zertifizierten Werkstatt-Service.",
+    "home.service.book": "Termin buchen",
+    "home.service.directions": "Anfahrt",
+    "home.highlights.subtitle": "Aktuelle Highlights",
+    "home.highlights.title": "Kuratierte Auswahl",
+    "home.highlights.view_all": "Alle ansehen",
+    "home.trust.certified.title": "Zertifiziert",
+    "home.trust.certified.desc": "Jedes Stück wird von Experten auf 100% Originalität geprüft.",
+    "home.trust.value.title": "Werterhalt",
+    "home.trust.value.desc": "Exklusive Sammlerstücke mit stabilem Wertzuwachs und Geschichte.",
+    "home.trust.tradition.title": "Tradition",
+    "home.trust.tradition.desc": "Meisterhaftes Handwerk seit Generationen vereint.",
+    "home.trust.service.title": "Service",
+    "home.trust.service.desc": "Individuelle Beratung in unserem Atelier oder diskret online.",
+    "contact.title": "Persönliche Beratung",
+    "contact.subtitle": "Wir nehmen uns Zeit für Sie. Besuchen Sie uns in unserem Atelier in Köln oder kontaktieren Sie uns für eine exklusive Beratung.",
+    "contact.atelier.title": "Atelier Köln",
+    "contact.phone.title": "Telefonisch",
+    "contact.email.title": "E-Mail",
+    "contact.email.desc": "Wir antworten innerhalb von 24h.",
+    "contact.form.firstname": "Vorname",
+    "contact.form.lastname": "Nachname",
+    "contact.form.email": "E-Mail Adresse",
+    "contact.form.subject": "Betreff",
+    "contact.form.message": "Ihre Nachricht",
+    "contact.form.message_placeholder": "Wie können wir Ihnen behilflich sein?",
+    "contact.form.submit": "Nachricht absenden",
+    "contact.form.success.title": "Nachricht gesendet",
+    "contact.form.success.desc": "Vielen Dank für Ihre Nachricht. Wir haben Ihr Anliegen erhalten und werden uns schnellstmöglich bei Ihnen melden.",
+    "contact.form.success.new": "Neue Nachricht verfassen",
+    "contact.subject.general": "Allgemeine Anfrage",
+    "contact.subject.product": "Beratung zu einem Produkt",
+    "contact.subject.appointment": "Terminanfrage",
+    "contact.subject.service": "Service & Reparatur",
+    "footer.brand.desc": "Ihr Meisteratelier für Haute Horlogerie. Exklusivität, Handwerkskunst und zeitlose Eleganz in höchster Vollendung.",
+    "footer.discover": "Entdecken",
+    "footer.service": "Service",
+    "footer.atelier": "Atelier",
+    "footer.rights": "Alle Rechte vorbehalten.",
+    "cart.title": "Ihr Warenkorb",
+    "cart.empty": "Ihr Warenkorb ist aktuell noch leer.",
+    "cart.checkout": "Zur Kasse gehen",
+    "cart.summary": "Zusammenfassung",
+    "cart.subtotal": "Zwischensumme",
+    "cart.shipping": "Versand",
+    "cart.shipping.free": "Kostenlos",
+    "cart.vat": "MwSt.",
+    "cart.total": "Gesamtsumme",
+    "cart.success.title": "Vielen Dank!",
+    "cart.success.desc": "Ihre Bestellung wurde erfolgreich entgegengenommen. Eine Bestätigungs-E-Mail ist bereits zu Ihnen unterwegs.",
+    "cart.continue": "Weiter einkaufen",
+    "cart.items": "Artikel",
+    "cart.processing": "Wird bearbeitet...",
+  },
+  en: {
+    "nav.shop": "Collection",
+    "nav.brands": "Brands",
+    "nav.sell": "Sell",
+    "nav.service": "Service",
+    "nav.account": "Account",
+    "nav.profile": "My Profile",
+    "nav.logout": "Logout",
+    "nav.menu": "Menu",
+    "shop.title": "Exclusive Timepieces",
+    "shop.filter": "Filter",
+    "shop.no_products": "Currently no products available in this category.",
+    "shop.send_request": "Send Inquiry",
+    "product.condition": "Condition",
+    "product.scope": "Scope of Delivery",
+    "product.specifications": "Specifications",
+    "product.description": "Description",
+    "product.price_on_request": "Price on request",
+    "product.add_to_cart": "Add to Cart",
+    "product.view_details": "View Details",
+    "common.back": "Back",
+    "common.save": "Save",
+    "common.cancel": "Cancel",
+    "common.loading": "Loading...",
+    "home.hero.subtitle": "Haute Horlogerie",
+    "home.hero.view_details": "View Details",
+    "home.categories.title": "Categories",
+    "home.categories.watches": "Watches",
+    "home.categories.jewelry": "Jewelry",
+    "home.categories.explore": "Explore",
+    "home.service.title": "Concierge Service",
+    "home.service.description": "Visit our atelier in Cologne for personal advice or use our certified workshop service.",
+    "home.service.book": "Book Appointment",
+    "home.service.directions": "Directions",
+    "home.highlights.subtitle": "Current Highlights",
+    "home.highlights.title": "Curated Selection",
+    "home.highlights.view_all": "View All",
+    "home.trust.certified.title": "Certified",
+    "home.trust.certified.desc": "Every piece is checked by experts for 100% authenticity.",
+    "home.trust.value.title": "Value Retention",
+    "home.trust.value.desc": "Exclusive collectibles with stable value growth and history.",
+    "home.trust.tradition.title": "Tradition",
+    "home.trust.tradition.desc": "Masterful craftsmanship united for generations.",
+    "home.trust.service.title": "Service",
+    "home.trust.service.desc": "Individual advice in our atelier or discreetly online.",
+    "contact.title": "Personal Consultation",
+    "contact.subtitle": "We take time for you. Visit us in our atelier in Cologne or contact us for an exclusive consultation.",
+    "contact.atelier.title": "Atelier Cologne",
+    "contact.phone.title": "By Phone",
+    "contact.email.title": "Email",
+    "contact.email.desc": "We respond within 24 hours.",
+    "contact.form.firstname": "First Name",
+    "contact.form.lastname": "Last Name",
+    "contact.form.email": "Email Address",
+    "contact.form.subject": "Subject",
+    "contact.form.message": "Your Message",
+    "contact.form.message_placeholder": "How can we help you?",
+    "contact.form.submit": "Send Message",
+    "contact.form.success.title": "Message Sent",
+    "contact.form.success.desc": "Thank you for your message. We have received your request and will get back to you as soon as possible.",
+    "contact.form.success.new": "Write New Message",
+    "contact.subject.general": "General Inquiry",
+    "contact.subject.product": "Product Consultation",
+    "contact.subject.appointment": "Appointment Request",
+    "contact.subject.service": "Service & Repair",
+    "footer.brand.desc": "Your master atelier for Haute Horlogerie. Exclusivity, craftsmanship and timeless elegance in highest perfection.",
+    "footer.discover": "Discover",
+    "footer.service": "Service",
+    "footer.atelier": "Atelier",
+    "footer.rights": "All rights reserved.",
+    "cart.title": "Your Cart",
+    "cart.empty": "Your cart is currently empty.",
+    "cart.checkout": "Proceed to Checkout",
+    "cart.summary": "Summary",
+    "cart.subtotal": "Subtotal",
+    "cart.shipping": "Shipping",
+    "cart.shipping.free": "Free",
+    "cart.vat": "VAT",
+    "cart.total": "Total",
+    "cart.success.title": "Thank You!",
+    "cart.success.desc": "Your order has been successfully received. A confirmation email is already on its way to you.",
+    "cart.continue": "Continue Shopping",
+    "cart.items": "Items",
+    "cart.processing": "Processing...",
+  }
+};

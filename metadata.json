@@ -1,0 +1,6 @@
+{
+  "name": "Antonio Bellanova Luxury",
+  "description": "Production-ready luxury e-commerce platform for jewelry and watches, featuring full ERP, CRM, inventory management, customs calculation, and multi-language support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    background-color: #050505;
+  }
+  
+  body {
+    @apply antialiased bg-[#050505] text-[#F4F4F4];
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, .font-serif {
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+@layer components {
+  .luxury-button {
+    @apply border border-white/20 text-white px-8 py-4 text-[10px] tracking-[0.3em] uppercase font-bold transition-all hover:bg-white hover:text-black shadow-lg active:scale-[0.98];
+  }
+  
+  .gold-accent {
+    @apply text-[#c5a059];
+  }
+  
+  .border-subtle {
+    @apply border-white/10;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: #050505;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c5a059;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b48e45;
+}
