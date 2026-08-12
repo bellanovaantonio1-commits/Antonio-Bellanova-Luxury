@@ -166,6 +166,16 @@ export const orders = pgTable('orders', {
   paymentMethod: text('payment_method').default('BANK_TRANSFER'),
   total: numeric('total', { precision: 10, scale: 2 }).notNull(),
   shippingAddress: jsonb('shipping_address'),
+  billingAddress: jsonb('billing_address'),
+  language: text('language').default('de'),
+  customerName: text('customer_name'),
+  companyName: text('company_name'),
+  customerVatId: text('customer_vat_id'),
+  shippingCost: numeric('shipping_cost', { precision: 10, scale: 2 }).default('0'),
+  discountAmount: numeric('discount_amount', { precision: 10, scale: 2 }).default('0'),
+  subtotalNet: numeric('subtotal_net', { precision: 10, scale: 2 }),
+  taxAmount: numeric('tax_amount', { precision: 10, scale: 2 }),
+  taxRatePercent: numeric('tax_rate_percent', { precision: 5, scale: 2 }).default('19'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -178,6 +188,12 @@ export const orderItems = pgTable('order_items', {
   productImage: text('product_image'),
   quantity: integer('quantity').notNull(),
   price: numeric('price', { precision: 10, scale: 2 }).notNull(),
+  productSku: text('product_sku'),
+  unitPriceGross: numeric('unit_price_gross', { precision: 10, scale: 2 }),
+  unitPriceNet: numeric('unit_price_net', { precision: 10, scale: 2 }),
+  lineTaxAmount: numeric('line_tax_amount', { precision: 10, scale: 2 }),
+  taxRatePercent: numeric('tax_rate_percent', { precision: 5, scale: 2 }),
+  taxTreatment: text('tax_treatment'),
 });
 
 export const shopSettings = pgTable('shop_settings', {
@@ -212,5 +228,41 @@ export const newsletterSubscribers = pgTable('newsletter_subscribers', {
   id: serial('id').primaryKey(),
   email: text('email').notNull().unique(),
   status: text('status').default('ACTIVE'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const invoiceSequences = pgTable('invoice_sequences', {
+  year: integer('year').primaryKey(),
+  lastNumber: integer('last_number').notNull().default(0),
+});
+
+export const invoices = pgTable('invoices', {
+  id: serial('id').primaryKey(),
+  invoiceNumber: text('invoice_number').notNull().unique(),
+  orderId: integer('order_id').notNull().unique().references(() => orders.id),
+  userId: text('user_id').notNull(),
+  language: text('language').notNull().default('de'),
+  customerEmail: text('customer_email'),
+  customerName: text('customer_name'),
+  companyName: text('company_name'),
+  customerVatId: text('customer_vat_id'),
+  billingAddress: jsonb('billing_address'),
+  shippingAddress: jsonb('shipping_address'),
+  lineItems: jsonb('line_items').notNull(),
+  sellerSnapshot: jsonb('seller_snapshot').notNull(),
+  subtotalNet: numeric('subtotal_net', { precision: 10, scale: 2 }).notNull(),
+  taxAmount: numeric('tax_amount', { precision: 10, scale: 2 }).notNull().default('0'),
+  shippingCost: numeric('shipping_cost', { precision: 10, scale: 2 }).notNull().default('0'),
+  discountAmount: numeric('discount_amount', { precision: 10, scale: 2 }).notNull().default('0'),
+  totalGross: numeric('total_gross', { precision: 10, scale: 2 }).notNull(),
+  taxRatePercent: numeric('tax_rate_percent', { precision: 5, scale: 2 }).default('19'),
+  taxNote: text('tax_note'),
+  currency: text('currency').notNull().default('EUR'),
+  paymentMethod: text('payment_method'),
+  paymentStatus: text('payment_status'),
+  orderNumber: text('order_number'),
+  eInvoiceFormat: text('e_invoice_format'),
+  eInvoiceMetadata: jsonb('e_invoice_metadata'),
+  issuedAt: timestamp('issued_at').defaultNow(),
   createdAt: timestamp('created_at').defaultNow(),
 });

@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 async function migrate() {
   const pool = createPgPool();
 
-  const migrations = ["0000_initial.sql", "0001_alter.sql", "0002_newsletter.sql"];
+  const migrations = ["0000_initial.sql", "0001_alter.sql", "0002_newsletter.sql", "0003_invoices.sql"];
 
   console.log("Running database migrations...");
   for (const file of migrations) {

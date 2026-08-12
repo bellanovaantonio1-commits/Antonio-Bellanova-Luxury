@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { User, Package, MapPin, Heart, Shield, LogOut, ChevronRight, Settings } from "lucide-react";
+import { User, Package, MapPin, Heart, Shield, LogOut, ChevronRight, Settings, Download } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext.tsx";
 import { useWishlist } from "../contexts/WishlistContext.tsx";
 import { useIsAdmin } from "../hooks/useIsAdmin.ts";
@@ -65,6 +65,25 @@ function OrdersView() {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState(false);
 
+  const downloadInvoice = async (orderId: number, invoiceNumber?: string | null) => {
+    if (!user) return;
+    const token = await user.getIdToken();
+    const res = await fetch(`/api/orders/${orderId}/invoice/pdf`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      alert("Rechnung konnte nicht geladen werden.");
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${invoiceNumber || "Rechnung"}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   useEffect(() => {
     if (!user) return;
 
@@ -124,12 +143,28 @@ function OrdersView() {
             <div className="space-y-1">
               <span className="text-[10px] tracking-widest uppercase text-white/20 font-bold">Bestellnummer</span>
               <p className="text-lg font-serif italic text-[#c5a059]">{order.orderNumber}</p>
+              {(order as any).invoiceNumber && (
+                <>
+                  <span className="text-[10px] tracking-widest uppercase text-white/20 font-bold block mt-3">Rechnungsnummer</span>
+                  <p className="text-sm font-mono text-white/70">{(order as any).invoiceNumber}</p>
+                </>
+              )}
             </div>
-            <div className="space-y-1 text-right">
-              <span className="text-[10px] tracking-widest uppercase text-white/20 font-bold">Bestelldatum</span>
-              <p className="text-sm font-light">
-                {order.createdAt ? (typeof order.createdAt === 'string' ? new Date(order.createdAt).toLocaleDateString('de-DE') : (order.createdAt as any).toDate?.()?.toLocaleDateString('de-DE') || 'Neu') : 'Neu'}
-              </p>
+            <div className="space-y-3 text-right">
+              <div className="space-y-1">
+                <span className="text-[10px] tracking-widest uppercase text-white/20 font-bold">Bestelldatum</span>
+                <p className="text-sm font-light">
+                  {order.createdAt ? (typeof order.createdAt === 'string' ? new Date(order.createdAt).toLocaleDateString('de-DE') : (order.createdAt as any).toDate?.()?.toLocaleDateString('de-DE') || 'Neu') : 'Neu'}
+                </p>
+              </div>
+              {(order as any).invoiceNumber && (
+                <button
+                  onClick={() => downloadInvoice(order.id, (order as any).invoiceNumber)}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-[10px] tracking-widest uppercase font-bold text-[#c5a059] border border-[#c5a059]/30 rounded-full hover:bg-[#c5a059]/10 transition-colors"
+                >
+                  <Download size={14} /> Rechnung
+                </button>
+              )}
             </div>
           </div>
 

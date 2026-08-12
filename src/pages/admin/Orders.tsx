@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ShoppingCart, Package, CreditCard, Download, XCircle, Truck, CheckCircle2 } from "lucide-react";
+import { ShoppingCart, Package, CreditCard, Download, XCircle, Truck, CheckCircle2, FileText } from "lucide-react";
 import { auth } from "../../lib/firebase.ts";
 
 interface AdminOrder {
@@ -11,6 +11,7 @@ interface AdminOrder {
   customerEmail?: string;
   itemCount: number;
   createdAt: string;
+  invoiceNumber?: string | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -112,6 +113,20 @@ export default function Orders() {
     URL.revokeObjectURL(url);
   };
 
+  const generateInvoice = async (orderId: number) => {
+    const token = await auth.currentUser?.getIdToken();
+    const res = await fetch(`/api/admin/orders/${orderId}/invoice`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Rechnung konnte nicht erstellt werden.");
+      return;
+    }
+    await loadOrders();
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -203,6 +218,15 @@ export default function Orders() {
                               className="p-2 hover:bg-green-50 rounded-lg text-green-600"
                             >
                               <CreditCard size={14} />
+                            </button>
+                          )}
+                          {!order.invoiceNumber && (
+                            <button
+                              onClick={() => generateInvoice(order.id)}
+                              title="Rechnung nachträglich erzeugen"
+                              className="p-2 hover:bg-amber-50 rounded-lg text-amber-700"
+                            >
+                              <FileText size={14} />
                             </button>
                           )}
                           <button

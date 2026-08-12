@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { DEFAULT_SHOP_SETTINGS } from "../config/shopDefaults.ts";
 
 export type ShopSettings = {
+  legalCompanyName: string;
+  shopBrandName: string;
   shopName: string;
   contactEmail: string;
   contactPhone: string;
@@ -13,6 +15,7 @@ export type ShopSettings = {
   paymentInstructionsDe: string;
   paymentInstructionsEn: string;
   vatId: string;
+  taxNumber: string;
   instagramUrl: string;
   facebookUrl: string;
   whatsappNumber: string;
@@ -22,6 +25,8 @@ export type ShopSettings = {
 function toSettings(raw: Record<string, unknown>): ShopSettings {
   const str = (key: keyof ShopSettings) => String(raw[key] ?? DEFAULT_SHOP_SETTINGS[key] ?? "");
   return {
+    legalCompanyName: str("legalCompanyName"),
+    shopBrandName: str("shopBrandName"),
     shopName: str("shopName"),
     contactEmail: str("contactEmail"),
     contactPhone: str("contactPhone"),
@@ -33,6 +38,7 @@ function toSettings(raw: Record<string, unknown>): ShopSettings {
     paymentInstructionsDe: str("paymentInstructionsDe"),
     paymentInstructionsEn: str("paymentInstructionsEn"),
     vatId: str("vatId"),
+    taxNumber: str("taxNumber"),
     instagramUrl: str("instagramUrl"),
     facebookUrl: str("facebookUrl"),
     whatsappNumber: str("whatsappNumber"),

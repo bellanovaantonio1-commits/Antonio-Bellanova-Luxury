@@ -2,9 +2,10 @@ type EmailPayload = {
   to: string | string[];
   subject: string;
   html: string;
+  attachments?: { filename: string; content: string }[];
 };
 
-export async function sendEmail({ to, subject, html }: EmailPayload): Promise<boolean> {
+export async function sendEmail({ to, subject, html, attachments }: EmailPayload): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = process.env.EMAIL_FROM?.trim() || "Antonio Bellanova <onboarding@resend.dev>";
 
@@ -14,18 +15,16 @@ export async function sendEmail({ to, subject, html }: EmailPayload): Promise<bo
   }
 
   try {
+    const body: Record<string, unknown> = { from, to: Array.isArray(to) ? to : [to], subject, html };
+    if (attachments?.length) body.attachments = attachments;
+
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from,
-        to: Array.isArray(to) ? to : [to],
-        subject,
-        html,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
@@ -52,42 +51,63 @@ function layout(title: string, body: string) {
 export async function sendOrderEmails(opts: {
   customerEmail: string;
   orderNumber: string;
+  invoiceNumber?: string;
   total: string;
   items: { name: string; quantity: number; price: number }[];
   settings: Record<string, unknown>;
+  language?: "de" | "en";
+  pdfBuffer?: Buffer;
 }) {
-  const s = opts.settings;
-  const shopName = String(s.shopName || "Antonio Bellanova Luxury");
-  const ownerEmail = String(s.contactEmail || "");
+  const lang = opts.language === "en" ? "en" : "de";
+  const locale = lang === "en" ? "en-GB" : "de-DE";
+  const shopName = String(opts.settings.shopName || "Antonio Bellanova Luxury");
+  const ownerEmail = String(opts.settings.contactEmail || "");
   const itemRows = opts.items
-    .map((i) => `<li>${i.name} × ${i.quantity} — ${i.price.toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</li>`)
+    .map((i) => `<li>${i.name} × ${i.quantity} — ${i.price.toLocaleString(locale, { style: "currency", currency: "EUR" })}</li>`)
     .join("");
 
+  const instructions = lang === "en"
+    ? opts.settings.paymentInstructionsEn || opts.settings.paymentInstructionsDe
+    : opts.settings.paymentInstructionsDe;
+
   const bankBlock = `
-    <p><strong>Banküberweisung</strong></p>
-    <p>${s.paymentInstructionsDe || ""}</p>
-    <p>Empfänger: ${s.bankAccountHolder}<br/>IBAN: ${s.bankIban}<br/>BIC: ${s.bankBic}<br/>Bank: ${s.bankName}</p>
-    <p><strong>Verwendungszweck:</strong> ${opts.orderNumber}</p>`;
+    <p><strong>${lang === "en" ? "Bank transfer" : "Banküberweisung"}</strong></p>
+    <p>${instructions || ""}</p>
+    <p>${lang === "en" ? "Recipient" : "Empfänger"}: ${opts.settings.bankAccountHolder}<br/>IBAN: ${opts.settings.bankIban}<br/>BIC: ${opts.settings.bankBic}<br/>${lang === "en" ? "Bank" : "Bank"}: ${opts.settings.bankName}</p>
+    <p><strong>${lang === "en" ? "Reference" : "Verwendungszweck"}:</strong> ${opts.orderNumber}</p>`;
+
+  const invoiceLine = opts.invoiceNumber
+    ? `<p>${lang === "en" ? "Invoice number" : "Rechnungsnummer"}: <strong>${opts.invoiceNumber}</strong></p>`
+    : "";
+
+  const attachments = opts.pdfBuffer && opts.invoiceNumber
+    ? [{ filename: `${opts.invoiceNumber}.pdf`, content: opts.pdfBuffer.toString("base64") }]
+    : undefined;
+
+  const customerSubject = lang === "en"
+    ? `Order confirmation ${opts.orderNumber} — ${shopName}`
+    : `Bestellbestätigung ${opts.orderNumber} — ${shopName}`;
+
+  const customerTitle = lang === "en" ? "Thank you for your order" : "Vielen Dank für Ihre Bestellung";
+  const customerBody = lang === "en"
+    ? `<p>Your order <strong>${opts.orderNumber}</strong> has been received.</p>${invoiceLine}<p>Total: <strong>${parseFloat(opts.total).toLocaleString(locale, { style: "currency", currency: "EUR" })}</strong></p><ul>${itemRows}</ul>${bankBlock}${opts.pdfBuffer ? "<p>Your invoice is attached as a PDF.</p>" : ""}`
+    : `<p>Ihre Bestellung <strong>${opts.orderNumber}</strong> wurde erfolgreich entgegengenommen.</p>${invoiceLine}<p>Gesamtbetrag: <strong>${parseFloat(opts.total).toLocaleString(locale, { style: "currency", currency: "EUR" })}</strong></p><ul>${itemRows}</ul>${bankBlock}${opts.pdfBuffer ? "<p>Ihre Rechnung finden Sie im PDF-Anhang.</p>" : ""}`;
 
   await sendEmail({
     to: opts.customerEmail,
-    subject: `Bestellbestätigung ${opts.orderNumber} — ${shopName}`,
-    html: layout("Vielen Dank für Ihre Bestellung", `
-      <p>Ihre Bestellung <strong>${opts.orderNumber}</strong> ist bei uns eingegangen.</p>
-      <p>Gesamtbetrag: <strong>${parseFloat(opts.total).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</strong></p>
-      <ul>${itemRows}</ul>
-      ${bankBlock}
-      <p style="margin-top:24px;color:#666;font-size:12px">Bei Fragen: ${ownerEmail}</p>
-    `),
+    subject: customerSubject,
+    html: layout(customerTitle, customerBody),
+    attachments,
   });
 
   if (ownerEmail) {
     await sendEmail({
       to: ownerEmail,
-      subject: `Neue Bestellung ${opts.orderNumber}`,
+      subject: `Neue Bestellung ${opts.orderNumber}${opts.invoiceNumber ? ` / ${opts.invoiceNumber}` : ""}`,
       html: layout("Neue Bestellung", `
         <p>Kunde: ${opts.customerEmail}</p>
         <p>Bestellnummer: <strong>${opts.orderNumber}</strong></p>
+        ${opts.invoiceNumber ? `<p>Rechnungsnummer: <strong>${opts.invoiceNumber}</strong></p>` : ""}
         <p>Gesamt: ${parseFloat(opts.total).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</p>
         <ul>${itemRows}</ul>
       `),
@@ -137,4 +157,8 @@ export async function sendInquiryEmails(opts: {
       <p style="color:#666;font-size:12px">${shopName}<br/>${opts.settings.contactPhone || ""}</p>
     `),
   });
+}
+
+export function isEmailConfigured(): boolean {
+  return Boolean(process.env.RESEND_API_KEY?.trim());
 }

@@ -4,11 +4,20 @@ import { requireAuth, requireRole, AuthRequest } from "../middleware/auth.ts";
 import { db } from "../db/index.ts";
 import {
   users, products, brands, categories, orders, orderItems,
-  shopSettings, inquiries, wishlistItems, newsletterSubscribers
+  shopSettings, inquiries, wishlistItems, newsletterSubscribers, invoices
 } from "../db/schema.ts";
 import { generateOrderNumber, DEFAULT_SHOP_SETTINGS } from "./helpers.ts";
 import { extractProductFromText } from "../lib/gemini.ts";
 import { sendOrderEmails, sendInquiryEmails } from "./email.ts";
+import {
+  createInvoiceForOrder,
+  buildOrderLinesFromRequest,
+  getInvoicePdfBufferByOrderId,
+  getInvoicePdfBufferById,
+  listInvoicesForAdmin,
+  getInvoiceByOrderId,
+} from "./invoice/service.ts";
+import { getMissingInvoiceSettings } from "./invoice/seller.ts";
 
 async function getSettingsMap(): Promise<Record<string, unknown>> {
   const rows = await db.select().from(shopSettings);
@@ -287,10 +296,29 @@ export function registerExtraRoutes(app: Express) {
   // Enhanced orders
   app.post("/api/orders", requireAuth, async (req: AuthRequest, res) => {
     try {
-      const { items, totalAmount, shippingAddress } = req.body;
+      const {
+        items,
+        billingAddress,
+        shippingAddress,
+        customerName,
+        companyName,
+        customerVatId,
+        language,
+        discountAmount,
+      } = req.body;
       if (!items?.length) return res.status(400).json({ error: "Warenkorb ist leer." });
 
+      const computed = await buildOrderLinesFromRequest(
+        items.map((i: { id: string; quantity: number }) => ({ id: i.id, quantity: i.quantity }))
+      );
+
+      const shippingCost = 0;
+      const discount = parseFloat(discountAmount) || 0;
+      const totalGross = Math.max(0, computed.totalGross + shippingCost - discount);
+
       const orderNumber = generateOrderNumber();
+      const billing = billingAddress || null;
+      const shipping = shippingAddress || billing;
 
       const [order] = await db.insert(orders).values({
         userId: req.user!.uid,
@@ -298,50 +326,83 @@ export function registerExtraRoutes(app: Express) {
         status: "PENDING",
         paymentStatus: "PENDING",
         paymentMethod: "BANK_TRANSFER",
-        total: totalAmount.toString(),
-        shippingAddress: shippingAddress || null,
+        total: totalGross.toString(),
+        subtotalNet: computed.subtotalNet.toString(),
+        taxAmount: computed.taxAmount.toString(),
+        taxRatePercent: computed.taxRatePercent.toString(),
+        shippingCost: shippingCost.toString(),
+        discountAmount: discount.toString(),
+        shippingAddress: shipping,
+        billingAddress: billing,
+        language: language === "en" ? "en" : "de",
+        customerName: customerName || null,
+        companyName: companyName || null,
+        customerVatId: customerVatId || null,
       }).returning();
 
       const orderItemsForEmail: { name: string; quantity: number; price: number }[] = [];
 
-      for (const item of items) {
-        const productId = parseInt(item.id);
-        const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
-
+      for (const line of computed.lines) {
         await db.insert(orderItems).values({
           orderId: order.id,
-          productId,
-          productName: item.name,
-          productImage: item.image,
-          quantity: item.quantity,
-          price: item.price.toString(),
+          productId: line.productId,
+          productName: line.name,
+          productImage: line.image,
+          productSku: line.sku,
+          quantity: line.quantity,
+          price: line.unitPriceGross.toString(),
+          unitPriceGross: line.unitPriceGross.toString(),
+          unitPriceNet: line.unitPriceNet.toString(),
+          lineTaxAmount: line.lineTaxAmount.toString(),
+          taxRatePercent: line.taxRatePercent.toString(),
+          taxTreatment: line.taxTreatment,
         });
 
-        orderItemsForEmail.push({ name: item.name, quantity: item.quantity, price: item.price });
+        orderItemsForEmail.push({ name: line.name, quantity: line.quantity, price: line.unitPriceGross });
 
+        const [product] = await db.select().from(products).where(eq(products.id, line.productId)).limit(1);
         if (product && product.stock !== null && product.stock > 0) {
           await db.update(products)
-            .set({ stock: Math.max(0, product.stock - item.quantity), updatedAt: new Date() })
-            .where(eq(products.id, productId));
+            .set({ stock: Math.max(0, product.stock - line.quantity), updatedAt: new Date() })
+            .where(eq(products.id, line.productId));
         }
       }
 
       const settings = await getSettingsMap();
+      let invoice = null;
+      try {
+        invoice = await createInvoiceForOrder(order.id, settings);
+      } catch (invErr: unknown) {
+        console.error("Invoice creation failed:", invErr);
+      }
+
       const customerEmail = req.user!.email;
       if (customerEmail) {
+        let pdfBuffer: Buffer | undefined;
+        if (invoice) {
+          pdfBuffer = (await getInvoicePdfBufferByOrderId(order.id)) || undefined;
+        }
         sendOrderEmails({
           customerEmail,
           orderNumber,
-          total: totalAmount.toString(),
+          invoiceNumber: invoice?.invoiceNumber,
+          total: totalGross.toString(),
           items: orderItemsForEmail,
           settings,
+          language: language === "en" ? "en" : "de",
+          pdfBuffer,
         }).catch((e) => console.error("Order email failed", e));
       }
 
-      res.status(201).json({ ...order, paymentInfo: settings });
-    } catch (error) {
+      res.status(201).json({
+        ...order,
+        invoiceNumber: invoice?.invoiceNumber || null,
+        paymentInfo: settings,
+        invoiceSettingsWarning: getMissingInvoiceSettings(settings),
+      });
+    } catch (error: unknown) {
       console.error("Failed to create order", error);
-      res.status(500).json({ error: "Bestellung fehlgeschlagen." });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Bestellung fehlgeschlagen." });
     }
   });
 
@@ -353,9 +414,13 @@ export function registerExtraRoutes(app: Express) {
 
       const enriched = await Promise.all(userOrders.map(async (order) => {
         const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+        const [inv] = await db.select({ invoiceNumber: invoices.invoiceNumber, invoiceId: invoices.id })
+          .from(invoices).where(eq(invoices.orderId, order.id)).limit(1);
         return {
           ...order,
           orderNumber: order.orderNumber || `ORD-${order.id}`,
+          invoiceNumber: inv?.invoiceNumber || null,
+          invoiceId: inv?.invoiceId ?? null,
           items: items.map(i => ({
             id: i.productId?.toString() || i.id.toString(),
             name: i.productName || "Produkt",
@@ -369,6 +434,32 @@ export function registerExtraRoutes(app: Express) {
       res.json(enriched);
     } catch (error) {
       res.status(500).json({ error: "Bestellungen konnten nicht geladen werden." });
+    }
+  });
+
+  app.get("/api/orders/:orderId/invoice/pdf", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const orderId = parseInt(req.params.orderId, 10);
+      if (isNaN(orderId)) return res.status(400).json({ error: "Ungültige Bestellung." });
+
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      if (!order) return res.status(404).json({ error: "Bestellung nicht gefunden." });
+      if (order.userId !== req.user!.uid) return res.status(403).json({ error: "Zugriff verweigert." });
+
+      let invoice = await getInvoiceByOrderId(orderId);
+      if (!invoice) {
+        const settings = await getSettingsMap();
+        invoice = await createInvoiceForOrder(orderId, settings);
+      }
+
+      const pdf = await getInvoicePdfBufferByOrderId(orderId);
+      if (!pdf) return res.status(404).json({ error: "Rechnung konnte nicht erzeugt werden." });
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${invoice.invoiceNumber}.pdf"`);
+      res.send(pdf);
+    } catch (error: unknown) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "PDF fehlgeschlagen." });
     }
   });
 
@@ -408,11 +499,14 @@ export function registerExtraRoutes(app: Express) {
 
       const enriched = await Promise.all(allOrders.map(async ({ order, user }) => {
         const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+        const [inv] = await db.select({ invoiceNumber: invoices.invoiceNumber })
+          .from(invoices).where(eq(invoices.orderId, order.id)).limit(1);
         return {
           ...order,
           orderNumber: order.orderNumber || `ORD-${order.id}`,
           customerEmail: user?.email,
           itemCount: items.length,
+          invoiceNumber: inv?.invoiceNumber || null,
         };
       }));
 
@@ -466,6 +560,51 @@ export function registerExtraRoutes(app: Express) {
       res.json(updated);
     } catch (error) {
       res.status(500).json({ error: "Update fehlgeschlagen." });
+    }
+  });
+
+  // Admin invoices
+  app.get("/api/admin/invoices", requireAuth, requireRole(["ADMIN"]), async (_req, res) => {
+    try {
+      res.json(await listInvoicesForAdmin());
+    } catch (error) {
+      res.status(500).json({ error: "Rechnungen konnten nicht geladen werden." });
+    }
+  });
+
+  app.get("/api/admin/invoices/settings-status", requireAuth, requireRole(["ADMIN"]), async (_req, res) => {
+    try {
+      await ensureDefaultSettings();
+      res.json(getMissingInvoiceSettings(await getSettingsMap()));
+    } catch (error) {
+      res.status(500).json({ error: "Status konnte nicht geladen werden." });
+    }
+  });
+
+  app.get("/api/admin/invoices/:id/pdf", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const pdf = await getInvoicePdfBufferById(id);
+      if (!pdf) return res.status(404).json({ error: "Rechnung nicht gefunden." });
+      const [row] = await db.select().from(invoices).where(eq(invoices.id, id)).limit(1);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${row?.invoiceNumber || "invoice"}.pdf"`);
+      res.send(pdf);
+    } catch (error) {
+      res.status(500).json({ error: "PDF fehlgeschlagen." });
+    }
+  });
+
+  app.post("/api/admin/orders/:orderId/invoice", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
+    try {
+      const orderId = parseInt(req.params.orderId, 10);
+      if (isNaN(orderId)) return res.status(400).json({ error: "Ungültige Bestellung." });
+      await ensureDefaultSettings();
+      const settings = await getSettingsMap();
+      const invoice = await createInvoiceForOrder(orderId, settings);
+      res.status(201).json(invoice);
+    } catch (error: unknown) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Rechnung konnte nicht erstellt werden." });
     }
   });
 

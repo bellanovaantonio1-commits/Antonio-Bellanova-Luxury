@@ -1,5 +1,7 @@
 /** Shared shop defaults — used by server and frontend fallback */
 export const DEFAULT_SHOP_SETTINGS: Record<string, string> = {
+  legalCompanyName: "Juwelen & Schmuckatelier Antonio Bellanova",
+  shopBrandName: "Antonio Bellanova Luxury",
   shopName: "Juwelen & Schmuckatelier ANTONIO BELLANOVA",
   contactEmail: "antonio.bellanova@antoniobellanova.com",
   contactPhone: "+49 (0) 1637607805",
@@ -11,6 +13,7 @@ export const DEFAULT_SHOP_SETTINGS: Record<string, string> = {
   paymentInstructionsDe: "Bitte überweisen Sie den Betrag unter Angabe Ihrer Bestellnummer als Verwendungszweck.",
   paymentInstructionsEn: "Please transfer the amount using your order number as payment reference.",
   vatId: "",
+  taxNumber: "",
   instagramUrl: "",
   facebookUrl: "",
   whatsappNumber: "491637607805",
