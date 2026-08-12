@@ -30,6 +30,10 @@ export const requireAuth = async (
   }
 
   const token = authHeader.split('Bearer ')[1];
+  if (!adminAuth) {
+    console.error('Firebase Admin Auth is not initialized');
+    return res.status(503).json({ error: 'Auth service unavailable' });
+  }
   try {
     const decodedToken = await adminAuth.verifyIdToken(token);
     req.user = decodedToken;

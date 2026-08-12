@@ -3,9 +3,9 @@ import { motion } from "motion/react";
 import { User, Package, MapPin, Heart, Shield, LogOut, ChevronRight, Settings } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext.tsx";
 import { useWishlist } from "../contexts/WishlistContext.tsx";
+import { useIsAdmin } from "../hooks/useIsAdmin.ts";
 import { Link, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { Order, OrderStatus } from "../types.ts";
-import { isAdminEmail } from "../config/admin.ts";
 
 function OrderTracking({ status }: { status: OrderStatus }) {
   const steps = [
@@ -348,7 +348,7 @@ export default function Account() {
   const { user, logout, role } = useAuth();
   const { items: wishlistItems } = useWishlist();
   const location = useLocation();
-  const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN" || isAdminEmail(user?.email);
+  const isAdmin = useIsAdmin();
 
   if (!user) return <Navigate to="/" />;
 
@@ -380,6 +380,20 @@ export default function Account() {
             <LogOut size={14} /> Abmelden
           </button>
         </header>
+
+        {isAdmin && (
+          <Link
+            to="/admin"
+            className="flex items-center justify-between p-8 bg-gradient-to-r from-[#c5a059]/20 to-[#c5a059]/5 border border-[#c5a059]/40 rounded-2xl hover:border-[#c5a059] transition-all group"
+          >
+            <div className="space-y-1">
+              <p className="text-[10px] tracking-[0.4em] uppercase font-bold text-[#c5a059]">Administration</p>
+              <p className="text-xl font-serif italic">Zum Admin-Portal</p>
+              <p className="text-white/40 text-xs">Produkte, Bestellungen, Einstellungen verwalten</p>
+            </div>
+            <ChevronRight size={24} className="text-[#c5a059] group-hover:translate-x-1 transition-transform" />
+          </Link>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           {/* Sidebar Navigation */}

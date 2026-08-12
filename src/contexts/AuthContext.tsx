@@ -22,6 +22,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function resolveRole(email: string | null | undefined, dbRole: string | null | undefined): string {
+  if (isAdminEmail(email)) return "ADMIN";
+  return dbRole || "CUSTOMER";
+}
+
 function getAuthErrorMessage(error: any): string {
   const code = error?.code || "";
   if (code === "auth/unauthorized-domain") {
@@ -62,14 +67,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
           if (res.ok) {
             const data = await res.json();
-            setRole(data.role);
+            setRole(resolveRole(user.email, data.role));
           } else {
-            // DB offline — fallback: admin by email
-            setRole(isAdminEmail(user.email) ? "ADMIN" : "CUSTOMER");
+            setRole(resolveRole(user.email, null));
           }
         } catch (e) {
           console.error("Sync failed", e);
-          setRole(isAdminEmail(user.email) ? "ADMIN" : "CUSTOMER");
+          setRole(resolveRole(user.email, null));
         }
       } else {
         setRole(null);

@@ -15,3 +15,5 @@ services:
         sync: false
       - key: APP_URL
         sync: false
+      - key: ADMIN_EMAILS
+        value: antoniobellanova1812@gmail.com,belllanovaantonio1@gmail.com

@@ -79,7 +79,7 @@ async function startServer() {
         }
       }
 
-      res.json(userData);
+      res.json({ ...userData, role: isAdminEmail ? "ADMIN" : userData.role });
     } catch (error: any) {
       console.error("Sync failed:", error);
       // Graceful fallback wenn DB nicht erreichbar

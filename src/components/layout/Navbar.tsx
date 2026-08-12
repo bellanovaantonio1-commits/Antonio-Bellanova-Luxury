@@ -6,18 +6,18 @@ import { useAuth } from "../../contexts/AuthContext.tsx";
 import { useCart } from "../../contexts/CartContext.tsx";
 import { useLanguage } from "../../contexts/LanguageContext.tsx";
 import { MAIN_NAV } from "../../config/navigation.ts";
-import { isAdminEmail } from "../../config/admin.ts";
+import { useIsAdmin } from "../../hooks/useIsAdmin.ts";
 import SearchOverlay from "./SearchOverlay.tsx";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const { user, signIn, logout, role } = useAuth();
+  const { user, signIn, logout } = useAuth();
+  const isAdmin = useIsAdmin();
   const { count } = useCart();
   const { language, setLanguage, t } = useLanguage();
   const location = useLocation();
-  const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN" || isAdminEmail(user?.email);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
