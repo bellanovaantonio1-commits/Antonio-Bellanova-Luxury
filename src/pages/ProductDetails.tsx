@@ -7,6 +7,7 @@ import { useCart } from "../contexts/CartContext.tsx";
 import { useWishlist } from "../contexts/WishlistContext.tsx";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
 import MetaTags from "../components/common/MetaTags.tsx";
+import { mergeSpecRows, parseSpecificationsText, splitDescriptionAndDetails } from "../lib/productDisplay.ts";
 
 export default function ProductDetails() {
   const { slug } = useParams();
@@ -41,11 +42,57 @@ export default function ProductDetails() {
     fetchProduct();
   }, [slug]);
 
-  const displayTitle = language === "en" && product?.titleEn ? product.titleEn : (product?.titleDe || product?.name || "");
-  const displayDescription = language === "en" && product?.descriptionEn ? product.descriptionEn : (product?.descriptionDe || "");
-  const displayCondition = language === "en" && product?.conditionEn ? product.conditionEn : (product?.conditionDe || product?.condition || "Hervorragend");
-  const displayScope = language === "en" && product?.scopeOfDeliveryEn ? product.scopeOfDeliveryEn : (product?.scopeOfDeliveryDe || "Originalbox & Papiere");
-  const displaySpecs = language === "en" && product?.specificationsEn ? product.specificationsEn : (product?.specificationsDe || "");
+  if (loading) return <div className="pt-48 pb-24 text-center text-[10px] tracking-widest uppercase">{t("common.loading")}</div>;
+  if (!product) return <div className="pt-48 pb-24 text-center">{t("common.back")}</div>;
+
+  const displayTitle = language === "en" && product.titleEn ? product.titleEn : (product.titleDe || product.name || "");
+  const displayDescription = language === "en" && product.descriptionEn ? product.descriptionEn : (product.descriptionDe || "");
+  const displayCondition = language === "en" && product.conditionEn ? product.conditionEn : (product.conditionDe || product.condition || "Hervorragend");
+  const displayScope = language === "en" && product.scopeOfDeliveryEn ? product.scopeOfDeliveryEn : (product.scopeOfDeliveryDe || "Originalbox & Papiere");
+  const displaySpecs = language === "en" && product.specificationsEn ? product.specificationsEn : (product.specificationsDe || "");
+
+  const { paragraphs: descriptionParagraphs, details: embeddedDetails } = splitDescriptionAndDetails(displayDescription);
+  const specRows = mergeSpecRows(
+    [
+      { label: language === "en" ? "Brand" : "Marke", value: product.brand?.name || "" },
+      { label: language === "en" ? "Model" : "Modell", value: product.model || "" },
+      { label: language === "en" ? "Reference" : "Referenz", value: product.sku || "" },
+      { label: language === "en" ? "Year" : "Jahr", value: product.year || "" },
+      { label: "Material", value: product.material || "" },
+      { label: language === "en" ? "Case size" : "Gehäusegröße", value: product.diameter || "" },
+      { label: language === "en" ? "Movement" : "Werk", value: product.movement || "" },
+      { label: language === "en" ? "Condition" : "Zustand", value: displayCondition },
+      { label: language === "en" ? "Scope of delivery" : "Lieferumfang", value: displayScope },
+      {
+        label: "Box",
+        value:
+          product.box === "true" || product.box === "Ja"
+            ? language === "en"
+              ? "Yes"
+              : "Ja"
+            : product.box === "false" || product.box === "Nein"
+              ? language === "en"
+                ? "No"
+                : "Nein"
+              : product.box || "",
+      },
+      {
+        label: language === "en" ? "Papers" : "Papiere",
+        value:
+          product.papers === "true" || product.papers === "Ja"
+            ? language === "en"
+              ? "Yes"
+              : "Ja"
+            : product.papers === "false" || product.papers === "Nein"
+              ? language === "en"
+                ? "No"
+                : "Nein"
+              : product.papers || "",
+      },
+    ].filter((row) => row.value && row.value !== "-" && row.value !== "N/A"),
+    embeddedDetails,
+    parseSpecificationsText(displaySpecs)
+  );
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -80,9 +127,6 @@ export default function ProductDetails() {
       alert("Link kopiert!");
     }
   };
-
-  if (loading) return <div className="pt-48 pb-24 text-center text-[10px] tracking-widest uppercase">{t("common.loading")}</div>;
-  if (!product) return <div className="pt-48 pb-24 text-center">{t("common.back")}</div>;
 
   const isFavorited = product.id ? isInWishlist(String(product.id)) : false;
 
@@ -241,8 +285,14 @@ export default function ProductDetails() {
               <h3 className="text-[10px] uppercase tracking-[0.4em] font-bold text-white/40 border-b border-white/5 pb-4 mb-8">
                 {t("product.description")}
               </h3>
-              <div className="prose prose-invert prose-sm max-w-none font-light text-white/70 leading-relaxed text-[13px]">
-                <div dangerouslySetInnerHTML={{ __html: displayDescription || "Keine Beschreibung verfügbar." }} />
+              <div className="prose prose-invert prose-sm max-w-none font-light text-white/70 leading-relaxed text-[13px] space-y-6">
+                {descriptionParagraphs.length > 0 ? (
+                  descriptionParagraphs.map((paragraph, idx) => (
+                    <p key={idx}>{paragraph}</p>
+                  ))
+                ) : (
+                  <p>{language === "en" ? "No description available." : "Keine Beschreibung verfügbar."}</p>
+                )}
               </div>
             </div>
             
@@ -253,76 +303,21 @@ export default function ProductDetails() {
               </h3>
               
               <div className="grid grid-cols-1 gap-1">
-                {/* Fixed attributes first */}
-                {[
-                  { label: "Marke", value: product.brand?.name },
-                  { label: "Modell", value: product.type },
-                  { label: "Referenz", value: product.sku },
-                  { label: "Jahr", value: product.year },
-                  { label: "Material", value: product.material },
-                  { label: "Durchmesser", value: product.diameter },
-                  { label: "Uhrwerk", value: product.movement },
-                  { label: "Zustand", value: displayCondition },
-                  { label: "Lieferumfang", value: displayScope },
-                  { label: "Box", value: product.box === "true" || product.box === "Ja" ? "Ja" : product.box === "false" || product.box === "Nein" ? "Nein" : product.box },
-                  { label: "Papiere", value: product.papers === "true" || product.papers === "Ja" ? "Ja" : product.papers === "false" || product.papers === "Nein" ? "Nein" : product.papers },
-                ].filter(item => item.value && item.value !== "-" && item.value !== "N/A").map((item, idx) => {
-                  const isLongValue = item.value && item.value.length > 40;
+                {specRows.map((item, idx) => {
+                  const isLongValue = item.value.length > 40;
                   return (
-                    <div key={idx} className={`flex ${isLongValue ? "flex-col gap-2" : "justify-between items-baseline"} py-5 border-b border-white/5 group hover:bg-white/[0.02] px-4 transition-colors`}>
-                      <span className="text-[9px] uppercase tracking-[0.3em] text-white/40 font-black group-hover:text-white/60 transition-colors whitespace-nowrap mr-6">{item.label}</span>
-                      <span className={`${isLongValue ? "text-[12px] leading-relaxed text-white/80" : "text-[13px] text-right text-white/90"} font-light group-hover:text-white transition-colors`}>
+                    <div
+                      key={`${item.label}-${idx}`}
+                      className={`flex ${isLongValue ? "flex-col gap-2" : "justify-between items-baseline"} py-5 border-b border-white/5 group hover:bg-white/[0.02] px-4 transition-colors`}
+                    >
+                      <span className="text-[9px] uppercase tracking-[0.3em] text-white/40 font-black group-hover:text-white/60 transition-colors whitespace-nowrap mr-6">
+                        {item.label}
+                      </span>
+                      <span
+                        className={`${isLongValue ? "text-[12px] leading-relaxed text-white/80" : "text-[13px] text-right text-white/90"} font-light group-hover:text-white transition-colors`}
+                      >
                         {item.value}
                       </span>
-                    </div>
-                  );
-                })}
-
-                {/* Parse additional specs from string if they exist and aren't already covered */}
-                {displaySpecs && displaySpecs.split('\n').map(line => line.trim()).filter(line => line).map((line, idx) => {
-                  // Remove bullets and parse Key: Value
-                  const cleanLine = line.replace(/^[•\-\*]\s*/, '');
-                  
-                  // Special handling for Gehäuse/Technical string with pipes
-                  if (cleanLine.includes('|') && !cleanLine.includes(':')) {
-                    const parts = cleanLine.split('|').map(p => p.trim()).filter(p => p);
-                    return parts.map((part, pIdx) => (
-                      <div key={`part-${idx}-${pIdx}`} className="flex flex-col gap-2 py-5 border-b border-white/5 group hover:bg-white/[0.02] px-4 transition-colors">
-                        <span className="text-[12px] font-light text-white/80 group-hover:text-white transition-colors">
-                          {part}
-                        </span>
-                      </div>
-                    ));
-                  }
-
-                  const colonIndex = cleanLine.indexOf(':');
-                  
-                  if (colonIndex > -1) {
-                    const label = cleanLine.substring(0, colonIndex).trim();
-                    const value = cleanLine.substring(colonIndex + 1).trim();
-                    
-                    // Skip if already in fixed attributes
-                    const isDuplicate = ["Marke", "Modell", "Referenz", "Jahr", "Material", "Durchmesser", "Uhrwerk", "Box", "Papiere", "Zustand", "Lieferumfang"].some(
-                      attr => label.toLowerCase().includes(attr.toLowerCase())
-                    );
-                    
-                    if (isDuplicate) return null;
-
-                    const isLongVal = value.length > 40;
-
-                    return (
-                      <div key={`extra-${idx}`} className={`flex ${isLongVal ? "flex-col gap-2" : "justify-between items-baseline"} py-5 border-b border-white/5 group hover:bg-white/[0.02] px-4 transition-colors`}>
-                        <span className="text-[9px] uppercase tracking-[0.3em] text-white/40 font-black group-hover:text-white/60 transition-colors whitespace-nowrap mr-6">{label}</span>
-                        <span className={`${isLongVal ? "text-[12px] leading-relaxed text-white/80" : "text-[13px] text-right text-white/90"} font-light group-hover:text-white transition-colors`}>
-                          {value}
-                        </span>
-                      </div>
-                    );
-                  }
-                  
-                  return (
-                    <div key={`text-${idx}`} className="py-5 text-[12px] font-light text-white/60 italic px-4 border-b border-white/5 bg-white/[0.01]">
-                      {cleanLine}
                     </div>
                   );
                 })}

@@ -87,7 +87,8 @@ function cleanMaintenanceText(value: string): string {
 
 function buildSpecifications(
   specs: Record<string, string>,
-  analysis: Record<string, unknown>
+  analysis: Record<string, unknown>,
+  internal?: ReturnType<typeof extractInternalFields>
 ): { de: string; en: string } {
   const rows: { de: string; en: string }[] = [];
 
@@ -103,19 +104,30 @@ function buildSpecifications(
   add("Marke", "Brand", analysis.brand, specs["Brand"]);
   add("Modell", "Model", analysis.model, specs["Model"]);
   add("Referenz", "Reference", analysis.sku, specs["Product Number"], specs["Ref No."], specs["Product No."]);
-  add("Gehäuse", "Case", specs["Case Size"], specs["Case size"], analysis.diameter);
-  add("Material", "Material", specs["Material"], analysis.material);
   add("Werk", "Movement", specs["Movement"], analysis.movement);
+  add("Gehäusegröße", "Case size", specs["Case Size"], specs["Case size"], analysis.diameter);
+  add("Material", "Material", specs["Material"], analysis.material);
   add("Zifferblatt", "Dial", specs["Dial Color"], specs["Dial"]);
   add("Armumfang", "Bracelet", specs["Bracelet Size"]);
   add("Baujahr", "Year", analysis.year, specs["Year"], specs["Manufacture Year"]);
   add("Form", "Shape", specs["Shape"]);
   add("Zielgruppe", "Target", specs["Target"]);
 
+  if (internal?.overallRank || internal?.sourceRank) {
+    const rank = internal.overallRank || internal.sourceRank;
+    rows.push({ de: `Zustandsrang: ${rank}`, en: `Condition rank: ${rank}` });
+  }
+  if (internal?.caseRank) {
+    rows.push({ de: `Gehäuse: Rank ${internal.caseRank}`, en: `Case: Rank ${internal.caseRank}` });
+  }
+  if (internal?.bandRank) {
+    rows.push({ de: `Band: Rank ${internal.bandRank}`, en: `Band: Rank ${internal.bandRank}` });
+  }
+
   if (rows.length === 0) return { de: "", en: "" };
   return {
-    de: rows.map((row) => row.de).join(" | "),
-    en: rows.map((row) => row.en).join(" | "),
+    de: rows.map((row) => row.de).join("\n"),
+    en: rows.map((row) => row.en).join("\n"),
   };
 }
 
@@ -245,22 +257,6 @@ function buildDescription(
   if (specSentenceDe) deParts.push(`Technische Highlights: ${specSentenceDe}.`);
   if (specSentenceEn) enParts.push(`Technical highlights: ${specSentenceEn}.`);
 
-  if (condition.de) deParts.push(`Zustand: ${condition.de}.`);
-  if (condition.en) enParts.push(`Condition: ${condition.en}.`);
-
-  if (scope.de) deParts.push(`Lieferumfang: ${scope.de}.`);
-  if (scope.en) enParts.push(`Scope of delivery: ${scope.en}.`);
-
-  if (maintenanceClean) {
-    deParts.push(`Wartung: ${maintenanceClean}.`);
-    enParts.push(`Maintenance: ${maintenanceClean}.`);
-  }
-
-  if (dailyRate) {
-    deParts.push(`Gangabweichung: ${dailyRate}.`);
-    enParts.push(`Daily rate: ${dailyRate}.`);
-  }
-
   return {
     de: deParts.join("\n\n"),
     en: enParts.join("\n\n"),
@@ -321,7 +317,7 @@ export function resolveShopContentFields(input: {
   const model = pickFirst(analysis.model, specs["Model"]);
   const sku = pickFirst(analysis.sku, specs["Product Number"], specs["Ref No."]);
 
-  const specifications = buildSpecifications(specs, analysis);
+  const specifications = buildSpecifications(specs, analysis, internal);
   const scope = buildScopeOfDelivery(specs, analysis);
   const condition = buildConditionText(internal, internal.conditionRemarks);
   const titles = buildTitle(brand, model, sku, scope.de);

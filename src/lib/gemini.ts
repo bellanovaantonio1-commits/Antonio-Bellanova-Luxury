@@ -207,7 +207,8 @@ export async function analyzeProductImport(rawData: any) {
      - 1-2 elegant paragraphs. Highlight the watch's character and craftsmanship. 
      - Use facts about material, movement, and dial to tell a story.
      - NO bullet points here.
-  4. specificationsText: A structured summary of technical data (e.g., "Case: 43mm, Stainless Steel | Movement: Automatic | Dial: Black").
+     - NEVER include a "Details:" section, asterisk lists, or specification tables in description.
+  4. specificationsText: One structured line per attribute using "Label: Value" format, separated by newlines (NOT pipes, NOT asterisks).
   5. conditionText: A natural, descriptive sentence about the condition. 
      - DO NOT use rank codes (A, AB, etc.). 
      - Instead: "Very good condition with minor signs of wear on the bezel."
