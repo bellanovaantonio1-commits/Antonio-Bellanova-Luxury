@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { 
   TrendingUp, Users, Package, ShoppingCart,
   ArrowUpRight, Calendar, PlusCircle, BrainCircuit, MessageSquare, HelpCircle
@@ -15,6 +15,7 @@ interface Stats {
 }
 
 export default function Overview() {
+  const location = useLocation();
   const [stats, setStats] = useState<Stats>({ revenue: 0, orders: 0, customers: 0, stock: 0 });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [lowStock, setLowStock] = useState<any[]>([]);
@@ -42,7 +43,7 @@ export default function Overview() {
       }
     }
     load();
-  }, []);
+  }, [location.pathname]);
 
   const statCards = [
     { label: "Umsatz (Monat)", value: stats.revenue.toLocaleString("de-DE", { style: "currency", currency: "EUR" }), icon: <TrendingUp className="text-green-500" /> },

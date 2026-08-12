@@ -1,5 +1,5 @@
 import { Express } from "express";
-import { eq, and, sql, desc, gt, inArray, gte, count, sum } from "drizzle-orm";
+import { eq, and, sql, desc, gt, inArray, gte, count, sum, ne } from "drizzle-orm";
 import { requireAuth, requireRole, AuthRequest } from "../middleware/auth.ts";
 import { db } from "../db/index.ts";
 import {
@@ -548,12 +548,13 @@ export function registerExtraRoutes(app: Express) {
     try {
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const activeOrder = ne(orders.status, "CANCELLED");
 
       const [revenueResult] = await db.select({
         total: sum(orders.total),
-      }).from(orders).where(gte(orders.createdAt, monthStart));
+      }).from(orders).where(and(gte(orders.createdAt, monthStart), activeOrder));
 
-      const [orderCountResult] = await db.select({ count: count() }).from(orders).where(gte(orders.createdAt, monthStart));
+      const [orderCountResult] = await db.select({ count: count() }).from(orders).where(and(gte(orders.createdAt, monthStart), activeOrder));
       const [customerCountResult] = await db.select({ count: count() }).from(users).where(eq(users.role, "CUSTOMER"));
       const [stockResult] = await db.select({ total: sum(products.stock) }).from(products);
 
@@ -563,6 +564,7 @@ export function registerExtraRoutes(app: Express) {
       })
         .from(orders)
         .leftJoin(users, eq(orders.userId, users.uid))
+        .where(activeOrder)
         .orderBy(desc(orders.createdAt))
         .limit(5);
 
@@ -581,7 +583,7 @@ export function registerExtraRoutes(app: Express) {
         sales: count(),
       })
         .from(orders)
-        .where(gte(orders.createdAt, new Date(now.getFullYear(), now.getMonth() - 6, 1)))
+        .where(and(gte(orders.createdAt, new Date(now.getFullYear(), now.getMonth() - 6, 1)), activeOrder))
         .groupBy(sql`TO_CHAR(${orders.createdAt}, 'Mon')`, sql`DATE_TRUNC('month', ${orders.createdAt})`)
         .orderBy(sql`DATE_TRUNC('month', ${orders.createdAt})`);
 
