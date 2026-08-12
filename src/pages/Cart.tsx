@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, CheckCircle2, LogIn, Download, FileText } from "lucide-react";
+import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, CheckCircle2, LogIn, FileText } from "lucide-react";
 import { useCart } from "../contexts/CartContext.tsx";
 import { Link } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
 import { useAuth } from "../contexts/AuthContext.tsx";
+import InvoiceActions from "../components/InvoiceActions.tsx";
 
 interface PaymentInfo {
   bankName?: string;
@@ -62,25 +63,6 @@ export default function Cart() {
 
   const validateAddress = (a: AddressForm) =>
     a.name.trim() && a.street.trim() && a.postalCode.trim() && a.city.trim() && a.country.trim();
-
-  const downloadInvoice = async () => {
-    if (!orderId || !user) return;
-    const token = await user.getIdToken();
-    const res = await fetch(`/api/orders/${orderId}/invoice/pdf`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      setError(t("cart.invoice.error"));
-      return;
-    }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${invoiceNumber || "Rechnung"}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   const handleCheckout = async () => {
     if (!user) {
@@ -182,13 +164,13 @@ export default function Cart() {
             </div>
           </div>
 
-          {invoiceNumber && orderId && (
-            <button
-              onClick={downloadInvoice}
-              className="w-full flex items-center justify-center gap-3 bg-[#c5a059] text-black py-5 rounded-full text-[11px] tracking-[0.3em] uppercase font-bold hover:bg-[#d4af37] transition-all"
-            >
-              <Download size={16} /> {t("cart.invoice.download")}
-            </button>
+          {invoiceNumber && orderId && user && (
+            <InvoiceActions
+              orderId={orderId}
+              invoiceNumber={invoiceNumber}
+              getToken={() => user.getIdToken()}
+              variant="dark"
+            />
           )}
 
           {paymentInfo && (

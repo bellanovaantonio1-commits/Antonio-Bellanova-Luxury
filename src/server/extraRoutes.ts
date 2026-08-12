@@ -416,6 +416,7 @@ export function registerExtraRoutes(app: Express) {
           orderNumber: order.orderNumber || `ORD-${order.id}`,
           invoiceNumber: inv?.invoiceNumber || null,
           invoiceId: inv?.invoiceId ?? null,
+          invoiceStatus: inv?.invoiceStatus || null,
           items: items.map(i => ({
             id: i.productId?.toString() || i.id.toString(),
             name: i.productName || "Produkt",
@@ -449,8 +450,16 @@ export function registerExtraRoutes(app: Express) {
       const pdf = await getInvoicePdfBufferByOrderId(orderId);
       if (!pdf) return res.status(404).json({ error: "Rechnung konnte nicht erzeugt werden." });
 
+      const disposition = req.query.disposition === "attachment" ? "attachment" : "inline";
+      const filename = `${invoice.invoiceNumber}.pdf`;
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${invoice.invoiceNumber}.pdf"`);
+      res.setHeader("Content-Length", pdf.length);
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader(
+        "Content-Disposition",
+        `${disposition}; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+      );
       res.send(pdf);
     } catch (error: unknown) {
       res.status(500).json({ error: error instanceof Error ? error.message : "PDF fehlgeschlagen." });
@@ -618,8 +627,17 @@ export function registerExtraRoutes(app: Express) {
       const pdf = await getInvoicePdfBufferById(id);
       if (!pdf) return res.status(404).json({ error: "Rechnung nicht gefunden." });
       const [row] = await db.select().from(invoices).where(eq(invoices.id, id)).limit(1);
+      const invoiceNumber = row?.invoiceNumber || "invoice";
+      const disposition = req.query.disposition === "attachment" ? "attachment" : "inline";
+      const filename = `${invoiceNumber}.pdf`;
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${row?.invoiceNumber || "invoice"}.pdf"`);
+      res.setHeader("Content-Length", pdf.length);
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader(
+        "Content-Disposition",
+        `${disposition}; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+      );
       res.send(pdf);
     } catch (error) {
       res.status(500).json({ error: "PDF fehlgeschlagen." });

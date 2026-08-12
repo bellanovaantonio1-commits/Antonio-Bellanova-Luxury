@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { User, Package, MapPin, Heart, Shield, LogOut, ChevronRight, Settings, Download } from "lucide-react";
+import { User, Package, MapPin, Heart, Shield, LogOut, ChevronRight, Settings } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext.tsx";
+import { useLanguage } from "../contexts/LanguageContext.tsx";
+import InvoiceActions from "../components/InvoiceActions.tsx";
 import { useWishlist } from "../contexts/WishlistContext.tsx";
 import { useIsAdmin } from "../hooks/useIsAdmin.ts";
 import { Link, Navigate, Routes, Route, useLocation } from "react-router-dom";
@@ -61,28 +63,10 @@ function OrderTracking({ status }: { status: OrderStatus }) {
 
 function OrdersView() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState(false);
-
-  const downloadInvoice = async (orderId: number, invoiceNumber?: string | null) => {
-    if (!user) return;
-    const token = await user.getIdToken();
-    const res = await fetch(`/api/orders/${orderId}/invoice/pdf`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) {
-      alert("Rechnung konnte nicht geladen werden.");
-      return;
-    }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${invoiceNumber || "Rechnung"}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   useEffect(() => {
     if (!user) return;
@@ -137,35 +121,44 @@ function OrdersView() {
 
   return (
     <div className="space-y-8">
-      {orders.map(order => (
-        <section key={order.id} className="bg-white/5 border border-white/10 rounded-2xl p-8 space-y-10">
-          <div className="flex flex-wrap items-start justify-between gap-6 border-b border-white/10 pb-6">
-            <div className="space-y-1">
-              <span className="text-[10px] tracking-widest uppercase text-white/20 font-bold">Bestellnummer</span>
-              <p className="text-lg font-serif italic text-[#c5a059]">{order.orderNumber}</p>
-              {(order as any).invoiceNumber && (
-                <>
-                  <span className="text-[10px] tracking-widest uppercase text-white/20 font-bold block mt-3">Rechnungsnummer</span>
-                  <p className="text-sm font-mono text-white/70">{(order as any).invoiceNumber}</p>
-                </>
-              )}
-            </div>
-            <div className="space-y-3 text-right">
-              <div className="space-y-1">
+      {orders.map(order => {
+        const invoiceNumber = (order as { invoiceNumber?: string | null }).invoiceNumber;
+        const invoiceStatus = (order as { invoiceStatus?: string | null }).invoiceStatus;
+        return (
+        <section key={order.id} className="bg-white/5 border border-white/10 rounded-2xl p-5 sm:p-8 space-y-8 sm:space-y-10">
+          <div className="flex flex-col gap-6 border-b border-white/10 pb-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="space-y-1 min-w-0">
+                <span className="text-[10px] tracking-widest uppercase text-white/20 font-bold">Bestellnummer</span>
+                <p className="text-lg font-serif italic text-[#c5a059] break-all">{order.orderNumber}</p>
+                {invoiceNumber && (
+                  <>
+                    <span className="text-[10px] tracking-widest uppercase text-white/20 font-bold block mt-3">Rechnungsnummer</span>
+                    <p className="text-sm font-mono text-white/70 break-all">{invoiceNumber}</p>
+                  </>
+                )}
+              </div>
+              <div className="space-y-1 text-left sm:text-right shrink-0">
                 <span className="text-[10px] tracking-widest uppercase text-white/20 font-bold">Bestelldatum</span>
                 <p className="text-sm font-light">
-                  {order.createdAt ? (typeof order.createdAt === 'string' ? new Date(order.createdAt).toLocaleDateString('de-DE') : (order.createdAt as any).toDate?.()?.toLocaleDateString('de-DE') || 'Neu') : 'Neu'}
+                  {order.createdAt ? (typeof order.createdAt === 'string' ? new Date(order.createdAt).toLocaleDateString('de-DE') : (order.createdAt as { toDate?: () => Date }).toDate?.()?.toLocaleDateString('de-DE') || 'Neu') : 'Neu'}
                 </p>
               </div>
-              {(order as any).invoiceNumber && (
-                <button
-                  onClick={() => downloadInvoice(order.id, (order as any).invoiceNumber)}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-[10px] tracking-widest uppercase font-bold text-[#c5a059] border border-[#c5a059]/30 rounded-full hover:bg-[#c5a059]/10 transition-colors"
-                >
-                  <Download size={14} /> Rechnung
-                </button>
-              )}
             </div>
+
+            {invoiceNumber && user ? (
+              <InvoiceActions
+                orderId={order.id}
+                invoiceNumber={invoiceNumber}
+                invoiceStatus={invoiceStatus}
+                getToken={() => user.getIdToken()}
+                variant="dark"
+              />
+            ) : (
+              !invoiceNumber && order.status !== "CANCELLED" && (
+                <p className="text-xs text-white/40 text-center tracking-wide">{t("invoice.pending")}</p>
+              )
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
@@ -212,17 +205,19 @@ function OrdersView() {
             </div>
           </div>
 
-          <div className="pt-4">
+          <div className="pt-4 overflow-x-auto">
             <OrderTracking status={order.status} />
           </div>
         </section>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
 function AccountDashboard() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -270,7 +265,7 @@ function AccountDashboard() {
             
             <OrderTracking status={lastOrder.status} />
             
-            <div className="pt-8 grid grid-cols-2 md:grid-cols-4 gap-8 border-t border-white/5">
+            <div className="pt-8 grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 border-t border-white/5">
               <div>
                 <p className="text-[9px] text-white/40 uppercase tracking-widest mb-1">Status</p>
                 <p className="text-xs font-bold uppercase tracking-widest">{lastOrder.status}</p>
@@ -290,6 +285,21 @@ function AccountDashboard() {
                 <p className="text-xs font-bold font-mono">{lastOrder.trackingNumber || 'N/A'}</p>
               </div>
             </div>
+
+            {(lastOrder as { invoiceNumber?: string }).invoiceNumber && user && (
+              <div className="pt-6 border-t border-white/10">
+                <InvoiceActions
+                  orderId={lastOrder.id}
+                  invoiceNumber={(lastOrder as { invoiceNumber: string }).invoiceNumber}
+                  invoiceStatus={(lastOrder as { invoiceStatus?: string }).invoiceStatus}
+                  getToken={() => user.getIdToken()}
+                  variant="dark"
+                />
+              </div>
+            )}
+            {!(lastOrder as { invoiceNumber?: string }).invoiceNumber && lastOrder.status !== "CANCELLED" && (
+              <p className="text-xs text-white/40 text-center pt-4">{t("invoice.pending")}</p>
+            )}
           </div>
         ) : (
           <div className="text-center py-12 italic text-white/20 font-light">

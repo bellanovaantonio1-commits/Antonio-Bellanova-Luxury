@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { FileText, Download, AlertTriangle } from "lucide-react";
 import { auth } from "../../lib/firebase.ts";
+import { openAdminInvoicePdf } from "../../lib/invoicePdf.ts";
 
 interface InvoiceRow {
   id: number;
@@ -57,16 +58,13 @@ export default function Invoices() {
   useEffect(() => { load(); }, []);
 
   const downloadPdf = async (id: number, invoiceNumber: string) => {
-    const token = await auth.currentUser?.getIdToken();
-    const res = await fetch(`/api/admin/invoices/${id}/pdf`, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) return alert("PDF konnte nicht geladen werden.");
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${invoiceNumber}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+      await openAdminInvoicePdf(id, token, invoiceNumber);
+    } catch {
+      alert("PDF konnte nicht geladen werden.");
+    }
   };
 
   const fieldLabels: Record<string, string> = {
