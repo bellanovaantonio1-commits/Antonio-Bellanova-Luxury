@@ -207,9 +207,21 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { slug: "sport", label: t("shop.collections.sport"), image: "https://images.unsplash.com/photo-1523170335258-f5ed11844a49?auto=format&fit=crop&w=800" },
-              { slug: "vintage", label: t("shop.collections.vintage"), image: "https://images.unsplash.com/photo-1587836374828-4dbafa94cf0e?auto=format&fit=crop&w=800" },
-              { slug: "under-5000", label: t("shop.collections.affordable"), image: "https://images.unsplash.com/photo-1547996160-81dfa63595aa?auto=format&fit=crop&w=800" },
+              {
+                slug: "sport",
+                label: t("shop.collections.sport"),
+                image: "https://images.unsplash.com/photo-1611652022419-743f996c43f5?auto=format&fit=crop&w=800&q=80",
+              },
+              {
+                slug: "vintage",
+                label: t("shop.collections.vintage"),
+                image: "https://images.unsplash.com/photo-1524805442118-701923fe0599?auto=format&fit=crop&w=800&q=80",
+              },
+              {
+                slug: "under-5000",
+                label: t("shop.collections.affordable"),
+                image: "https://images.unsplash.com/photo-1611591437281-460bf891a174?auto=format&fit=crop&w=800&q=80",
+              },
             ].map((col) => (
               <Link key={col.slug} to={`/shop?collection=${col.slug}`} className="group relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10">
                 <img src={col.image} alt={col.label} className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-70 group-hover:scale-105 transition-all duration-700" loading="lazy" decoding="async" />
