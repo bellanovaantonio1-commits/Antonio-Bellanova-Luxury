@@ -7,6 +7,7 @@ interface AdminOrder {
   orderNumber: string;
   status: string;
   paymentStatus: string;
+  paymentMethod?: string;
   total: string;
   customerEmail?: string;
   itemCount: number;
@@ -15,6 +16,9 @@ interface AdminOrder {
   invoiceStatus?: string | null;
   trackingNumber?: string | null;
   carrier?: string | null;
+  stripeCheckoutSessionId?: string | null;
+  stripePaymentIntentId?: string | null;
+  paidAt?: string | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -28,8 +32,15 @@ const STATUS_LABELS: Record<string, string> = {
 const PAYMENT_LABELS: Record<string, string> = {
   PENDING: "Ausstehend",
   PAID: "Bezahlt",
+  FAILED: "Fehlgeschlagen",
   REFUNDED: "Erstattet",
+  PARTIALLY_REFUNDED: "Teilerstattet",
   CANCELLED: "Storniert",
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  STRIPE: "Stripe",
+  BANK_TRANSFER: "Überweisung",
 };
 
 export default function Orders() {
@@ -208,6 +219,7 @@ export default function Orders() {
                 <th className="pb-4 pr-4">Betrag</th>
                 <th className="pb-4 pr-4">Status</th>
                 <th className="pb-4 pr-4">Zahlung</th>
+                <th className="pb-4 pr-4">Art</th>
                 <th className="pb-4 pr-4">Tracking</th>
                 <th className="pb-4">Aktionen</th>
               </tr>
@@ -229,6 +241,24 @@ export default function Orders() {
                       <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${paymentColors[order.paymentStatus] || "bg-orange-100 text-orange-800"}`}>
                         {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
                       </span>
+                      {order.paymentMethod === "STRIPE" && order.stripePaymentIntentId && (
+                        <p className="text-[9px] font-mono text-gray-400 mt-1 max-w-[140px] truncate" title={order.stripePaymentIntentId}>
+                          {order.stripePaymentIntentId}
+                        </p>
+                      )}
+                      {order.paidAt && (
+                        <p className="text-[9px] text-gray-400 mt-0.5">
+                          {new Date(order.paidAt).toLocaleString("de-DE")}
+                        </p>
+                      )}
+                    </td>
+                    <td className="py-4 pr-4 text-xs text-gray-600">
+                      {PAYMENT_METHOD_LABELS[order.paymentMethod || "BANK_TRANSFER"] || order.paymentMethod}
+                      {order.stripeCheckoutSessionId && (
+                        <p className="text-[9px] font-mono text-gray-400 mt-1 max-w-[120px] truncate" title={order.stripeCheckoutSessionId}>
+                          {order.stripeCheckoutSessionId}
+                        </p>
+                      )}
                     </td>
                     <td className="py-4 pr-4 font-mono text-[10px] text-gray-500">
                       {order.trackingNumber ? `${order.carrier || ""} ${order.trackingNumber}`.trim() : "—"}

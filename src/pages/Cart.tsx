@@ -61,6 +61,9 @@ export default function Cart() {
   const [shippingLoading, setShippingLoading] = useState(false);
   const [stripeEnabled, setStripeEnabled] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"BANK_TRANSFER" | "STRIPE">("BANK_TRANSFER");
+  const [stripePaymentStatus, setStripePaymentStatus] = useState<string | null>(null);
+  const [stripeConfirming, setStripeConfirming] = useState(false);
+  const [successItems, setSuccessItems] = useState<{ name: string; quantity: number; price: number }[]>([]);
   const [deliveryMethod, setDeliveryMethod] = useState<"SHIPPING" | "PICKUP">("SHIPPING");
   const [shippingMethod, setShippingMethod] = useState<"standard" | "express">("standard");
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
@@ -79,12 +82,67 @@ export default function Cart() {
       setIsStripeSuccess(true);
       setIsSuccess(true);
       setOrderNumber(orderParam);
+      setStripeConfirming(true);
+      setShowCheckoutForm(true);
       setSearchParams({}, { replace: true });
     } else if (stripeParam === "cancelled") {
-      setError(language === "en" ? "Payment was cancelled." : "Zahlung wurde abgebrochen.");
+      setError(t("cart.payment.cancelled"));
+      setShowCheckoutForm(true);
       setSearchParams({}, { replace: true });
     }
-  }, [searchParams, setSearchParams, language]);
+  }, [searchParams, setSearchParams, t]);
+
+  useEffect(() => {
+    if (!isStripeSuccess || !orderNumber || !user) return;
+
+    let cancelled = false;
+    let attempts = 0;
+
+    const poll = async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch(`/api/orders/by-number/${encodeURIComponent(orderNumber)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok || cancelled) return false;
+        const data = await res.json();
+        setOrderId(data.id);
+        setStripePaymentStatus(data.paymentStatus);
+        if (data.items?.length) setSuccessItems(data.items);
+        if (data.invoiceNumber) setInvoiceNumber(data.invoiceNumber);
+        if (data.paymentStatus === "PAID") {
+          clearCart();
+          setStripeConfirming(false);
+          return true;
+        }
+        if (data.paymentStatus === "FAILED" || data.paymentStatus === "CANCELLED") {
+          setStripeConfirming(false);
+          return true;
+        }
+      } catch {
+        /* retry */
+      }
+      return false;
+    };
+
+    const run = async () => {
+      const done = await poll();
+      if (done || cancelled) return;
+      const interval = window.setInterval(async () => {
+        attempts += 1;
+        const finished = await poll();
+        if (finished || attempts >= 15) {
+          window.clearInterval(interval);
+          if (!finished && !cancelled) setStripeConfirming(false);
+        }
+      }, 2000);
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [isStripeSuccess, orderNumber, user, clearCart, t]);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -231,7 +289,6 @@ export default function Cart() {
       const data = await res.json();
 
       if (data.checkoutUrl) {
-        clearCart();
         window.location.href = data.checkoutUrl;
         return;
       }
@@ -275,6 +332,20 @@ export default function Cart() {
             <div className="space-y-2 pt-2">
               <p className="text-[10px] tracking-widest uppercase text-white/30">{t("cart.success.orderNumber")}</p>
               <p className="text-[#c5a059] font-serif text-xl">{orderNumber}</p>
+              {isStripeSuccess && (
+                <div className="pt-2">
+                  <p className="text-[10px] tracking-widest uppercase text-white/30">{t("cart.payment.status")}</p>
+                  <p className="text-sm font-bold uppercase tracking-widest text-white/80">
+                    {stripeConfirming
+                      ? t("cart.payment.stripePending")
+                      : stripePaymentStatus === "PAID"
+                        ? t("cart.payment.status.paid")
+                        : stripePaymentStatus === "FAILED"
+                          ? t("cart.payment.status.failed")
+                          : t("cart.payment.status.pending")}
+                  </p>
+                </div>
+              )}
               {invoiceNumber ? (
                 <>
                   <p className="text-[10px] tracking-widest uppercase text-white/30 pt-2">{t("cart.success.invoiceNumber")}</p>
@@ -285,6 +356,18 @@ export default function Cart() {
               )}
             </div>
           </div>
+
+          {successItems.length > 0 && (
+            <div className="text-left bg-black/30 border border-white/10 rounded-xl p-6 space-y-3 text-sm">
+              <p className="text-[10px] tracking-widest uppercase text-[#c5a059] font-bold">{t("cart.summary")}</p>
+              {successItems.map((item, idx) => (
+                <div key={idx} className="flex justify-between text-white/70">
+                  <span>{item.quantity}× {item.name}</span>
+                  <span>{formatMoney(item.price * item.quantity)}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {invoiceNumber && orderId && user && (
             <InvoiceActions

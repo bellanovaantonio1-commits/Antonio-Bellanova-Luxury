@@ -18,6 +18,7 @@ async function migrate() {
     "0003_invoices.sql",
     "0004_invoice_status.sql",
     "0005_shop_experience.sql",
+    "0006_stripe.sql",
   ];
 
   console.log("Running database migrations...");

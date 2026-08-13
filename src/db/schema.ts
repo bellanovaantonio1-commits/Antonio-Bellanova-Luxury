@@ -179,8 +179,17 @@ export const orders = pgTable('orders', {
   trackingNumber: text('tracking_number'),
   carrier: text('carrier'),
   deliveryMethod: text('delivery_method').default('SHIPPING'),
+  stripeCheckoutSessionId: text('stripe_checkout_session_id'),
+  stripePaymentIntentId: text('stripe_payment_intent_id'),
+  paidAt: timestamp('paid_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const stripeWebhookEvents = pgTable('stripe_webhook_events', {
+  id: text('id').primaryKey(),
+  eventType: text('event_type').notNull(),
+  processedAt: timestamp('processed_at').defaultNow(),
 });
 
 export const orderItems = pgTable('order_items', {

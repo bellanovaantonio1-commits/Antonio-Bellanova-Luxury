@@ -21,7 +21,8 @@ import {
 } from "./invoice/service.ts";
 import { getMissingInvoiceSettings } from "./invoice/seller.ts";
 import { calculateShippingCost, ShippingMethod } from "./shipping.ts";
-import { createStripeCheckoutSession, isStripeEnabled } from "./stripe.ts";
+import { createStripeCheckoutSession, createStripeRefund, isStripeEnabled } from "./stripe.ts";
+import { restoreOrderStock } from "./stripeOrder.ts";
 import { getSettingsMap, ensureDefaultSettings } from "./settings.ts";
 
 export function registerExtraRoutes(app: Express) {
@@ -652,8 +653,9 @@ export function registerExtraRoutes(app: Express) {
       }
 
       let checkoutUrl: string | null = null;
+      let stripeCheckoutSessionId: string | null = null;
       if (resolvedPaymentMethod === "STRIPE" && customerEmail) {
-        checkoutUrl = await createStripeCheckoutSession({
+        const session = await createStripeCheckoutSession({
           orderId: order.id,
           orderNumber,
           totalEur: totalGross,
@@ -666,10 +668,16 @@ export function registerExtraRoutes(app: Express) {
           })),
           shippingEur: shippingCost,
         });
+        checkoutUrl = session.url;
+        stripeCheckoutSessionId = session.sessionId;
+        await db.update(orders)
+          .set({ stripeCheckoutSessionId, updatedAt: new Date() })
+          .where(eq(orders.id, order.id));
       }
 
       res.status(201).json({
         ...order,
+        stripeCheckoutSessionId,
         invoiceNumber: null,
         paymentInfo: settings,
         checkoutUrl,
@@ -679,6 +687,49 @@ export function registerExtraRoutes(app: Express) {
     } catch (error: unknown) {
       console.error("Failed to create order", error);
       res.status(500).json({ error: error instanceof Error ? error.message : "Bestellung fehlgeschlagen." });
+    }
+  });
+
+  app.get("/api/orders/by-number/:orderNumber", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const orderNumber = req.params.orderNumber;
+      const [order] = await db.select().from(orders)
+        .where(eq(orders.orderNumber, orderNumber))
+        .limit(1);
+
+      if (!order) return res.status(404).json({ error: "Bestellung nicht gefunden." });
+      if (order.userId !== req.user!.uid) return res.status(403).json({ error: "Zugriff verweigert." });
+
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+      const [inv] = await db.select({
+        invoiceNumber: invoices.invoiceNumber,
+        invoiceId: invoices.id,
+        invoiceStatus: invoices.invoiceStatus,
+      })
+        .from(invoices)
+        .where(and(eq(invoices.orderId, order.id), eq(invoices.invoiceType, "INVOICE")))
+        .limit(1);
+
+      res.json({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        paymentStatus: order.paymentStatus,
+        paymentMethod: order.paymentMethod,
+        total: order.total,
+        paidAt: order.paidAt,
+        stripeCheckoutSessionId: order.stripeCheckoutSessionId,
+        stripePaymentIntentId: order.stripePaymentIntentId,
+        invoiceNumber: inv?.invoiceNumber || null,
+        invoiceId: inv?.invoiceId ?? null,
+        invoiceStatus: inv?.invoiceStatus || null,
+        items: items.map((i) => ({
+          name: i.productName || "Produkt",
+          quantity: i.quantity,
+          price: parseFloat(i.price),
+        })),
+      });
+    } catch {
+      res.status(500).json({ error: "Bestellstatus konnte nicht geladen werden." });
     }
   });
 
@@ -821,19 +872,20 @@ export function registerExtraRoutes(app: Express) {
       if (!existing) return res.status(404).json({ error: "Bestellung nicht gefunden." });
 
       if (status === "CANCELLED" && existing.status !== "CANCELLED") {
-        const items = await db.select().from(orderItems).where(eq(orderItems.orderId, id));
-        for (const item of items) {
-          if (!item.productId) continue;
-          const [product] = await db.select().from(products).where(eq(products.id, item.productId)).limit(1);
-          if (product) {
-            await db.update(products)
-              .set({
-                stock: (product.stock ?? 0) + item.quantity,
-                updatedAt: new Date(),
-              })
-              .where(eq(products.id, item.productId));
+        if (
+          existing.paymentMethod === "STRIPE" &&
+          existing.paymentStatus === "PAID" &&
+          existing.stripePaymentIntentId
+        ) {
+          try {
+            await createStripeRefund(existing.stripePaymentIntentId, parseFloat(existing.total));
+          } catch (refundErr) {
+            console.error("Stripe refund failed:", refundErr);
+            return res.status(502).json({ error: "Stripe-Erstattung fehlgeschlagen." });
           }
         }
+
+        await restoreOrderStock(id);
       }
 
       const resolvedPaymentStatus =
