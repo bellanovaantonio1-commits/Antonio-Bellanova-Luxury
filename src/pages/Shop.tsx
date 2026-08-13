@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Filter, LayoutGrid, List, ChevronDown, X } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { Product } from "../types.ts";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
 import MetaTags from "../components/common/MetaTags.tsx";
 import { useShopSettings } from "../contexts/ShopSettingsContext.tsx";
 import { isPriceOnRequest, parsePriceOnRequestThreshold } from "../lib/priceOnRequest.ts";
+import { stockUrgencyKey } from "../lib/stockUrgency.ts";
 import { collection, query, where, onSnapshot, gt } from "firebase/firestore";
 import { db as firestoreDb } from "../lib/firebase.ts";
 
@@ -15,6 +16,7 @@ type SortOption = "newest" | "price-asc" | "price-desc" | "name";
 export default function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
   const cat = searchParams.get("cat");
+  const collection = searchParams.get("collection");
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -55,6 +57,7 @@ export default function Shop() {
         if (materialFilter) params.set("material", materialFilter);
         if (movementFilter) params.set("movement", movementFilter);
         if (diameterFilter) params.set("diameter", diameterFilter);
+        if (collection) params.set("collection", collection);
         const response = await fetch(`/api/products?${params}`);
         if (response.ok) {
           const data = await response.json();
@@ -86,7 +89,7 @@ export default function Shop() {
       return () => unsubscribe();
     };
     loadProducts();
-  }, [cat, sort, brandFilter, minPrice, maxPrice, conditionFilter, boxFilter, papersFilter, materialFilter, movementFilter, diameterFilter]);
+  }, [cat, collection, sort, brandFilter, minPrice, maxPrice, conditionFilter, boxFilter, papersFilter, materialFilter, movementFilter, diameterFilter]);
 
   const [brandOptions, setBrandOptions] = useState<[string, string][]>([]);
 
@@ -123,10 +126,80 @@ export default function Shop() {
     setSearchParams(params);
   };
 
-  const pageTitle = cat === "watches" ? t("shop.title") : cat === "jewelry" ? t("home.categories.jewelry") : cat === "new" ? "Neuheiten" : t("nav.shop");
+  const pageTitle =
+    collection === "sport" ? (language === "en" ? "Sports watches" : "Sportuhren")
+    : collection === "vintage" ? "Vintage"
+    : collection === "under-5000" ? (language === "en" ? "Under €5,000" : "Unter 5.000 €")
+    : cat === "watches" ? t("shop.title")
+    : cat === "jewelry" ? t("home.categories.jewelry")
+    : cat === "new" ? "Neuheiten"
+    : t("nav.shop");
+
+  const filterPanel = (
+    <div className="p-6 bg-white/5 border border-white/10 rounded-2xl grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div>
+        <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Marke</label>
+        <select value={brandFilter} onChange={e => setBrandFilter(e.target.value)}
+          className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg">
+          <option value="">Alle Marken</option>
+          {brandOptions.map(([slug, name]) => <option key={slug} value={slug}>{name}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Zustand</label>
+        <select value={conditionFilter} onChange={e => setConditionFilter(e.target.value)}
+          className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg">
+          <option value="">Alle</option>
+          <option value="NEW">Neu</option>
+          <option value="UNUSED">Ungetragen</option>
+          <option value="PRE_OWNED">Gebraucht</option>
+          <option value="VINTAGE">Vintage</option>
+        </select>
+      </div>
+      <div>
+        <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Material</label>
+        <input value={materialFilter} onChange={e => setMaterialFilter(e.target.value)} placeholder="z.B. Edelstahl"
+          className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
+      </div>
+      <div>
+        <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Werk</label>
+        <input value={movementFilter} onChange={e => setMovementFilter(e.target.value)} placeholder="z.B. Automatik"
+          className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
+      </div>
+      <div>
+        <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Gehäusegröße</label>
+        <input value={diameterFilter} onChange={e => setDiameterFilter(e.target.value)} placeholder="z.B. 41"
+          className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
+      </div>
+      <div>
+        <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Min. Preis (€)</label>
+        <input type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)} placeholder="0"
+          className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
+      </div>
+      <div>
+        <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Max. Preis (€)</label>
+        <input type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} placeholder="50000"
+          className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
+      </div>
+      <div className="flex flex-col gap-3 justify-end">
+        <label className="flex items-center gap-3 text-sm text-white/70 cursor-pointer">
+          <input type="checkbox" checked={boxFilter === "yes"} onChange={e => setBoxFilter(e.target.checked ? "yes" : "")} className="accent-[#c5a059]" />
+          Mit Originalbox
+        </label>
+        <label className="flex items-center gap-3 text-sm text-white/70 cursor-pointer">
+          <input type="checkbox" checked={papersFilter === "yes"} onChange={e => setPapersFilter(e.target.checked ? "yes" : "")} className="accent-[#c5a059]" />
+          Mit Papieren
+        </label>
+      </div>
+      <div className="flex items-end gap-3 md:col-span-2 xl:col-span-1">
+        <button onClick={applyFilters} className="flex-1 bg-[#c5a059] text-black py-3 rounded-lg text-[10px] tracking-widest uppercase font-bold">{t("shop.filter.apply")}</button>
+        <button onClick={clearFilters} className="p-3 border border-white/10 rounded-lg hover:text-[#c5a059]" aria-label="Filter zurücksetzen"><X size={16} /></button>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="pt-32 pb-24 px-10 bg-[#050505]">
+    <div className="pt-32 pb-28 md:pb-24 px-10 bg-[#050505]">
       <MetaTags title={pageTitle} description="Entdecken Sie unsere kuratierte Kollektion exklusiver Luxusuhren und Schmuckstücke." />
       <div className="max-w-7xl mx-auto">
         <div className="mb-12 border-b border-white/10 pb-8">
@@ -168,66 +241,7 @@ export default function Shop() {
           </div>
 
           {showFilters && (
-            <div className="mt-8 p-6 bg-white/5 border border-white/10 rounded-2xl grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6">
-              <div>
-                <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Marke</label>
-                <select value={brandFilter} onChange={e => setBrandFilter(e.target.value)}
-                  className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg">
-                  <option value="">Alle Marken</option>
-                  {brandOptions.map(([slug, name]) => <option key={slug} value={slug}>{name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Zustand</label>
-                <select value={conditionFilter} onChange={e => setConditionFilter(e.target.value)}
-                  className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg">
-                  <option value="">Alle</option>
-                  <option value="NEW">Neu</option>
-                  <option value="UNUSED">Ungetragen</option>
-                  <option value="PRE_OWNED">Gebraucht</option>
-                  <option value="VINTAGE">Vintage</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Material</label>
-                <input value={materialFilter} onChange={e => setMaterialFilter(e.target.value)} placeholder="z.B. Edelstahl"
-                  className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
-              </div>
-              <div>
-                <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Werk</label>
-                <input value={movementFilter} onChange={e => setMovementFilter(e.target.value)} placeholder="z.B. Automatik"
-                  className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
-              </div>
-              <div>
-                <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Gehäusegröße</label>
-                <input value={diameterFilter} onChange={e => setDiameterFilter(e.target.value)} placeholder="z.B. 41"
-                  className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
-              </div>
-              <div>
-                <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Min. Preis (€)</label>
-                <input type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)} placeholder="0"
-                  className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
-              </div>
-              <div>
-                <label className="text-[9px] tracking-widest uppercase text-white/40 font-bold block mb-2">Max. Preis (€)</label>
-                <input type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} placeholder="50000"
-                  className="w-full bg-[#0a0a0a] border border-white/10 px-4 py-3 text-sm outline-none focus:border-[#c5a059] rounded-lg" />
-              </div>
-              <div className="flex flex-col gap-3 justify-end">
-                <label className="flex items-center gap-3 text-sm text-white/70 cursor-pointer">
-                  <input type="checkbox" checked={boxFilter === "yes"} onChange={e => setBoxFilter(e.target.checked ? "yes" : "")} className="accent-[#c5a059]" />
-                  Mit Originalbox
-                </label>
-                <label className="flex items-center gap-3 text-sm text-white/70 cursor-pointer">
-                  <input type="checkbox" checked={papersFilter === "yes"} onChange={e => setPapersFilter(e.target.checked ? "yes" : "")} className="accent-[#c5a059]" />
-                  Mit Papieren
-                </label>
-              </div>
-              <div className="flex items-end gap-3 md:col-span-2 xl:col-span-1">
-                <button onClick={applyFilters} className="flex-1 bg-[#c5a059] text-black py-3 rounded-lg text-[10px] tracking-widest uppercase font-bold">Anwenden</button>
-                <button onClick={clearFilters} className="p-3 border border-white/10 rounded-lg hover:text-[#c5a059]" aria-label="Filter zurücksetzen"><X size={16} /></button>
-              </div>
-            </div>
+            <div className="hidden md:block mt-8">{filterPanel}</div>
           )}
         </div>
 
@@ -255,9 +269,14 @@ export default function Shop() {
                   <div className="aspect-[4/5] relative">
                     <img src={product.images?.[0] || "https://images.unsplash.com/photo-1547996160-81dfa63595aa?auto=format&fit=crop&w=800"}
                       className="absolute inset-0 w-full h-full object-cover opacity-60 transition-all duration-1000 group-hover:scale-105 group-hover:opacity-100"
-                      alt={language === "en" && product.titleEn ? product.titleEn : (product.titleDe || product.name)} loading="lazy" />
+                      alt={language === "en" && product.titleEn ? product.titleEn : (product.titleDe || product.name)} loading="lazy" decoding="async" />
                     {product.status === "RESERVED" && (
                       <span className="absolute top-4 right-4 bg-[#c5a059] text-black text-[8px] tracking-[0.2em] uppercase px-3 py-1 font-bold">Reserviert</span>
+                    )}
+                    {stockUrgencyKey(product.stock) && product.status !== "RESERVED" && (
+                      <span className="absolute top-4 left-4 bg-red-900/80 text-white text-[8px] tracking-[0.2em] uppercase px-3 py-1 font-bold">
+                        {t(stockUrgencyKey(product.stock)!)}
+                      </span>
                     )}
                   </div>
                 </Link>
@@ -284,6 +303,42 @@ export default function Shop() {
           </div>
         )}
       </div>
+
+      {/* Mobile filter bottom sheet */}
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="md:hidden fixed inset-0 z-[80] bg-black/70"
+            onClick={() => setShowFilters(false)}
+          >
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 320 }}
+              className="absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto rounded-t-3xl bg-[#0a0a0a] border-t border-white/10 p-4 pb-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4 px-2">
+                <h3 className="text-[11px] tracking-[0.3em] uppercase font-bold text-[#c5a059]">{t("shop.mobile.filter")}</h3>
+                <button onClick={() => setShowFilters(false)} className="text-white/40"><X size={20} /></button>
+              </div>
+              {filterPanel}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <button
+        type="button"
+        onClick={() => setShowFilters(true)}
+        className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2 bg-[#c5a059] text-black px-6 py-3 rounded-full text-[10px] tracking-widest uppercase font-bold shadow-2xl"
+      >
+        <Filter size={14} /> {t("shop.mobile.filter")}
+      </button>
     </div>
   );
 }

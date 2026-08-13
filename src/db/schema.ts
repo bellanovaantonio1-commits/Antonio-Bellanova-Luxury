@@ -176,6 +176,9 @@ export const orders = pgTable('orders', {
   subtotalNet: numeric('subtotal_net', { precision: 10, scale: 2 }),
   taxAmount: numeric('tax_amount', { precision: 10, scale: 2 }),
   taxRatePercent: numeric('tax_rate_percent', { precision: 5, scale: 2 }).default('19'),
+  trackingNumber: text('tracking_number'),
+  carrier: text('carrier'),
+  deliveryMethod: text('delivery_method').default('SHIPPING'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -221,6 +224,27 @@ export const wishlistItems = pgTable('wishlist_items', {
   id: serial('id').primaryKey(),
   userId: text('user_id').notNull(),
   productId: integer('product_id').references(() => products.id),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const userAddresses = pgTable('user_addresses', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  name: text('name').notNull(),
+  street: text('street').notNull(),
+  postalCode: text('postal_code').notNull(),
+  city: text('city').notNull(),
+  country: text('country').notNull().default('Deutschland'),
+  isDefault: text('is_default').default('false'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const wishlistAlerts = pgTable('wishlist_alerts', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  productId: integer('product_id').references(() => products.id),
+  notifyPriceDrop: text('notify_price_drop').default('true'),
+  notifyBackInStock: text('notify_back_in_stock').default('true'),
   createdAt: timestamp('created_at').defaultNow(),
 });
 

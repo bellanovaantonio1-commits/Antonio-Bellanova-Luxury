@@ -13,6 +13,8 @@ interface AdminOrder {
   createdAt: string;
   invoiceNumber?: string | null;
   invoiceStatus?: string | null;
+  trackingNumber?: string | null;
+  carrier?: string | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -34,6 +36,9 @@ export default function Orders() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [shipModal, setShipModal] = useState<AdminOrder | null>(null);
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [carrier, setCarrier] = useState("DHL");
 
   const loadOrders = async () => {
     try {
@@ -51,7 +56,7 @@ export default function Orders() {
 
   useEffect(() => { loadOrders(); }, []);
 
-  const updateOrder = async (id: number, updates: { status?: string; paymentStatus?: string }) => {
+  const updateOrder = async (id: number, updates: Record<string, string | undefined>) => {
     const token = await auth.currentUser?.getIdToken();
     const res = await fetch(`/api/admin/orders/${id}`, {
       method: "PATCH",
@@ -65,6 +70,22 @@ export default function Orders() {
     }
     await loadOrders();
     return true;
+  };
+
+  const openShipModal = (order: AdminOrder) => {
+    setShipModal(order);
+    setTrackingNumber(order.trackingNumber || "");
+    setCarrier(order.carrier || "DHL");
+  };
+
+  const confirmShip = async () => {
+    if (!shipModal) return;
+    const ok = await updateOrder(shipModal.id, {
+      status: "SHIPPED",
+      trackingNumber: trackingNumber.trim(),
+      carrier: carrier.trim(),
+    });
+    if (ok) setShipModal(null);
   };
 
   const cancelOrder = async (order: AdminOrder) => {
@@ -143,6 +164,34 @@ export default function Orders() {
         </button>
       </div>
 
+      {shipModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full space-y-6 shadow-2xl">
+            <h4 className="text-lg font-serif text-gray-900">Versand — {shipModal.orderNumber}</h4>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Tracking-Nummer</label>
+                <input value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} className="mt-1 w-full border border-gray-200 rounded-lg px-4 py-3 text-sm" placeholder="z.B. JJD0001234567890" />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Carrier</label>
+                <select value={carrier} onChange={(e) => setCarrier(e.target.value)} className="mt-1 w-full border border-gray-200 rounded-lg px-4 py-3 text-sm">
+                  <option value="DHL">DHL</option>
+                  <option value="UPS">UPS</option>
+                  <option value="FedEx">FedEx</option>
+                  <option value="DPD">DPD</option>
+                  <option value="Other">Sonstige</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setShipModal(null)} className="px-4 py-2 text-sm text-gray-500">Abbrechen</button>
+              <button onClick={confirmShip} className="px-6 py-2 bg-purple-600 text-white rounded-lg text-sm font-bold">Als versendet markieren</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <p className="text-gray-400 italic text-sm">Bestellungen werden geladen...</p>
       ) : orders.length === 0 ? (
@@ -159,6 +208,7 @@ export default function Orders() {
                 <th className="pb-4 pr-4">Betrag</th>
                 <th className="pb-4 pr-4">Status</th>
                 <th className="pb-4 pr-4">Zahlung</th>
+                <th className="pb-4 pr-4">Tracking</th>
                 <th className="pb-4">Aktionen</th>
               </tr>
             </thead>
@@ -180,6 +230,9 @@ export default function Orders() {
                         {PAYMENT_LABELS[order.paymentStatus] || order.paymentStatus}
                       </span>
                     </td>
+                    <td className="py-4 pr-4 font-mono text-[10px] text-gray-500">
+                      {order.trackingNumber ? `${order.carrier || ""} ${order.trackingNumber}`.trim() : "—"}
+                    </td>
                     <td className="py-4">
                       {isCancelled ? (
                         <span className="text-[10px] uppercase tracking-widest text-gray-400">Storniert</span>
@@ -196,7 +249,7 @@ export default function Orders() {
                           )}
                           {order.status === "PROCESSING" && (
                             <button
-                              onClick={() => updateOrder(order.id, { status: "SHIPPED" })}
+                              onClick={() => openShipModal(order)}
                               title="Als versendet markieren"
                               className="p-2 hover:bg-purple-50 rounded-lg text-purple-600"
                             >

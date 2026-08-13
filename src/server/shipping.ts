@@ -27,6 +27,8 @@ const EU_COUNTRY_HINTS = [
   "zypern", "cyprus", "cy",
 ];
 
+export type ShippingMethod = "standard" | "express" | "pickup";
+
 function isGermany(country: string): boolean {
   const c = country.trim().toLowerCase();
   return c === "de" || c === "deutschland" || c === "germany" || c.includes("deutsch");
@@ -41,14 +43,23 @@ function isEu(country: string): boolean {
 export function calculateShippingCost(
   country: string | undefined,
   settings: Record<string, string>,
-  subtotalGross: number
+  subtotalGross: number,
+  method: ShippingMethod = "standard"
 ): number {
-  const freeFrom = parseFloat(settings.shippingFreeFrom || "500") || 500;
-  if (subtotalGross >= freeFrom) return 0;
+  if (method === "pickup") return 0;
 
-  const deCost = parseFloat(settings.shippingCostDe || "0") || 0;
-  const euCost = parseFloat(settings.shippingCostEu || "29") || 29;
-  const worldCost = parseFloat(settings.shippingCostWorld || "79") || 79;
+  const freeFrom = parseFloat(settings.shippingFreeFrom || "500") || 500;
+  if (method === "standard" && subtotalGross >= freeFrom) return 0;
+
+  const deCost = method === "express"
+    ? parseFloat(settings.shippingExpressCostDe || "49") || 49
+    : parseFloat(settings.shippingCostDe || "0") || 0;
+  const euCost = method === "express"
+    ? parseFloat(settings.shippingExpressCostEu || "79") || 79
+    : parseFloat(settings.shippingCostEu || "29") || 29;
+  const worldCost = method === "express"
+    ? parseFloat(settings.shippingExpressCostWorld || "129") || 129
+    : parseFloat(settings.shippingCostWorld || "79") || 79;
 
   const target = (country || "Deutschland").trim();
   if (isGermany(target)) return deCost;

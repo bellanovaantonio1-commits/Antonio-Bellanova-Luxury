@@ -24,6 +24,8 @@ import Account from "./pages/Account.tsx";
 
 import Wishlist from "./pages/Wishlist.tsx";
 
+import BrandPage from "./pages/BrandPage.tsx";
+
 import Cart from "./pages/Cart.tsx";
 
 function AuthErrorBanner() {
@@ -57,6 +59,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/shop" element={<Shop />} />
+          <Route path="/brands/:slug" element={<BrandPage />} />
           <Route path="/product/:slug" element={<ProductDetails />} />
           <Route path="/sell" element={<Sell />} />
           <Route path="/contact" element={<Contact />} />

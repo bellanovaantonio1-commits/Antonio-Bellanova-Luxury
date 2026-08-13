@@ -139,7 +139,23 @@ export default function Settings() {
         { key: "shippingCostDe", label: "Versand Deutschland (EUR)" },
         { key: "shippingCostEu", label: "Versand EU (EUR)" },
         { key: "shippingCostWorld", label: "Versand International (EUR)" },
+        { key: "shippingExpressCostDe", label: "Express Deutschland (EUR)" },
+        { key: "shippingExpressCostEu", label: "Express EU (EUR)" },
+        { key: "shippingExpressCostWorld", label: "Express International (EUR)" },
         { key: "shippingFreeFrom", label: "Versand frei ab Bestellwert (EUR)" },
+        { key: "pickupNoteDe", label: "Abhol-Hinweis (DE)", multiline: true },
+        { key: "pickupNoteEn", label: "Abhol-Hinweis (EN)", multiline: true },
+      ],
+    },
+    {
+      title: "Vertrauen & Home",
+      desc: "Testimonials auf der Startseite und Zertifikat-Hinweis auf der Produktseite.",
+      fields: [
+        { key: "certificateNoteDe", label: "Zertifikat-Hinweis (DE)", multiline: true },
+        { key: "certificateNoteEn", label: "Zertifikat-Hinweis (EN)", multiline: true },
+        { key: "testimonial1De", label: "Testimonial 1 (DE)", multiline: true },
+        { key: "testimonial1En", label: "Testimonial 1 (EN)", multiline: true },
+        { key: "testimonial1Author", label: "Testimonial Autor" },
       ],
     },
     {

@@ -16,7 +16,9 @@ function getDbCredentials() {
   const password = process.env.SQL_ADMIN_PASSWORD || process.env.SQL_PASSWORD;
 
   if (!host || !database || !user || !password) {
-    throw new Error("Missing SQL environment variables");
+    throw new Error(
+      "Missing DB config: set DATABASE_URL or SQL_HOST, SQL_DB_NAME, SQL_ADMIN_USER, SQL_ADMIN_PASSWORD in .env"
+    );
   }
 
   return {

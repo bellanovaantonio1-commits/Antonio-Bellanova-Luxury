@@ -22,10 +22,7 @@ import { imageStorageService } from "./src/services/import/ImageStorageService.t
 import { registerExtraRoutes } from "./src/server/extraRoutes.ts";
 import { handleStripeWebhook } from "./src/server/stripeWebhook.ts";
 import { buildProductJsonLd, injectProductMeta, loadSpaIndexHtml } from "./src/server/seo.ts";
-import {
-  reEnrichProductFields,
-  resolvedContentToDbFields,
-} from "./src/services/admin/reEnrichShopContent.ts";
+import { notifyWishlistAlerts } from "./src/server/wishlistAlerts.ts";
 
 function toEntitySlug(value: string): string {
   return value.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -192,11 +189,21 @@ async function startServer() {
     }
   });
 
+  app.get("/api/brands/:slug", async (req, res) => {
+    try {
+      const [brand] = await db.select().from(brands).where(eq(brands.slug, req.params.slug)).limit(1);
+      if (!brand) return res.status(404).json({ error: "Brand not found" });
+      res.json(brand);
+    } catch {
+      res.status(500).json({ error: "Failed to fetch brand" });
+    }
+  });
+
   app.get("/api/products", async (req, res) => {
     try {
       const {
         cat, all, limit: limitParam, sort, brand: brandSlug, minPrice, maxPrice, exclude,
-        conditionGroup, box, papers, material, movement, diameter,
+        conditionGroup, box, papers, material, movement, diameter, collection,
       } = req.query;
       
       let conditions: any[] = [];
@@ -238,6 +245,18 @@ async function startServer() {
           ilike(products.papers, "yes"),
           ilike(products.papers, "ja"),
         ));
+      }
+
+      if (collection === "sport") {
+        conditions.push(or(
+          ilike(products.movement, "%chron%"),
+          ilike(products.movement, "%autom%"),
+          ilike(products.type, "WATCH"),
+        ));
+      } else if (collection === "vintage") {
+        conditions.push(eq(products.conditionGroup, "VINTAGE"));
+      } else if (collection === "under-5000") {
+        conditions.push(lte(products.price, "5000"));
       }
 
       let orderBy = cat === "new" ? desc(products.createdAt) : desc(products.createdAt);
@@ -288,6 +307,7 @@ async function startServer() {
       const brandRows = await db.select({ slug: brands.slug }).from(brands);
       const urls = [
         ...staticPages.map(p => `${base}/${p}`),
+        ...brandRows.map(b => `${base}/brands/${b.slug}`),
         ...brandRows.map(b => `${base}/shop?brand=${b.slug}`),
         ...activeProducts.map(p => `${base}/product/${p.slug}`),
       ];
@@ -301,6 +321,64 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
       res.send(xml);
     } catch {
       res.status(500).send("");
+    }
+  });
+
+  app.get("/api/products/:slug/related", async (req, res) => {
+    try {
+      const [source] = await db.select({ product: products, brand: brands })
+        .from(products)
+        .leftJoin(brands, eq(products.brandId, brands.id))
+        .where(eq(products.slug, req.params.slug))
+        .limit(1);
+      if (!source) return res.json([]);
+
+      const price = parseFloat(source.product.price || "0");
+      const minP = (price * 0.75).toFixed(2);
+      const maxP = (price * 1.25).toFixed(2);
+
+      let related = await db.select({ product: products, brand: brands })
+        .from(products)
+        .leftJoin(brands, eq(products.brandId, brands.id))
+        .where(and(
+          inArray(products.status, ["ACTIVE"]),
+          gt(products.stock, 0),
+          ne(products.slug, req.params.slug),
+          source.product.brandId ? eq(products.brandId, source.product.brandId) : sql`1=1`,
+          gte(products.price, minP),
+          lte(products.price, maxP),
+        ))
+        .limit(4);
+
+      if (related.length < 4) {
+        const existing = new Set(related.map(r => r.product.id));
+        const fallback = await db.select({ product: products, brand: brands })
+          .from(products)
+          .leftJoin(brands, eq(products.brandId, brands.id))
+          .where(and(
+            inArray(products.status, ["ACTIVE"]),
+            gt(products.stock, 0),
+            ne(products.slug, req.params.slug),
+            source.product.type ? eq(products.type, source.product.type) : sql`1=1`,
+          ))
+          .limit(8);
+        for (const row of fallback) {
+          if (related.length >= 4) break;
+          if (!existing.has(row.product.id)) {
+            related.push(row);
+            existing.add(row.product.id);
+          }
+        }
+      }
+
+      res.json(related.slice(0, 4).map(item => ({
+        ...item.product,
+        images: Array.isArray(item.product.images) ? item.product.images : (typeof item.product.images === 'string' ? JSON.parse(item.product.images) : []),
+        brand: item.brand,
+      })));
+    } catch (error) {
+      console.error("Related products failed", error);
+      res.status(500).json({ error: "Failed to fetch related products" });
     }
   });
 
@@ -339,20 +417,32 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
   // Search
   app.get("/api/products/search", async (req, res) => {
     try {
-      const searchQ = (req.query.q as string || "").toLowerCase();
+      const searchQ = (req.query.q as string || "").trim();
       if (!searchQ) return res.json([]);
 
-      const result = await db.select().from(products)
+      const q = `%${searchQ.toLowerCase()}%`;
+      const result = await db.select({ product: products, brand: brands })
+        .from(products)
+        .leftJoin(brands, eq(products.brandId, brands.id))
         .where(and(
           inArray(products.status, ["ACTIVE"]),
+          gt(products.stock, 0),
           or(
-            like(sql`LOWER(${products.name})`, `%${searchQ}%`),
-            like(sql`LOWER(${products.sku})`, `%${searchQ}%`),
-            like(sql`LOWER(${products.descriptionDe})`, `%${searchQ}%`)
+            ilike(products.name, q),
+            ilike(products.titleDe, q),
+            ilike(products.titleEn, q),
+            ilike(products.model, q),
+            ilike(products.sku, q),
+            ilike(brands.name, q),
           )
-        ));
-      
-      res.json(result);
+        ))
+        .limit(12);
+
+      res.json(result.map(item => ({
+        ...item.product,
+        brand: item.brand?.name,
+        images: Array.isArray(item.product.images) ? item.product.images : (typeof item.product.images === 'string' ? JSON.parse(item.product.images) : []),
+      })));
     } catch (error) {
       console.error("Search failed", error);
       res.status(500).json({ error: "Search failed" });
@@ -802,6 +892,12 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
         if (categoryId) sanitizedData.categoryId = categoryId;
       }
 
+      let existingProductBeforeUpdate: typeof products.$inferSelect | null = null;
+      if (existingId) {
+        const [prev] = await db.select().from(products).where(eq(products.id, existingId)).limit(1);
+        existingProductBeforeUpdate = prev || null;
+      }
+
       let sqlProduct;
       try {
         if (existingId) {
@@ -813,6 +909,18 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
             updatedAt: new Date()
           }).where(eq(products.id, existingId)).returning();
           sqlProduct = updated;
+
+          if (existingProductBeforeUpdate) {
+            notifyWishlistAlerts({
+              productId: updated.id,
+              productName: updated.name || updated.titleDe || "Produkt",
+              productSlug: updated.slug,
+              oldPrice: existingProductBeforeUpdate.price,
+              newPrice: updated.price,
+              oldStock: existingProductBeforeUpdate.stock,
+              newStock: updated.stock,
+            }).catch((e) => console.error("Wishlist alerts failed", e));
+          }
         } else {
           console.log(`Creating new product for SKU: ${sku}`);
           const [inserted] = await db.insert(products).values({

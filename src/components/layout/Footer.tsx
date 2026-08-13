@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Instagram, Facebook, Mail, MapPin, Phone } from "lucide-react";
+import { useEffect, useState } from "react";
 import { FOOTER_NAV } from "../../config/navigation.ts";
 import { useLanguage } from "../../contexts/LanguageContext.tsx";
 import { formatAddressLines, useShopSettings } from "../../contexts/ShopSettingsContext.tsx";
@@ -9,6 +10,14 @@ export default function Footer() {
   const { t } = useLanguage();
   const settings = useShopSettings();
   const addressLines = formatAddressLines(settings.contactAddress);
+  const [brands, setBrands] = useState<{ name: string; slug: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/brands")
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setBrands)
+      .catch(() => setBrands([]));
+  }, []);
 
   return (
     <footer className="bg-[#050505] text-[#F4F4F4] pt-24 pb-12 border-t border-white/10">
@@ -55,6 +64,20 @@ export default function Footer() {
             ))}
           </ul>
         </div>
+
+        {/* Brands */}
+        {brands.length > 0 && (
+          <div className="space-y-6">
+            <h4 className="text-[10px] tracking-[0.3em] uppercase font-bold text-[#c5a059]">{t("home.brands.title")}</h4>
+            <ul className="space-y-4 text-[12px] text-white/75 font-light">
+              {brands.slice(0, 6).map((b) => (
+                <li key={b.slug}>
+                  <Link to={`/brands/${b.slug}`} className="hover:text-[#c5a059] transition-colors">{b.name}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Contact — from Admin → Einstellungen */}
         <div className="space-y-6">

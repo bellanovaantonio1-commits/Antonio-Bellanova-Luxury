@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Shield, Clock, Award, Package, MessageSquare, ChevronRight, Share2, Heart, CheckCircle2, X, Loader2 } from "lucide-react";
+import { Shield, Clock, Award, Package, MessageSquare, ChevronRight, Share2, Heart, CheckCircle2, X, Loader2, MessageCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Product } from "../types.ts";
 import { useCart } from "../contexts/CartContext.tsx";
 import { useWishlist } from "../contexts/WishlistContext.tsx";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
-import { useShopSettings } from "../contexts/ShopSettingsContext.tsx";
+import { useShopSettings, normalizePhoneForLink } from "../contexts/ShopSettingsContext.tsx";
 import MetaTags from "../components/common/MetaTags.tsx";
+import ImageLightbox from "../components/shop/ImageLightbox.tsx";
+import RecentlyViewed from "../components/shop/RecentlyViewed.tsx";
+import { useRecentlyViewed } from "../contexts/RecentlyViewedContext.tsx";
+import { stockUrgencyKey } from "../lib/stockUrgency.ts";
 import { mergeSpecRows, parseSpecificationsText, splitDescriptionAndDetails } from "../lib/productDisplay.ts";
 import { buildProductJsonLd } from "../lib/productJsonLd.ts";
 import { isPriceOnRequest, parsePriceOnRequestThreshold } from "../lib/priceOnRequest.ts";
@@ -23,9 +27,11 @@ export default function ProductDetails() {
   const [reserveForm, setReserveForm] = useState({ firstName: "", lastName: "", email: "", phone: "", message: "" });
   const [reserveLoading, setReserveLoading] = useState(false);
   const [reserveSuccess, setReserveSuccess] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
   const [reserveError, setReserveError] = useState<string | null>(null);
   const { language, t } = useLanguage();
   const shopSettings = useShopSettings();
+  const { addItem: addRecentlyViewed } = useRecentlyViewed();
   
   const { addItem } = useCart();
   const { toggleItem, isInWishlist } = useWishlist();
@@ -38,9 +44,13 @@ export default function ProductDetails() {
         if (response.ok) {
           const data = await response.json();
           setProduct(data);
-          const cat = data.type === "JEWELRY" ? "jewelry" : "watches";
-          const relRes = await fetch(`/api/products?cat=${cat}&limit=4&exclude=${slug}`);
+          const relRes = await fetch(`/api/products/${slug}/related`);
           if (relRes.ok) setRelated(await relRes.json());
+          else {
+            const cat = data.type === "JEWELRY" ? "jewelry" : "watches";
+            const fallback = await fetch(`/api/products?cat=${cat}&limit=4&exclude=${slug}`);
+            if (fallback.ok) setRelated(await fallback.json());
+          }
         }
       } catch (e) {
         console.error("Failed to fetch product", e);
@@ -50,6 +60,18 @@ export default function ProductDetails() {
     };
     fetchProduct();
   }, [slug]);
+
+  useEffect(() => {
+    if (!product) return;
+    const title = language === "en" && product.titleEn ? product.titleEn : (product.titleDe || product.name || "");
+    addRecentlyViewed({
+      slug: product.slug,
+      title,
+      image: product.images?.[0] || "",
+      price: product.price,
+      brand: product.brand?.name,
+    });
+  }, [product?.slug, language, addRecentlyViewed]);
 
   useEffect(() => {
     if (!product) return;
@@ -200,8 +222,17 @@ export default function ProductDetails() {
       ? product.seoDescriptionEn || product.shortDescriptionEn || displayTitle
       : product.seoDescriptionDe || product.shortDescriptionDe || displayTitle;
 
+  const stockKey = stockUrgencyKey(product.stock);
+  const whatsappPhone = normalizePhoneForLink(shopSettings.whatsappNumber || shopSettings.contactPhone || "491637607805");
+  const whatsappText = encodeURIComponent(
+    language === "en"
+      ? `Hello, I'm interested in: ${displayTitle}${product.sku ? ` (Ref. ${product.sku})` : ""} — ${window.location.href}`
+      : `Guten Tag, ich interessiere mich für: ${displayTitle}${product.sku ? ` (Ref. ${product.sku})` : ""} — ${window.location.href}`
+  );
+  const whatsappUrl = `https://wa.me/${whatsappPhone}?text=${whatsappText}`;
+
   return (
-    <div className="pt-32 pb-24 px-10 bg-[#050505]">
+    <div className="pt-32 pb-32 md:pb-24 px-10 bg-[#050505]">
       <MetaTags
         title={displayTitle}
         description={seoDescription}
@@ -234,7 +265,7 @@ export default function ProductDetails() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
           {/* Image Gallery */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="aspect-[4/5] bg-[#0a0a0a] overflow-hidden relative group border border-white/5">
+            <div className="aspect-[4/5] bg-[#0a0a0a] overflow-hidden relative group border border-white/5 cursor-zoom-in" onClick={() => setShowLightbox(true)}>
               <motion.img 
                 key={activeImage}
                 initial={{ opacity: 0 }}
@@ -243,6 +274,11 @@ export default function ProductDetails() {
                 className="w-full h-full object-cover opacity-80"
                 alt={displayTitle}
               />
+              {stockKey && (
+                <span className="absolute top-4 left-4 bg-red-900/80 text-white text-[8px] tracking-[0.2em] uppercase px-3 py-1 font-bold">
+                  {t(stockKey)}
+                </span>
+              )}
               <div className="absolute top-6 right-6 flex gap-3">
                 <button 
                   onClick={handleWishlist}
@@ -292,6 +328,11 @@ export default function ProductDetails() {
             <div className="mb-10 p-6 bg-white/[0.03] border border-white/10 rounded-2xl space-y-4">
               <p className="text-[10px] tracking-[0.3em] uppercase font-bold text-[#c5a059]">{t("product.trust.title")}</p>
               <p className="text-sm text-white/70 leading-relaxed">{authenticityNote}</p>
+              {(language === "en" ? shopSettings.certificateNoteEn : shopSettings.certificateNoteDe) && (
+                <p className="text-xs text-white/40 mt-3 italic">
+                  {language === "en" ? shopSettings.certificateNoteEn : shopSettings.certificateNoteDe}
+                </p>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 text-[11px] text-white/60">
                 <div><span className="text-white/40 uppercase tracking-widest text-[9px] block mb-1">{t("product.condition")}</span>{displayCondition}</div>
                 <div><span className="text-white/40 uppercase tracking-widest text-[9px] block mb-1">{t("product.scope")}</span>{displayScope}</div>
@@ -332,6 +373,14 @@ export default function ProductDetails() {
                 >
                   <MessageSquare size={16} strokeWidth={1.5} /> {t("product.reserve.button")}
                 </button>
+                <a
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full border border-green-600/40 text-green-500 hover:bg-green-600 hover:text-white py-6 text-[11px] tracking-[0.3em] uppercase font-bold transition-all flex items-center justify-center gap-3"
+                >
+                  <MessageCircle size={16} strokeWidth={1.5} /> {t("product.whatsapp")}
+                </a>
               </div>
             </div>
 
@@ -440,6 +489,43 @@ export default function ProductDetails() {
             </div>
           </div>
         )}
+
+        <RecentlyViewed excludeSlug={product.slug} />
+      </div>
+
+      <ImageLightbox
+        images={product.images?.length ? product.images : ["https://images.unsplash.com/photo-1547996160-81dfa63595aa?auto=format&fit=crop&w=1200"]}
+        activeIndex={activeImage}
+        alt={displayTitle}
+        open={showLightbox}
+        onClose={() => setShowLightbox(false)}
+        onChange={setActiveImage}
+      />
+
+      {/* Mobile sticky action bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-[90] md:hidden bg-[#0a0a0a]/95 backdrop-blur-md border-t border-white/10 px-4 py-3 flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-[9px] uppercase tracking-widest text-white/40 truncate">{product.brand?.name}</p>
+          <p className="text-sm font-serif text-[#c5a059] truncate">
+            {priceOnRequest
+              ? t("product.price_on_request")
+              : new Intl.NumberFormat(language === "en" ? "en-US" : "de-DE", { style: "currency", currency: "EUR" }).format(parseFloat(product.price))}
+          </p>
+        </div>
+        {!priceOnRequest && (
+          <button
+            onClick={handleAddToCart}
+            className="px-4 py-3 bg-white text-black text-[9px] tracking-widest uppercase font-bold shrink-0"
+          >
+            {t("product.add_to_cart")}
+          </button>
+        )}
+        <button
+          onClick={() => { setShowReserveModal(true); setReserveSuccess(false); setReserveError(null); }}
+          className="px-4 py-3 border border-[#c5a059] text-[#c5a059] text-[9px] tracking-widest uppercase font-bold shrink-0"
+        >
+          {t("product.reserve.button").split(" / ")[0]}
+        </button>
       </div>
 
       <AnimatePresence>

@@ -5,6 +5,7 @@ import { useCart } from "../contexts/CartContext.tsx";
 import { Link, useSearchParams } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
 import { useAuth } from "../contexts/AuthContext.tsx";
+import { useShopSettings } from "../contexts/ShopSettingsContext.tsx";
 import InvoiceActions from "../components/InvoiceActions.tsx";
 
 interface PaymentInfo {
@@ -22,6 +23,11 @@ interface AddressForm {
   postalCode: string;
   city: string;
   country: string;
+}
+
+interface SavedAddress extends AddressForm {
+  id: number;
+  isDefault: string;
 }
 
 const emptyAddress = (): AddressForm => ({
@@ -55,11 +61,16 @@ export default function Cart() {
   const [shippingLoading, setShippingLoading] = useState(false);
   const [stripeEnabled, setStripeEnabled] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"BANK_TRANSFER" | "STRIPE">("BANK_TRANSFER");
+  const [deliveryMethod, setDeliveryMethod] = useState<"SHIPPING" | "PICKUP">("SHIPPING");
+  const [shippingMethod, setShippingMethod] = useState<"standard" | "express">("standard");
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | "">("");
   const { t, language } = useLanguage();
   const { user, signIn } = useAuth();
+  const shopSettings = useShopSettings();
 
-  const shippingCountry = (differentShipping ? shipping.country : billing.country) || "Deutschland";
-  const grandTotal = total + (shippingCost ?? 0);
+  const shippingCountry = deliveryMethod === "PICKUP" ? "Deutschland" : ((differentShipping ? shipping.country : billing.country) || "Deutschland");
+  const grandTotal = total + (deliveryMethod === "PICKUP" ? 0 : (shippingCost ?? 0));
 
   useEffect(() => {
     const stripeParam = searchParams.get("stripe");
@@ -81,9 +92,14 @@ export default function Cart() {
       return;
     }
 
+    if (deliveryMethod === "PICKUP") {
+      setShippingCost(0);
+      return;
+    }
+
     let cancelled = false;
     setShippingLoading(true);
-    fetch(`/api/shipping/quote?country=${encodeURIComponent(shippingCountry)}&subtotal=${total}`)
+    fetch(`/api/shipping/quote?country=${encodeURIComponent(shippingCountry)}&subtotal=${total}&method=${shippingMethod}&deliveryMethod=${deliveryMethod}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
@@ -102,15 +118,45 @@ export default function Cart() {
     return () => {
       cancelled = true;
     };
-  }, [shippingCountry, total, items.length]);
+  }, [shippingCountry, total, items.length, shippingMethod, deliveryMethod]);
+
+  useEffect(() => {
+    if (!user) {
+      setSavedAddresses([]);
+      return;
+    }
+    user.getIdToken().then((token) =>
+      fetch("/api/account/addresses", { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => (r.ok ? r.json() : []))
+        .then((addrs: SavedAddress[]) => {
+          setSavedAddresses(addrs);
+          const def = addrs.find((a) => a.isDefault === "true");
+          if (def && !billing.name) {
+            setBilling({ name: def.name, street: def.street, postalCode: def.postalCode, city: def.city, country: def.country });
+            setSelectedAddressId(def.id);
+          }
+        })
+        .catch(() => setSavedAddresses([]))
+    );
+  }, [user]);
 
   const formatMoney = (amount: number) =>
     new Intl.NumberFormat(language === "en" ? "en-US" : "de-DE", { style: "currency", currency: "EUR" }).format(amount);
 
   const shippingLabel = () => {
+    if (deliveryMethod === "PICKUP") return t("cart.delivery.pickup");
     if (shippingLoading || shippingCost === null) return t("cart.shipping.calculated");
     if (shippingCost === 0) return t("cart.shipping.free");
     return formatMoney(shippingCost);
+  };
+
+  const applySavedAddress = (id: number | "") => {
+    setSelectedAddressId(id);
+    if (id === "") return;
+    const addr = savedAddresses.find((a) => a.id === id);
+    if (addr) {
+      setBilling({ name: addr.name, street: addr.street, postalCode: addr.postalCode, city: addr.city, country: addr.country });
+    }
   };
 
   const formatAddress = (a: AddressForm) => ({
@@ -144,7 +190,7 @@ export default function Cart() {
       setError(t("cart.address.required"));
       return;
     }
-    if (differentShipping && !validateAddress(shipping)) {
+    if (deliveryMethod === "SHIPPING" && differentShipping && !validateAddress(shipping)) {
       setError(t("cart.shipping.required"));
       return;
     }
@@ -172,6 +218,8 @@ export default function Cart() {
           customerVatId: isBusiness ? customerVatId.trim() || null : null,
           language,
           paymentMethod,
+          deliveryMethod,
+          shippingMethod: deliveryMethod === "PICKUP" ? undefined : shippingMethod,
         }),
       });
 
@@ -425,6 +473,23 @@ export default function Cart() {
                     <FileText size={18} className="text-[#c5a059]" />
                     <h3 className="text-sm tracking-[0.3em] uppercase font-bold text-[#c5a059]">{t("cart.address.billing")}</h3>
                   </div>
+
+                  {savedAddresses.length > 0 && (
+                    <div>
+                      <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("cart.address.useSaved")}</label>
+                      <select
+                        value={selectedAddressId}
+                        onChange={(e) => applySavedAddress(e.target.value ? parseInt(e.target.value, 10) : "")}
+                        className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
+                      >
+                        <option value="">—</option>
+                        {savedAddresses.map((a) => (
+                          <option key={a.id} value={a.id}>{a.name} — {a.city}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <AddressFields value={billing} onChange={setBilling} prefix="billing" />
 
                   <label className="flex items-center gap-3 cursor-pointer">
@@ -464,15 +529,41 @@ export default function Cart() {
                       checked={differentShipping}
                       onChange={(e) => setDifferentShipping(e.target.checked)}
                       className="rounded border-white/20"
+                      disabled={deliveryMethod === "PICKUP"}
                     />
                     <span className="text-sm text-white/60">{t("cart.address.differentShipping")}</span>
                   </label>
-                  {differentShipping && (
+                  {differentShipping && deliveryMethod === "SHIPPING" && (
                     <div className="space-y-4 pt-4 border-t border-white/10">
                       <h3 className="text-sm tracking-[0.3em] uppercase font-bold text-white/40">{t("cart.address.shipping")}</h3>
                       <AddressFields value={shipping} onChange={setShipping} prefix="shipping" />
                     </div>
                   )}
+
+                  <div className="space-y-4 pt-4 border-t border-white/10">
+                    <h3 className="text-sm tracking-[0.3em] uppercase font-bold text-[#c5a059]">{t("cart.delivery.title")}</h3>
+                    <label className="flex items-start gap-3 cursor-pointer p-4 rounded-xl border border-white/10 hover:border-[#c5a059]/30 transition-colors">
+                      <input type="radio" name="deliveryMethod" checked={deliveryMethod === "SHIPPING" && shippingMethod === "standard"} onChange={() => { setDeliveryMethod("SHIPPING"); setShippingMethod("standard"); }} className="mt-1" />
+                      <div>
+                        <p className="text-sm font-bold">{t("cart.delivery.standard")}</p>
+                      </div>
+                    </label>
+                    <label className="flex items-start gap-3 cursor-pointer p-4 rounded-xl border border-white/10 hover:border-[#c5a059]/30 transition-colors">
+                      <input type="radio" name="deliveryMethod" checked={deliveryMethod === "SHIPPING" && shippingMethod === "express"} onChange={() => { setDeliveryMethod("SHIPPING"); setShippingMethod("express"); }} className="mt-1" />
+                      <div>
+                        <p className="text-sm font-bold">{t("cart.delivery.express")}</p>
+                      </div>
+                    </label>
+                    <label className="flex items-start gap-3 cursor-pointer p-4 rounded-xl border border-white/10 hover:border-[#c5a059]/30 transition-colors">
+                      <input type="radio" name="deliveryMethod" checked={deliveryMethod === "PICKUP"} onChange={() => setDeliveryMethod("PICKUP")} className="mt-1" />
+                      <div>
+                        <p className="text-sm font-bold">{t("cart.delivery.pickup")}</p>
+                        <p className="text-xs text-white/40 mt-1">
+                          {language === "en" ? shopSettings.pickupNoteEn : shopSettings.pickupNoteDe}
+                        </p>
+                      </div>
+                    </label>
+                  </div>
 
                   {stripeEnabled && (
                     <div className="space-y-4 pt-4 border-t border-white/10">

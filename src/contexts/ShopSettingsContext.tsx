@@ -29,6 +29,16 @@ export type ShopSettings = {
   shippingCostWorld: string;
   shippingFreeFrom: string;
   priceOnRequestFrom: string;
+  shippingExpressCostDe: string;
+  shippingExpressCostEu: string;
+  shippingExpressCostWorld: string;
+  pickupNoteDe: string;
+  pickupNoteEn: string;
+  certificateNoteDe: string;
+  certificateNoteEn: string;
+  testimonial1De: string;
+  testimonial1En: string;
+  testimonial1Author: string;
 };
 
 function toSettings(raw: Record<string, unknown>): ShopSettings {
@@ -61,6 +71,16 @@ function toSettings(raw: Record<string, unknown>): ShopSettings {
     shippingCostWorld: str("shippingCostWorld"),
     shippingFreeFrom: str("shippingFreeFrom"),
     priceOnRequestFrom: str("priceOnRequestFrom"),
+    shippingExpressCostDe: str("shippingExpressCostDe"),
+    shippingExpressCostEu: str("shippingExpressCostEu"),
+    shippingExpressCostWorld: str("shippingExpressCostWorld"),
+    pickupNoteDe: str("pickupNoteDe"),
+    pickupNoteEn: str("pickupNoteEn"),
+    certificateNoteDe: str("certificateNoteDe"),
+    certificateNoteEn: str("certificateNoteEn"),
+    testimonial1De: str("testimonial1De"),
+    testimonial1En: str("testimonial1En"),
+    testimonial1Author: str("testimonial1Author"),
   };
 }
 

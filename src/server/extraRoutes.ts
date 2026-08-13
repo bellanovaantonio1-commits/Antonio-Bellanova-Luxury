@@ -4,7 +4,8 @@ import { requireAuth, requireRole, AuthRequest } from "../middleware/auth.ts";
 import { db } from "../db/index.ts";
 import {
   users, products, brands, categories, orders, orderItems,
-  shopSettings, inquiries, wishlistItems, newsletterSubscribers, invoices
+  shopSettings, inquiries, wishlistItems, wishlistAlerts, userAddresses,
+  newsletterSubscribers, invoices
 } from "../db/schema.ts";
 import { generateOrderNumber, DEFAULT_SHOP_SETTINGS } from "./helpers.ts";
 import { extractProductFromText } from "../lib/gemini.ts";
@@ -19,7 +20,7 @@ import {
   getInvoiceByOrderId,
 } from "./invoice/service.ts";
 import { getMissingInvoiceSettings } from "./invoice/seller.ts";
-import { calculateShippingCost } from "./shipping.ts";
+import { calculateShippingCost, ShippingMethod } from "./shipping.ts";
 import { createStripeCheckoutSession, isStripeEnabled } from "./stripe.ts";
 import { getSettingsMap, ensureDefaultSettings } from "./settings.ts";
 
@@ -43,13 +44,158 @@ export function registerExtraRoutes(app: Express) {
       }
       const existing = await db.select().from(newsletterSubscribers).where(eq(newsletterSubscribers.email, email.toLowerCase())).limit(1);
       if (existing.length > 0) {
-        return res.json({ message: "Bereits angemeldet." });
+        return res.json({ message: "Bereits angemeldet.", subscribed: true });
       }
-      await db.insert(newsletterSubscribers).values({ email: email.toLowerCase() });
-      res.status(201).json({ message: "Erfolgreich angemeldet." });
+      await db.insert(newsletterSubscribers).values({ email: email.toLowerCase(), status: "PENDING" });
+      res.status(201).json({
+        message: "Bitte bestätigen Sie Ihre Anmeldung per E-Mail (Double-Opt-in).",
+        subscribed: true,
+        pending: true,
+      });
     } catch (error) {
       console.error("Newsletter signup failed", error);
       res.status(500).json({ error: "Anmeldung fehlgeschlagen." });
+    }
+  });
+
+  app.get("/api/account/newsletter", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const email = req.user!.email?.toLowerCase();
+      if (!email) return res.json({ subscribed: false });
+      const [row] = await db.select().from(newsletterSubscribers).where(eq(newsletterSubscribers.email, email)).limit(1);
+      res.json({ subscribed: Boolean(row && row.status !== "UNSUBSCRIBED"), status: row?.status || null });
+    } catch {
+      res.status(500).json({ error: "Newsletter-Status konnte nicht geladen werden." });
+    }
+  });
+
+  app.post("/api/account/newsletter", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const email = req.user!.email?.toLowerCase();
+      if (!email) return res.status(400).json({ error: "Keine E-Mail hinterlegt." });
+      const [existing] = await db.select().from(newsletterSubscribers).where(eq(newsletterSubscribers.email, email)).limit(1);
+      if (existing) {
+        if (existing.status === "UNSUBSCRIBED") {
+          await db.update(newsletterSubscribers).set({ status: "PENDING" }).where(eq(newsletterSubscribers.email, email));
+        }
+        return res.json({ message: "Newsletter-Anmeldung gespeichert.", subscribed: true });
+      }
+      await db.insert(newsletterSubscribers).values({ email, status: "PENDING" });
+      res.status(201).json({
+        message: "Newsletter-Anmeldung gespeichert. Double-Opt-in wird per E-Mail bestätigt.",
+        subscribed: true,
+      });
+    } catch (error) {
+      console.error("Account newsletter failed", error);
+      res.status(500).json({ error: "Anmeldung fehlgeschlagen." });
+    }
+  });
+
+  app.delete("/api/account/newsletter", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const email = req.user!.email?.toLowerCase();
+      if (!email) return res.status(400).json({ error: "Keine E-Mail hinterlegt." });
+      await db.update(newsletterSubscribers).set({ status: "UNSUBSCRIBED" }).where(eq(newsletterSubscribers.email, email));
+      res.json({ message: "Newsletter abgemeldet.", subscribed: false });
+    } catch {
+      res.status(500).json({ error: "Abmeldung fehlgeschlagen." });
+    }
+  });
+
+  // Saved addresses
+  app.get("/api/account/addresses", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const rows = await db.select().from(userAddresses)
+        .where(eq(userAddresses.userId, req.user!.uid))
+        .orderBy(desc(userAddresses.createdAt));
+      res.json(rows);
+    } catch {
+      res.status(500).json({ error: "Adressen konnten nicht geladen werden." });
+    }
+  });
+
+  app.post("/api/account/addresses", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const { name, street, postalCode, city, country, isDefault } = req.body;
+      if (!name || !street || !postalCode || !city) {
+        return res.status(400).json({ error: "Alle Pflichtfelder ausfüllen." });
+      }
+      const existing = await db.select().from(userAddresses).where(eq(userAddresses.userId, req.user!.uid));
+      const makeDefault = isDefault === true || existing.length === 0;
+      if (makeDefault) {
+        await db.update(userAddresses).set({ isDefault: "false" }).where(eq(userAddresses.userId, req.user!.uid));
+      }
+      const [row] = await db.insert(userAddresses).values({
+        userId: req.user!.uid,
+        name: String(name).trim(),
+        street: String(street).trim(),
+        postalCode: String(postalCode).trim(),
+        city: String(city).trim(),
+        country: String(country || "Deutschland").trim(),
+        isDefault: makeDefault ? "true" : "false",
+      }).returning();
+      res.status(201).json(row);
+    } catch {
+      res.status(500).json({ error: "Adresse konnte nicht gespeichert werden." });
+    }
+  });
+
+  app.patch("/api/account/addresses/:id", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const [existing] = await db.select().from(userAddresses)
+        .where(and(eq(userAddresses.id, id), eq(userAddresses.userId, req.user!.uid)))
+        .limit(1);
+      if (!existing) return res.status(404).json({ error: "Adresse nicht gefunden." });
+
+      const { name, street, postalCode, city, country } = req.body;
+      const [updated] = await db.update(userAddresses).set({
+        ...(name != null && { name: String(name).trim() }),
+        ...(street != null && { street: String(street).trim() }),
+        ...(postalCode != null && { postalCode: String(postalCode).trim() }),
+        ...(city != null && { city: String(city).trim() }),
+        ...(country != null && { country: String(country).trim() }),
+      }).where(eq(userAddresses.id, id)).returning();
+      res.json(updated);
+    } catch {
+      res.status(500).json({ error: "Adresse konnte nicht aktualisiert werden." });
+    }
+  });
+
+  app.post("/api/account/addresses/:id/default", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const [existing] = await db.select().from(userAddresses)
+        .where(and(eq(userAddresses.id, id), eq(userAddresses.userId, req.user!.uid)))
+        .limit(1);
+      if (!existing) return res.status(404).json({ error: "Adresse nicht gefunden." });
+      await db.update(userAddresses).set({ isDefault: "false" }).where(eq(userAddresses.userId, req.user!.uid));
+      const [updated] = await db.update(userAddresses).set({ isDefault: "true" }).where(eq(userAddresses.id, id)).returning();
+      res.json(updated);
+    } catch {
+      res.status(500).json({ error: "Standardadresse konnte nicht gesetzt werden." });
+    }
+  });
+
+  app.delete("/api/account/addresses/:id", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const [existing] = await db.select().from(userAddresses)
+        .where(and(eq(userAddresses.id, id), eq(userAddresses.userId, req.user!.uid)))
+        .limit(1);
+      if (!existing) return res.status(404).json({ error: "Adresse nicht gefunden." });
+      await db.delete(userAddresses).where(eq(userAddresses.id, id));
+      if (existing.isDefault === "true") {
+        const [next] = await db.select().from(userAddresses)
+          .where(eq(userAddresses.userId, req.user!.uid))
+          .limit(1);
+        if (next) {
+          await db.update(userAddresses).set({ isDefault: "true" }).where(eq(userAddresses.id, next.id));
+        }
+      }
+      res.json({ message: "Adresse gelöscht." });
+    } catch {
+      res.status(500).json({ error: "Adresse konnte nicht gelöscht werden." });
     }
   });
 
@@ -182,12 +328,18 @@ export function registerExtraRoutes(app: Express) {
     try {
       const country = String(req.query.country || "Deutschland");
       const subtotal = parseFloat(String(req.query.subtotal || "0")) || 0;
+      const method = (String(req.query.method || "standard") as ShippingMethod);
+      const deliveryMethod = String(req.query.deliveryMethod || "SHIPPING");
       const settings = await getSettingsMap();
-      const cost = calculateShippingCost(country, settings as Record<string, string>, subtotal);
+      const cost = deliveryMethod === "PICKUP"
+        ? 0
+        : calculateShippingCost(country, settings as Record<string, string>, subtotal, method);
       res.json({
         shippingCost: cost,
         freeFrom: parseFloat(String(settings.shippingFreeFrom || "500")) || 500,
         stripeEnabled: isStripeEnabled(),
+        pickupNoteDe: settings.pickupNoteDe || "",
+        pickupNoteEn: settings.pickupNoteEn || "",
       });
     } catch {
       res.status(500).json({ error: "Versand konnte nicht berechnet werden." });
@@ -353,9 +505,48 @@ export function registerExtraRoutes(app: Express) {
       const productId = parseInt(req.params.productId);
       await db.delete(wishlistItems)
         .where(and(eq(wishlistItems.userId, req.user!.uid), eq(wishlistItems.productId, productId)));
+      await db.delete(wishlistAlerts)
+        .where(and(eq(wishlistAlerts.userId, req.user!.uid), eq(wishlistAlerts.productId, productId)));
       res.json({ message: "Entfernt" });
     } catch (error) {
       res.status(500).json({ error: "Entfernen fehlgeschlagen." });
+    }
+  });
+
+  app.get("/api/wishlist/alerts", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const rows = await db.select().from(wishlistAlerts).where(eq(wishlistAlerts.userId, req.user!.uid));
+      res.json(rows);
+    } catch {
+      res.status(500).json({ error: "Alerts konnten nicht geladen werden." });
+    }
+  });
+
+  app.put("/api/wishlist/alerts/:productId", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const productId = parseInt(req.params.productId, 10);
+      const { notifyPriceDrop, notifyBackInStock } = req.body;
+      const [existing] = await db.select().from(wishlistAlerts)
+        .where(and(eq(wishlistAlerts.userId, req.user!.uid), eq(wishlistAlerts.productId, productId)))
+        .limit(1);
+
+      if (existing) {
+        const [updated] = await db.update(wishlistAlerts).set({
+          notifyPriceDrop: notifyPriceDrop === false ? "false" : "true",
+          notifyBackInStock: notifyBackInStock === false ? "false" : "true",
+        }).where(eq(wishlistAlerts.id, existing.id)).returning();
+        return res.json(updated);
+      }
+
+      const [created] = await db.insert(wishlistAlerts).values({
+        userId: req.user!.uid,
+        productId,
+        notifyPriceDrop: notifyPriceDrop === false ? "false" : "true",
+        notifyBackInStock: notifyBackInStock === false ? "false" : "true",
+      }).returning();
+      res.status(201).json(created);
+    } catch {
+      res.status(500).json({ error: "Alert konnte nicht gespeichert werden." });
     }
   });
 
@@ -372,6 +563,8 @@ export function registerExtraRoutes(app: Express) {
         language,
         discountAmount,
         paymentMethod,
+        deliveryMethod,
+        shippingMethod,
       } = req.body;
       if (!items?.length) return res.status(400).json({ error: "Warenkorb ist leer." });
 
@@ -380,11 +573,14 @@ export function registerExtraRoutes(app: Express) {
       );
 
       const settings = await getSettingsMap();
-      const shippingCountry = (shippingAddress || billingAddress)?.country || "Deutschland";
+      const isPickup = deliveryMethod === "PICKUP";
+      const shippingCountry = isPickup ? "Deutschland" : ((shippingAddress || billingAddress)?.country || "Deutschland");
+      const shipMethod: ShippingMethod = isPickup ? "pickup" : (shippingMethod === "express" ? "express" : "standard");
       const shippingCost = calculateShippingCost(
         shippingCountry,
         settings as Record<string, string>,
-        computed.totalGross
+        computed.totalGross,
+        shipMethod
       );
       const discount = parseFloat(discountAmount) || 0;
       const totalGross = Math.max(0, computed.totalGross + shippingCost - discount);
@@ -406,8 +602,9 @@ export function registerExtraRoutes(app: Express) {
         taxRatePercent: computed.taxRatePercent.toString(),
         shippingCost: shippingCost.toString(),
         discountAmount: discount.toString(),
-        shippingAddress: shipping,
+        shippingAddress: isPickup ? { ...billing, type: "PICKUP" } : shipping,
         billingAddress: billing,
+        deliveryMethod: isPickup ? "PICKUP" : "SHIPPING",
         language: language === "en" ? "en" : "de",
         customerName: customerName || null,
         companyName: companyName || null,
@@ -618,7 +815,7 @@ export function registerExtraRoutes(app: Express) {
   app.patch("/api/admin/orders/:id", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { status, paymentStatus } = req.body;
+      const { status, paymentStatus, trackingNumber, carrier } = req.body;
 
       const [existing] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
       if (!existing) return res.status(404).json({ error: "Bestellung nicht gefunden." });
@@ -651,6 +848,8 @@ export function registerExtraRoutes(app: Express) {
         .set({
           ...(status && { status }),
           ...(resolvedPaymentStatus && { paymentStatus: resolvedPaymentStatus }),
+          ...(trackingNumber != null && { trackingNumber: String(trackingNumber).trim() || null }),
+          ...(carrier != null && { carrier: String(carrier).trim() || null }),
           updatedAt: new Date(),
         })
         .where(eq(orders.id, id))

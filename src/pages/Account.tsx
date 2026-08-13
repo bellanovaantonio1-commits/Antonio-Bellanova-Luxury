@@ -8,6 +8,7 @@ import { useWishlist } from "../contexts/WishlistContext.tsx";
 import { useIsAdmin } from "../hooks/useIsAdmin.ts";
 import { Link, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { Order, OrderStatus } from "../types.ts";
+import AddressesManager from "../components/account/AddressesManager.tsx";
 
 function OrderTracking({ status }: { status: OrderStatus }) {
   const steps = [
@@ -215,6 +216,62 @@ function OrdersView() {
   );
 }
 
+function NewsletterSection() {
+  const { user } = useAuth();
+  const { t } = useLanguage();
+  const [subscribed, setSubscribed] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    user.getIdToken().then((token) =>
+      fetch("/api/account/newsletter", { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => (r.ok ? r.json() : { subscribed: false }))
+        .then((d) => setSubscribed(Boolean(d.subscribed)))
+        .finally(() => setLoading(false))
+    );
+  }, [user]);
+
+  const toggle = async () => {
+    if (!user) return;
+    setBusy(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/account/newsletter", {
+        method: subscribed ? "DELETE" : "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setSubscribed(!subscribed);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="bg-white/5 border border-white/10 rounded-2xl p-10 space-y-6">
+      <h3 className="text-sm tracking-[0.3em] uppercase font-bold text-[#c5a059]">{t("account.newsletter.title")}</h3>
+      {loading ? (
+        <p className="text-white/30 italic text-sm">{t("common.loading")}</p>
+      ) : (
+        <>
+          <p className="text-sm font-light text-white/60 leading-relaxed">
+            {subscribed ? t("account.newsletter.subscribed") : t("account.newsletter.notSubscribed")}
+          </p>
+          <p className="text-xs text-white/30">{t("account.newsletter.hint")}</p>
+          <button
+            onClick={toggle}
+            disabled={busy}
+            className="text-[10px] tracking-widest uppercase font-bold text-[#c5a059] border-b border-[#c5a059]/30 pb-1 hover:border-[#c5a059] transition-colors disabled:opacity-50"
+          >
+            {subscribed ? t("account.newsletter.unsubscribe") : t("account.newsletter.subscribe")}
+          </button>
+        </>
+      )}
+    </section>
+  );
+}
+
 function AccountDashboard() {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -310,20 +367,14 @@ function AccountDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <section className="bg-white/5 border border-white/10 rounded-2xl p-10 space-y-6">
-          <h3 className="text-sm tracking-[0.3em] uppercase font-bold text-[#c5a059]">Standardadresse</h3>
-          <p className="text-sm font-light text-white/60 leading-relaxed">
-            Keine Adresse hinterlegt.
-          </p>
-          <button className="text-[10px] tracking-widest uppercase font-bold text-[#c5a059] border-b border-[#c5a059]/30 pb-1 hover:border-[#c5a059] transition-colors">Hinzufügen</button>
+          <h3 className="text-sm tracking-[0.3em] uppercase font-bold text-[#c5a059]">{t("account.addresses.title")}</h3>
+          <p className="text-sm font-light text-white/60 leading-relaxed">{t("account.addresses.empty")}</p>
+          <Link to="/account/addresses" className="text-[10px] tracking-widest uppercase font-bold text-[#c5a059] border-b border-[#c5a059]/30 pb-1 hover:border-[#c5a059] transition-colors">
+            {t("account.addresses.add")}
+          </Link>
         </section>
 
-        <section className="bg-white/5 border border-white/10 rounded-2xl p-10 space-y-6">
-          <h3 className="text-sm tracking-[0.3em] uppercase font-bold text-[#c5a059]">Newsletter</h3>
-          <p className="text-sm font-light text-white/60 leading-relaxed">
-            Sie sind aktuell nicht für den Newsletter angemeldet.
-          </p>
-          <button className="text-[10px] tracking-widest uppercase font-bold text-[#c5a059] border-b border-[#c5a059]/30 pb-1 hover:border-[#c5a059] transition-colors">Abonnieren</button>
-        </section>
+        <NewsletterSection />
       </div>
     </div>
   );
@@ -499,7 +550,7 @@ export default function Account() {
               <Route index element={<AccountDashboard />} />
               <Route path="profile" element={<ProfileView />} />
               <Route path="orders" element={<OrdersView />} />
-              <Route path="addresses" element={<section className="p-10 bg-white/5 rounded-2xl border border-white/10"><h3 className="text-sm uppercase tracking-widest text-[#c5a059]">Adressen</h3><p className="mt-8 text-white/30 italic">Keine Adressen hinterlegt.</p></section>} />
+              <Route path="addresses" element={<AddressesManager />} />
               <Route path="security" element={<SecurityView />} />
             </Routes>
           </main>
