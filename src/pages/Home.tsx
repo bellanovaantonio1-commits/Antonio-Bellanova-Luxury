@@ -6,6 +6,8 @@ import { Product } from "../types.ts";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
 import { useShopSettings } from "../contexts/ShopSettingsContext.tsx";
 import RecentlyViewed from "../components/shop/RecentlyViewed.tsx";
+import CuratedCollections from "../components/shop/CuratedCollections.tsx";
+import { getProductImageUrl } from "../lib/productImage.ts";
 
 export default function Home() {
   const [highlights, setHighlights] = useState<Product[]>([]);
@@ -31,7 +33,7 @@ export default function Home() {
   }, []);
 
   const featured = highlights[0];
-  const heroImage = featured?.mainImage || featured?.images?.[0] || "https://images.unsplash.com/photo-1547996160-81dfa63595aa?q=80&w=2574&auto=format&fit=crop";
+  const heroImage = getProductImageUrl(featured) || "/collections/sport.webp";
   const heroName = featured ? (language === "en" && featured.titleEn ? featured.titleEn : (featured.titleDe || featured.name)) : "Patek Philippe Nautilus 5711/1A";
   const heroPrice = featured ? parseFloat(featured.price) : 158400;
   const heroSlug = featured?.slug || "/shop";
@@ -166,11 +168,13 @@ export default function Home() {
                   <Link to={`/product/${product.slug}`} className="block">
                     <div className="aspect-[4/5] bg-[#0a0a0a] relative overflow-hidden">
                       <img 
-                        src={product.images[0] || "https://images.unsplash.com/photo-1547996160-81dfa63595aa?q=80&w=800"}
+                        src={getProductImageUrl(product) || "/collections/vintage.webp"}
                         className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-1000"
                         alt={language === "en" && product.titleEn ? product.titleEn : (product.titleDe || product.name)}
                         loading="lazy"
                         decoding="async"
+                        width={800}
+                        height={1000}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                       <div className="absolute bottom-8 left-8">
@@ -199,44 +203,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Curated Collections */}
-      <section className="py-24 px-10 border-b border-white/5">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16 space-y-4">
-            <h4 className="text-[10px] tracking-[0.4em] uppercase font-bold text-[#c5a059]">{t("home.collections.title")}</h4>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                slug: "sport",
-                label: t("shop.collections.sport"),
-                image: "https://images.unsplash.com/photo-1611652022419-743f996c43f5?auto=format&fit=crop&w=800&q=80",
-              },
-              {
-                slug: "vintage",
-                label: t("shop.collections.vintage"),
-                image: "https://images.unsplash.com/photo-1524805442118-701923fe0599?auto=format&fit=crop&w=800&q=80",
-              },
-              {
-                slug: "under-5000",
-                label: t("shop.collections.affordable"),
-                image: "https://images.unsplash.com/photo-1611591437281-460bf891a174?auto=format&fit=crop&w=800&q=80",
-              },
-            ].map((col) => (
-              <Link key={col.slug} to={`/shop?collection=${col.slug}`} className="group relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10">
-                <img src={col.image} alt={col.label} className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-70 group-hover:scale-105 transition-all duration-700" loading="lazy" decoding="async" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute bottom-8 left-8">
-                  <h3 className="text-2xl font-serif italic group-hover:text-[#c5a059] transition-colors">{col.label}</h3>
-                  <span className="text-[10px] tracking-widest uppercase text-white/40 mt-2 inline-flex items-center gap-2">
-                    {t("home.categories.explore")} <ArrowRight size={12} />
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+      <CuratedCollections />
 
       <section className="py-24 px-10">
         <div className="max-w-7xl mx-auto">
