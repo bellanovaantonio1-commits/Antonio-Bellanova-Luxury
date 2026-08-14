@@ -424,6 +424,67 @@ export async function updateCertificateStatus(
   return updated;
 }
 
+export async function refreshCertificateSnapshot(
+  certificateId: number,
+  admin: { uid: string; name?: string | null; email?: string | null }
+): Promise<CertificateRecord> {
+  const cert = await getCertificateById(certificateId);
+  if (!cert) throw new Error("Zertifikat nicht gefunden.");
+
+  let snapshot: CertificateSnapshot;
+  if (cert.orderId) {
+    const [order] = await db.select().from(orders).where(eq(orders.id, cert.orderId)).limit(1);
+    if (order) {
+      snapshot = await buildOrderCertificateSnapshot(cert.productId, order, cert.language);
+    } else {
+      snapshot = await buildProductSnapshot(cert.productId, cert.language);
+    }
+  } else {
+    snapshot = await buildProductSnapshot(cert.productId, cert.language);
+  }
+
+  const previous = cert.snapshotData;
+  if (cert.orderId && previous.orderNumber && !snapshot.orderNumber) {
+    snapshot.orderNumber = previous.orderNumber;
+  }
+  if (cert.orderId && previous.purchaseDate) {
+    snapshot.purchaseDate = previous.purchaseDate;
+  }
+  if (cert.orderId && previous.paymentStatus) {
+    snapshot.paymentStatus = previous.paymentStatus;
+  }
+
+  await db
+    .update(certificates)
+    .set({ snapshotData: snapshot, updatedAt: new Date() })
+    .where(eq(certificates.id, certificateId));
+
+  await logAudit(certificateId, admin, "snapshotData", "previous", "refreshed");
+  const updated = await getCertificateById(certificateId);
+  if (!updated) throw new Error("Zertifikat nicht gefunden.");
+  return updated;
+}
+
+export async function refreshCertificatesForProduct(
+  productId: number,
+  admin?: { uid: string; name?: string | null; email?: string | null }
+): Promise<number> {
+  const actor = admin || SYSTEM_ACTOR;
+  const rows = await db
+    .select()
+    .from(certificates)
+    .where(
+      and(eq(certificates.productId, productId), inArray(certificates.status, ["DRAFT", "ACTIVE"]))
+    );
+
+  let count = 0;
+  for (const row of rows) {
+    await refreshCertificateSnapshot(row.id, actor);
+    count++;
+  }
+  return count;
+}
+
 export async function linkCertificateToOrder(
   certificateId: number,
   orderId: number,

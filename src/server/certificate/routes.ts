@@ -22,6 +22,8 @@ import {
   toPublicVerification,
   updateCertificateStatus,
   userCanAccessCertificate,
+  refreshCertificateSnapshot,
+  refreshCertificatesForProduct,
 } from "./service.ts";
 import { isProductCertifiable } from "./eligibility.ts";
 import { getCertificatePublicUrl } from "./numbering.ts";
@@ -210,6 +212,34 @@ export function registerCertificateRoutes(app: Express) {
     }
   });
 
+  app.post("/api/admin/products/:productId/certificate/refresh", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
+    try {
+      const productId = parseInt(req.params.productId, 10);
+      const count = await refreshCertificatesForProduct(productId, {
+        uid: req.user!.uid,
+        name: req.user!.name,
+        email: req.user!.email,
+      });
+      const cert = await getCertificateForProduct(productId);
+      res.json({ refreshed: count, certificate: cert });
+    } catch (error: unknown) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Aktualisierung fehlgeschlagen." });
+    }
+  });
+
+  app.post("/api/admin/certificates/:id/refresh", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
+    try {
+      const cert = await refreshCertificateSnapshot(parseInt(req.params.id, 10), {
+        uid: req.user!.uid,
+        name: req.user!.name,
+        email: req.user!.email,
+      });
+      res.json(cert);
+    } catch (error: unknown) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Aktualisierung fehlgeschlagen." });
+    }
+  });
+
   // Admin certificate management
   app.get("/api/admin/certificates", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
     try {
@@ -327,4 +357,6 @@ export {
   issueCertificatesForPaidOrder,
   getOrderCertificateSummary,
   getOrderCertificateSummaries,
+  refreshCertificateSnapshot,
+  refreshCertificatesForProduct,
 } from "./service.ts";

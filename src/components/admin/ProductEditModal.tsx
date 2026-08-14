@@ -19,10 +19,34 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
   const [formData, setFormData] = useState<Partial<Product>>(product);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [certificateRefreshKey, setCertificateRefreshKey] = useState(0);
 
   useEffect(() => {
     setFormData(product);
   }, [product]);
+
+  const buildSavePayload = () => {
+    const sqlId = typeof product.id === "number" ? product.id : parseInt(String(product.id || ""), 10);
+    return {
+      ...product,
+      ...formData,
+      id: Number.isFinite(sqlId) ? sqlId : formData.id,
+      sqlId: Number.isFinite(sqlId) ? sqlId : undefined,
+      sku: formData.sku || product.sku,
+      slug: formData.slug || product.slug,
+      type: formData.type || product.type || "WATCH",
+      images: formData.images?.length ? formData.images : product.images || [],
+      mainImage: formData.mainImage || product.mainImage,
+      pricingModel: formData.pricingModel || "STANDARD",
+      fixedSalePrice:
+        formData.pricingModel === "PREPAYMENT_DISCOUNT"
+          ? undefined
+          : formData.fixedSalePrice ?? formData.price ?? product.price,
+      basePrice:
+        formData.pricingModel === "STANDARD" ? undefined : formData.basePrice ?? formData.price ?? product.price,
+      overwrite: true,
+    };
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,23 +55,13 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
 
     try {
       const idToken = await auth.currentUser?.getIdToken();
-      const response = await fetch('/api/admin/products', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
+      const response = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
         },
-        body: JSON.stringify({
-          ...formData,
-          pricingModel: formData.pricingModel || "STANDARD",
-          fixedSalePrice:
-            formData.pricingModel === "PREPAYMENT_DISCOUNT"
-              ? undefined
-              : formData.fixedSalePrice ?? formData.price,
-          basePrice:
-            formData.pricingModel === "STANDARD" ? undefined : formData.basePrice ?? formData.price,
-          overwrite: true,
-        })
+        body: JSON.stringify(buildSavePayload()),
       });
 
       if (!response.ok) {
@@ -56,11 +70,13 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
       }
 
       const updated = await response.json();
+      setFormData(updated);
+      setCertificateRefreshKey((k) => k + 1);
       onSave(updated);
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to update product", err);
-      setError(err.message || "Ein Fehler ist aufgetreten");
+      setError(err instanceof Error ? err.message : "Ein Fehler ist aufgetreten");
     } finally {
       setIsSaving(false);
     }
@@ -177,7 +193,10 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                 />
 
                 {formData.id ? (
-                  <ProductCertificatePanel productId={Number(formData.id)} />
+                  <ProductCertificatePanel
+                    productId={Number(formData.id)}
+                    refreshKey={certificateRefreshKey}
+                  />
                 ) : null}
 
                 <div className="grid grid-cols-2 gap-4">

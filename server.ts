@@ -24,6 +24,7 @@ import { ensureLegalDefaults } from "./src/server/legal/service.ts";
 import { handleStripeWebhook } from "./src/server/stripeWebhook.ts";
 import { buildProductJsonLd, injectProductMeta, loadSpaIndexHtml } from "./src/server/seo.ts";
 import { notifyWishlistAlerts } from "./src/server/wishlistAlerts.ts";
+import { refreshCertificatesForProduct } from "./src/server/certificate/service.ts";
 import { getSettingsMap } from "./src/server/settings.ts";
 import {
   resolveProductPricing,
@@ -706,12 +707,21 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
       const sourceProductId = data.sourceProductId;
       const sourceVariantId = data.sourceVariantId;
       
-      // 1. Identify existing product by SKU or Source ID
+      // 1. Identify existing product by ID (admin edit), SKU or Source ID
       let existingId: number | null = null;
       let existingStatus: string | null = null;
-      
+
+      const parsedSqlId = parseInt(String(data.id || data.sqlId || ""), 10);
+      if (Number.isFinite(parsedSqlId) && parsedSqlId > 0 && data.overwrite === true) {
+        const [byId] = await db.select().from(products).where(eq(products.id, parsedSqlId)).limit(1);
+        if (byId) {
+          existingId = byId.id;
+          existingStatus = byId.status;
+        }
+      }
+
       // Check by SKU first if available
-      if (data.sku && data.sku !== "unknown") {
+      if (!existingId && data.sku && data.sku !== "unknown") {
         const existingBySku = await db.select().from(products).where(eq(products.sku, data.sku)).limit(1);
         if (existingBySku.length > 0) {
           existingId = existingBySku[0].id;
@@ -748,8 +758,38 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
 
       // 2. Process Images for Permanent Storage in Parallel
       console.log(`Processing ${data.images?.length || 0} images for SKU: ${sku}`);
-      
-      const imageResults = await Promise.all((data.images || []).map(async (sourceUrl: string, i: number) => {
+
+      let storedImages: string[] = [];
+      let mainImage: string | null = null;
+      let mediaRecords: Array<{
+        sourceUrl: string;
+        storageUrl: string;
+        position: number;
+        isPrimary: boolean;
+        createdAt: string;
+      }> = [];
+
+      const hasIncomingImages = Array.isArray(data.images) && data.images.length > 0;
+
+      if (existingId && !hasIncomingImages) {
+        const [prev] = await db.select().from(products).where(eq(products.id, existingId)).limit(1);
+        if (prev) {
+          storedImages = Array.isArray(prev.images)
+            ? (prev.images as string[])
+            : typeof prev.images === "string"
+              ? JSON.parse(prev.images)
+              : [];
+          mainImage = prev.mainImage || storedImages[0] || null;
+          mediaRecords = storedImages.map((storageUrl, i) => ({
+            sourceUrl: storageUrl,
+            storageUrl,
+            position: i,
+            isPrimary: storageUrl === mainImage || (i === 0 && !mainImage),
+            createdAt: new Date().toISOString(),
+          }));
+        }
+      } else {
+        const imageResults = await Promise.all((data.images || []).map(async (sourceUrl: string, i: number) => {
         try {
           // Only upload if it's not already a storage URL
           if (sourceUrl.startsWith('https://storage.googleapis.com')) {
@@ -775,9 +815,10 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
         }
       }));
 
-      const mediaRecords = imageResults.filter((r): r is any => r !== null).sort((a, b) => a.position - b.position);
-      const storedImages = mediaRecords.map(m => m.storageUrl);
-      const mainImage = mediaRecords.find(m => m.isPrimary)?.storageUrl || storedImages[0] || null;
+        mediaRecords = imageResults.filter((r): r is NonNullable<typeof r> => r !== null).sort((a, b) => a.position - b.position);
+        storedImages = mediaRecords.map((m) => m.storageUrl);
+        mainImage = mediaRecords.find((m) => m.isPrimary)?.storageUrl || storedImages[0] || null;
+      }
 
       const settingsMap = await getSettingsMap();
       const pricingConfig = parseShopPricingConfig(settingsMap as Record<string, string>);
@@ -1055,10 +1096,10 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
             const deletePromises = mediaSnapshot.docs.map(doc => doc.ref.delete());
             await Promise.all(deletePromises);
 
-            const mediaPromises = imageResults.filter((r): r is any => r !== null).map(media => 
+            const mediaPromises = mediaRecords.map((media) =>
               productRef.collection("media").add({
                 ...media,
-                productId: productRef.id
+                productId: productRef.id,
               })
             );
             await Promise.all(mediaPromises);
@@ -1071,10 +1112,44 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
         }
       }
 
-      res.status(existingId ? 200 : 201).json({ 
-        id: productRef?.id || `sql-${sqlProduct.id}`, 
+      try {
+        const refreshed = await refreshCertificatesForProduct(sqlProduct.id, {
+          uid: req.user!.uid,
+          name: req.user!.name,
+          email: req.user!.email,
+        });
+        if (refreshed > 0) {
+          console.log(`Refreshed ${refreshed} certificate snapshot(s) for product ${sqlProduct.id}`);
+        }
+      } catch (certErr) {
+        console.error("Certificate snapshot refresh after product save failed:", certErr);
+      }
+
+      const [enrichedRow] = await db
+        .select({ product: products, brand: brands, category: categories })
+        .from(products)
+        .leftJoin(brands, eq(products.brandId, brands.id))
+        .leftJoin(categories, eq(products.categoryId, categories.id))
+        .where(eq(products.id, sqlProduct.id))
+        .limit(1);
+
+      const enrichedProduct = enrichedRow
+        ? {
+            ...enrichedRow.product,
+            images: storedImages,
+            mainImage,
+            brand: enrichedRow.brand,
+            category: enrichedRow.category,
+            brandName: enrichedRow.brand?.name,
+            categoryName: enrichedRow.category?.nameDe,
+          }
+        : { ...sqlProduct, images: storedImages, mainImage };
+
+      res.status(existingId ? 200 : 201).json({
+        id: enrichedProduct.id,
         sqlId: sqlProduct.id,
-        ...sanitizedData
+        firestoreId: productRef?.id,
+        ...enrichedProduct,
       });
     } catch (error) {
       console.error("Failed to process product import", error);
