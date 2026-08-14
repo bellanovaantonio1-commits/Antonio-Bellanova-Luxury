@@ -113,12 +113,16 @@ export default function Products() {
   };
 
   const handleDelete = async (product: Product) => {
-    if (!product.id) return;
+    const deleteId =
+      typeof product.id === "number"
+        ? product.id
+        : (product as Product & { sqlId?: number }).sqlId ?? product.id;
+    if (!deleteId) return;
     if (!confirm(`Produkt "${product.name}" wirklich unwiderruflich löschen? Dabei werden auch alle zugehörigen Bilder aus dem Speicher entfernt.`)) return;
     
     setLoading(true);
     try {
-      await adminProductService.deleteProduct(product.id);
+      await adminProductService.deleteProduct(deleteId);
       await loadProducts();
       alert("Produkt wurde erfolgreich gelöscht.");
     } catch (e: any) {

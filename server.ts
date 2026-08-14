@@ -13,8 +13,8 @@ import { requireAuth, requireRole, AuthRequest } from "./src/middleware/auth.ts"
 import { adminAuth, adminDb, adminStorage, FieldValue } from "./src/lib/firebase-admin.ts";
 import firebaseConfig from "./firebase-applet-config.json";
 import { db } from "./src/db/index.ts";
-import { users, products, categories, brands } from "./src/db/schema.ts";
-import { eq, or, like, and, sql, desc, asc, gt, inArray, ne, gte, lte, ilike } from "drizzle-orm";
+import { users, products, categories, brands, orderItems, wishlistItems, wishlistAlerts } from "./src/db/schema.ts";
+import { eq, or, like, and, sql, desc, asc, gt, inArray, ne, gte, lte, ilike, isNotNull } from "drizzle-orm";
 import { importService } from "./src/services/import/ImportService.ts";
 import { imageStorageService } from "./src/services/import/ImageStorageService.ts";
 
@@ -26,6 +26,20 @@ import { notifyWishlistAlerts } from "./src/server/wishlistAlerts.ts";
 
 function toEntitySlug(value: string): string {
   return value.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+}
+
+/** Remove FK references so products can be deleted without breaking order history. */
+async function clearProductForeignKeys(productId?: number): Promise<void> {
+  if (productId != null) {
+    await db.delete(wishlistItems).where(eq(wishlistItems.productId, productId));
+    await db.delete(wishlistAlerts).where(eq(wishlistAlerts.productId, productId));
+    await db.update(orderItems).set({ productId: null }).where(eq(orderItems.productId, productId));
+    return;
+  }
+
+  await db.delete(wishlistItems);
+  await db.delete(wishlistAlerts);
+  await db.update(orderItems).set({ productId: null }).where(isNotNull(orderItems.productId));
 }
 
 async function findOrCreateBrandId(brandName: string): Promise<number | null> {
@@ -571,7 +585,9 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
         console.warn("Storage bulk cleanup failed:", storageErr.message);
       }
 
-      // 3. Delete from SQL
+      // 3. Clear FK references, then delete from SQL
+      console.log("Clearing product references from SQL...");
+      await clearProductForeignKeys();
       console.log("Deleting products from SQL...");
       await db.delete(products);
       console.log("SQL products deleted successfully");
@@ -637,16 +653,22 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
         await imageStorageService.deleteProductMedia(productSku);
       }
 
-      // 3. Delete from SQL if we have an ID
+      // 3. Clear FK references, then delete from SQL if we have an ID
       if (sqlId) {
+        await clearProductForeignKeys(sqlId);
         await db.delete(products).where(eq(products.id, sqlId));
         console.log(`Deleted SQL product ${sqlId}`);
       }
 
+      if (!sqlId && !firestoreId) {
+        return res.status(404).json({ error: "Produkt nicht gefunden." });
+      }
+
       res.json({ message: "Product and associated data deleted successfully" });
-    } catch (error) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to delete product";
       console.error("Failed to delete product", error);
-      res.status(500).json({ error: "Failed to delete product" });
+      res.status(500).json({ error: message });
     }
   });
 
