@@ -25,7 +25,8 @@ export default function Home() {
 
         if (allResponse.ok) {
           const allData: Product[] = await allResponse.json();
-          setHighlightProducts(allData);
+          const unique = Array.from(new Map(allData.map((p) => [String(p.id), p])).values());
+          setHighlightProducts(unique);
 
           if (heroResponse.ok) {
             const heroData: Product[] = await heroResponse.json();

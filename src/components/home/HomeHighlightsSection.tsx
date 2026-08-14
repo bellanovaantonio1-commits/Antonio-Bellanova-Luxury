@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Link } from "react-router-dom";
 import { Product } from "../../types.ts";
@@ -21,20 +21,20 @@ function getProductTitle(product: Product, language: string): string {
 export default function HomeHighlightsSection({ products, loading }: HomeHighlightsSectionProps) {
   const { language, t } = useLanguage();
   const prefersReducedMotion = usePrefersReducedMotion();
-  const [isHovered, setIsHovered] = useState(false);
 
-  const { visibleItems, canRotate, goNext, goPrev } = useProductWindowRotation(products, {
+  const { visibleItems, canRotate, cycle, goNext, goPrev } = useProductWindowRotation(products, {
     intervalMs: 60_000,
-    paused: isHovered,
     autoRotate: !prefersReducedMotion,
   });
 
-  const displayProducts = visibleItems.length > 0 ? visibleItems : products.slice(0, 3);
-  const rotationKey = displayProducts.map((product) => product.id).join("-");
+  const displayProducts =
+    visibleItems.length >= Math.min(3, products.length)
+      ? visibleItems
+      : products.slice(0, Math.min(3, products.length));
 
   const fadeTransition = prefersReducedMotion
     ? { duration: 0 }
-    : { duration: 0.7, ease: [0.4, 0, 0.2, 1] as const };
+    : { duration: 0.65, ease: [0.4, 0, 0.2, 1] as const };
 
   useEffect(() => {
     products.forEach((product) => {
@@ -63,23 +63,19 @@ export default function HomeHighlightsSection({ products, loading }: HomeHighlig
           </Link>
         </div>
 
-        <div
-          className="relative"
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        >
+        <div className="relative">
           {canRotate && !loading && (
             <>
               <button
                 type="button"
                 aria-label={language === "en" ? "Previous highlights" : "Vorherige Highlights"}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 hidden md:flex h-12 w-12 items-center justify-center border border-white/10 bg-black/40 hover:border-[#c5a059]/40 hover:bg-[#c5a059]/10 transition-colors"
+                className="absolute -left-2 lg:-left-6 top-1/2 -translate-y-1/2 z-10 hidden md:flex h-12 w-12 items-center justify-center border border-white/10 bg-black/40 hover:border-[#c5a059]/40 hover:bg-[#c5a059]/10 transition-colors"
                 onClick={goPrev}
               />
               <button
                 type="button"
                 aria-label={language === "en" ? "Next highlights" : "Nächste Highlights"}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 hidden md:flex h-12 w-12 items-center justify-center border border-white/10 bg-black/40 hover:border-[#c5a059]/40 hover:bg-[#c5a059]/10 transition-colors"
+                className="absolute -right-2 lg:-right-6 top-1/2 -translate-y-1/2 z-10 hidden md:flex h-12 w-12 items-center justify-center border border-white/10 bg-black/40 hover:border-[#c5a059]/40 hover:bg-[#c5a059]/10 transition-colors"
                 onClick={goNext}
               />
             </>
@@ -96,18 +92,16 @@ export default function HomeHighlightsSection({ products, loading }: HomeHighlig
                 ))}
               </div>
             ) : displayProducts.length > 0 ? (
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={rotationKey}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={fadeTransition}
-                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-16"
-                >
-                  {displayProducts.map((product) => (
-                    <motion.div
-                      key={product.id}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-16">
+                {displayProducts.map((product, slot) => (
+                  <div key={`slot-${slot}`} className="min-h-[28rem]">
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={`${cycle}-${product.id}`}
+                      initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: prefersReducedMotion ? 0 : -8 }}
+                      transition={fadeTransition}
                       whileHover={{ y: -10 }}
                       className="group space-y-8"
                     >
@@ -141,9 +135,10 @@ export default function HomeHighlightsSection({ products, loading }: HomeHighlig
                         </p>
                       </div>
                     </motion.div>
-                  ))}
-                </motion.div>
-              </AnimatePresence>
+                    </AnimatePresence>
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="text-center py-12 border border-dashed border-white/10">
                 <p className="text-white/30 text-sm italic font-light">

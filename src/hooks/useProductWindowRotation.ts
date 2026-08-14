@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { shuffleOrder, windowProductIndices } from "../lib/rotationQueue.ts";
 
-const DEFAULT_INTERVAL_MS = 30_000;
+const DEFAULT_INTERVAL_MS = 60_000;
 const DEFAULT_WINDOW_SIZE = 3;
 
 interface ProductWindowRotationOptions {
@@ -22,14 +22,19 @@ export function useProductWindowRotation<T extends { id: string | number }>(
     autoRotate = true,
   } = options;
 
-  const canRotate = items.length > windowSize;
+  const canRotate = items.length >= windowSize;
   const itemsKey = items.map((item) => item.id).join("|");
 
   const queueRef = useRef<number[]>([]);
   const queuePosRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pausedRef = useRef(paused);
+  const stepRef = useRef<(direction: 1 | -1) => void>(() => {});
 
   const [windowIndices, setWindowIndices] = useState<number[]>([]);
+  const [cycle, setCycle] = useState(0);
+
+  pausedRef.current = paused;
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -37,6 +42,15 @@ export function useProductWindowRotation<T extends { id: string | number }>(
       timerRef.current = null;
     }
   }, []);
+
+  const getStepSize = useCallback(
+    (length: number) => {
+      if (length <= windowSize) return 1;
+      if (length <= windowSize * 2) return Math.max(1, windowSize - 1);
+      return windowSize;
+    },
+    [windowSize]
+  );
 
   const initQueue = useCallback(
     (avoidFirst?: number) => {
@@ -48,6 +62,7 @@ export function useProductWindowRotation<T extends { id: string | number }>(
 
   const syncWindow = useCallback(() => {
     setWindowIndices(windowProductIndices(queueRef.current, queuePosRef.current, windowSize));
+    setCycle((value) => value + 1);
   }, [windowSize]);
 
   useEffect(() => {
@@ -64,9 +79,9 @@ export function useProductWindowRotation<T extends { id: string | number }>(
 
   const step = useCallback(
     (direction: 1 | -1) => {
-      if (items.length <= windowSize) return;
+      if (items.length < windowSize) return;
 
-      const stepSize = Math.min(windowSize, queueRef.current.length);
+      const stepSize = getStepSize(items.length);
 
       if (direction === 1) {
         let nextPos = queuePosRef.current + stepSize;
@@ -85,18 +100,20 @@ export function useProductWindowRotation<T extends { id: string | number }>(
 
       syncWindow();
     },
-    [items.length, initQueue, syncWindow, windowSize]
+    [getStepSize, initQueue, items.length, syncWindow, windowSize]
   );
+
+  stepRef.current = step;
 
   const startTimer = useCallback(() => {
     clearTimer();
-    if (!canRotate || !autoRotate || paused || document.hidden) return;
+    if (!canRotate || !autoRotate || pausedRef.current || document.hidden) return;
 
     timerRef.current = setInterval(() => {
-      if (document.hidden || paused) return;
-      step(1);
+      if (document.hidden || pausedRef.current) return;
+      stepRef.current(1);
     }, intervalMs);
-  }, [autoRotate, canRotate, clearTimer, intervalMs, paused, step]);
+  }, [autoRotate, canRotate, clearTimer, intervalMs]);
 
   const resetTimer = useCallback(() => {
     startTimer();
@@ -118,13 +135,22 @@ export function useProductWindowRotation<T extends { id: string | number }>(
       document.removeEventListener("visibilitychange", onVisibilityChange);
       clearTimer();
     };
-  }, [startTimer, clearTimer, canRotate, itemsKey, paused, autoRotate]);
+  }, [startTimer, clearTimer, canRotate, itemsKey, autoRotate]);
+
+  useEffect(() => {
+    if (paused) {
+      clearTimer();
+    } else {
+      startTimer();
+    }
+  }, [paused, clearTimer, startTimer]);
 
   const visibleItems = windowIndices.map((index) => items[index]).filter(Boolean) as T[];
 
   return {
     visibleItems,
     canRotate,
+    cycle,
     goNext: () => {
       if (!canRotate) return;
       step(1);
