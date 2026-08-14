@@ -39,6 +39,8 @@ import {
   isStripePaymentAvailable,
   resolveCheckoutPaymentMethod,
 } from "../lib/shopPricing.ts";
+import { registerCertificateRoutes, cancelCertificatesForOrder, linkCertificatesForOrderItems } from "./certificate/routes.ts";
+import { registerLegalRoutes, buildLegalAcceptanceSnapshot } from "./legal/routes.ts";
 
 export function registerExtraRoutes(app: Express) {
   // Health check
@@ -631,8 +633,17 @@ export function registerExtraRoutes(app: Express) {
         paymentMethod,
         deliveryMethod,
         shippingMethod,
+        termsAccepted,
       } = req.body;
       if (!items?.length) return res.status(400).json({ error: "Warenkorb ist leer." });
+      if (!termsAccepted) {
+        return res.status(400).json({
+          error: "Bitte bestätigen Sie die AGB und nehmen Sie die Widerrufsbelehrung zur Kenntnis.",
+        });
+      }
+
+      const orderLang = language === "en" ? "en" : "de";
+      const legalSnapshot = await buildLegalAcceptanceSnapshot(orderLang);
 
       const settings = await getSettingsMap();
       const strSettings = settings as Record<string, string>;
@@ -676,10 +687,11 @@ export function registerExtraRoutes(app: Express) {
         shippingAddress: isPickup ? { ...billing, type: "PICKUP" } : shipping,
         billingAddress: billing,
         deliveryMethod: isPickup ? "PICKUP" : "SHIPPING",
-        language: language === "en" ? "en" : "de",
+        language: orderLang,
         customerName: customerName || null,
         companyName: companyName || null,
         customerVatId: customerVatId || null,
+        legalAcceptanceSnapshot: legalSnapshot,
       }).returning();
 
       const orderItemsForEmail: { name: string; quantity: number; price: number }[] = [];
@@ -722,12 +734,22 @@ export function registerExtraRoutes(app: Express) {
           total: totalGross.toString(),
           items: orderItemsForEmail,
           settings,
-          language: language === "en" ? "en" : "de",
+          language: orderLang,
+          paymentMethod: resolvedPaymentMethod,
+          shippingCost: shippingCost.toString(),
+          prepaymentDiscount: prepaymentDiscount.toString(),
+          billingAddress: billing,
+          shippingAddress: shipping,
         }).catch((e) => console.error("Order email failed", e));
       }
 
       let checkoutUrl: string | null = null;
       let stripeCheckoutSessionId: string | null = null;
+
+      await linkCertificatesForOrderItems(order.id).catch((e) =>
+        console.error("Certificate link failed:", e)
+      );
+
       if (resolvedPaymentMethod === "STRIPE" && customerEmail) {
         const session = await createStripeCheckoutSession({
           orderId: order.id,
@@ -983,6 +1005,11 @@ export function registerExtraRoutes(app: Express) {
 
       if (status === "CANCELLED" && existing.status !== "CANCELLED") {
         await cancelInvoiceForOrder(id, "Bestellung storniert");
+        await cancelCertificatesForOrder(id, {
+          uid: req.user!.uid,
+          name: req.user!.name,
+          email: req.user!.email,
+        }).catch((e) => console.error("Certificate cancel failed:", e));
       }
 
       const settings = await getSettingsMap();
@@ -1385,4 +1412,7 @@ export function registerExtraRoutes(app: Express) {
       res.status(500).json({ error: "Update fehlgeschlagen." });
     }
   });
+
+  registerCertificateRoutes(app);
+  registerLegalRoutes(app);
 }

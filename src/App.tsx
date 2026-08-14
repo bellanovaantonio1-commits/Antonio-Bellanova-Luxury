@@ -14,8 +14,9 @@ import AdminDashboard from "./pages/admin/AdminDashboard.tsx";
 import Sell from "./pages/Sell.tsx";
 import Contact from "./pages/Contact.tsx";
 import BookAppointment from "./pages/BookAppointment.tsx";
-import InfoPage, { ShippingContent, ReturnsContent } from "./pages/InfoPage.tsx";
-import { FAQContent, PrivacyContent, TermsContent, LegalContent } from "./content/legal.tsx";
+import InfoPage from "./pages/InfoPage.tsx";
+import { FAQContent } from "./content/legal.tsx";
+import LegalPage from "./components/legal/LegalPage.tsx";
 import { useAuth } from "./contexts/AuthContext.tsx";
 
 import ProtectedRoute from "./components/auth/ProtectedRoute.tsx";
@@ -27,6 +28,7 @@ import Wishlist from "./pages/Wishlist.tsx";
 import BrandPage from "./pages/BrandPage.tsx";
 
 import Cart from "./pages/Cart.tsx";
+import CertificateVerify from "./pages/CertificateVerify.tsx";
 
 function AuthErrorBanner() {
   const { authError, clearAuthError } = useAuth();
@@ -64,21 +66,19 @@ export default function App() {
           <Route path="/sell" element={<Sell />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/termin" element={<BookAppointment />} />
-          <Route 
-            path="/shipping" 
-            element={<InfoPage title="Versand & Lieferung" subtitle="Logistik" content={<ShippingContent />} />} 
-          />
-          <Route 
-            path="/returns" 
-            element={<InfoPage title="Widerruf & Retouren" subtitle="Service" content={<ReturnsContent />} />} 
-          />
-          
+          <Route path="/shipping" element={<LegalPage documentKey="shipping" titleDe="Versand & Lieferung" titleEn="Shipping & Delivery" subtitleDe="Logistik" subtitleEn="Logistics" />} />
+          <Route path="/returns" element={<LegalPage documentKey="withdrawal" titleDe="Widerruf & Retouren" titleEn="Withdrawal & Returns" subtitleDe="Service" subtitleEn="Service" />} />
+          <Route path="/withdrawal" element={<LegalPage documentKey="withdrawal" titleDe="Widerrufsbelehrung" titleEn="Cancellation / Withdrawal Policy" />} />
+          <Route path="/withdrawal-form" element={<LegalPage documentKey="withdrawal_form" titleDe="Muster-Widerrufsformular" titleEn="Withdrawal Form" />} />
+          <Route path="/payment-info" element={<LegalPage documentKey="payment" titleDe="Zahlungsarten" titleEn="Payment Methods" subtitleDe="Service" subtitleEn="Service" />} />
+
           <Route path="/faq" element={<InfoPage title="Häufige Fragen" subtitle="Support" content={<FAQContent />} />} />
-          <Route path="/legal" element={<InfoPage title="Impressum" subtitle="Rechtliches" content={<LegalContent />} />} />
-          <Route path="/privacy" element={<InfoPage title="Datenschutz" subtitle="Rechtliches" content={<PrivacyContent />} />} />
-          <Route path="/terms" element={<InfoPage title="AGB" subtitle="Rechtliches" content={<TermsContent />} />} />
+          <Route path="/legal" element={<LegalPage documentKey="impressum" titleDe="Impressum" titleEn="Legal Notice" />} />
+          <Route path="/privacy" element={<LegalPage documentKey="privacy" titleDe="Datenschutz" titleEn="Privacy Policy" />} />
+          <Route path="/terms" element={<LegalPage documentKey="terms" titleDe="AGB" titleEn="Terms & Conditions" />} />
 
           <Route path="/cart" element={<Cart />} />
+          <Route path="/certificate/:certificateNumber" element={<CertificateVerify />} />
           <Route path="/wishlist" element={<Wishlist />} />
           <Route 
             path="/account/*" 

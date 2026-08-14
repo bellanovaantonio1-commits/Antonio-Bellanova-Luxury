@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { ShoppingCart, Package, CreditCard, Download, XCircle, Truck, CheckCircle2, FileText } from "lucide-react";
+import { ShoppingCart, Package, CreditCard, Download, XCircle, Truck, CheckCircle2, FileText, Shield } from "lucide-react";
 import { auth } from "../../lib/firebase.ts";
+import OrderCertificateModal from "../../components/admin/OrderCertificateModal.tsx";
 
 interface AdminOrder {
   id: number;
@@ -48,6 +49,7 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [shipModal, setShipModal] = useState<AdminOrder | null>(null);
+  const [certModal, setCertModal] = useState<AdminOrder | null>(null);
   const [trackingNumber, setTrackingNumber] = useState("");
   const [carrier, setCarrier] = useState("DHL");
 
@@ -174,6 +176,14 @@ export default function Orders() {
           <Download size={14} /> CSV Export
         </button>
       </div>
+
+      {certModal && (
+        <OrderCertificateModal
+          orderId={certModal.id}
+          orderNumber={certModal.orderNumber}
+          onClose={() => setCertModal(null)}
+        />
+      )}
 
       {shipModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
@@ -318,6 +328,13 @@ export default function Orders() {
                               {order.invoiceNumber}
                             </span>
                           )}
+                          <button
+                            onClick={() => setCertModal(order)}
+                            title="Echtheitszertifikat"
+                            className="p-2 hover:bg-amber-50 rounded-lg text-[#9a7b2e]"
+                          >
+                            <Shield size={14} />
+                          </button>
                           <button
                             onClick={() => cancelOrder(order)}
                             disabled={cancellingId === order.id}

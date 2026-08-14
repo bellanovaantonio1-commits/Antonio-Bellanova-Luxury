@@ -40,3 +40,16 @@ export async function ensureDefaultSettings() {
     }
   }
 }
+
+export async function updateSettingsMap(patch: Record<string, string>): Promise<Record<string, unknown>> {
+  for (const [key, value] of Object.entries(patch)) {
+    const dbValue = coerceShopSettingForDb(key, value);
+    const existing = await db.select().from(shopSettings).where(eq(shopSettings.key, key)).limit(1);
+    if (existing.length > 0) {
+      await db.update(shopSettings).set({ value: dbValue, updatedAt: new Date() }).where(eq(shopSettings.key, key));
+    } else {
+      await db.insert(shopSettings).values({ key, value: dbValue });
+    }
+  }
+  return getSettingsMap();
+}

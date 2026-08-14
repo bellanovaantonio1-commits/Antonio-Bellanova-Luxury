@@ -152,13 +152,32 @@ export function buildCheckoutPaymentPayload(settings: Record<string, unknown>) {
     Object.entries(settings).map(([k, v]) => [k, coerceShopSettingString(v, "")])
   ) as Record<string, string>;
   const config = parseShopPricingConfig(strSettings);
-  const paymentMethods = getActivePaymentMethods(config, strSettings);
+  let paymentMethods = getActivePaymentMethods(config, strSettings);
+
+  const stripe = paymentMethods.find((m) => m.id === "STRIPE");
+  const bank = paymentMethods.find((m) => m.id === "BANK_TRANSFER" || m.id === "PREPAYMENT");
+  const normalized = [];
+  if (stripe) normalized.push(stripe);
+  if (bank) {
+    normalized.push({
+      ...bank,
+      id: "BANK_TRANSFER" as const,
+      name:
+        bank.name.includes("Vorkasse") || bank.name.includes("Bank")
+          ? bank.name
+          : "Banküberweisung / Vorkasse",
+      description:
+        bank.description ||
+        "Sie zahlen den Rechnungsbetrag per Banküberweisung. Der Versand erfolgt nach vollständigem Zahlungseingang.",
+    });
+  }
+  paymentMethods = normalized;
 
   return {
     stripeEnabled: isStripePaymentAvailable(strSettings),
     stripeEnvConfigured: hasStripeEnvKey(),
     bankTransferEnabled: config.bankTransferEnabled && paymentMethods.some((m) => m.id === "BANK_TRANSFER"),
-    prepaymentEnabled: config.prepaymentEnabled && paymentMethods.some((m) => m.id === "PREPAYMENT"),
+    prepaymentEnabled: config.prepaymentEnabled,
     paymentMethods: paymentMethods.map((m) => ({
       id: m.id,
       name: m.name,

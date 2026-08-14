@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, numeric, integer, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, timestamp, numeric, integer, jsonb, boolean } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -189,6 +189,7 @@ export const orders = pgTable('orders', {
   stripeCheckoutSessionId: text('stripe_checkout_session_id'),
   stripePaymentIntentId: text('stripe_payment_intent_id'),
   paidAt: timestamp('paid_at'),
+  legalAcceptanceSnapshot: jsonb('legal_acceptance_snapshot'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -295,6 +296,55 @@ export const invoiceSequences = pgTable('invoice_sequences', {
 export const creditNoteSequences = pgTable('credit_note_sequences', {
   year: integer('year').primaryKey(),
   lastNumber: integer('last_number').notNull().default(0),
+});
+
+export const certificateSequences = pgTable('certificate_sequences', {
+  year: integer('year').primaryKey(),
+  lastNumber: integer('last_number').notNull().default(0),
+});
+
+export const certificates = pgTable('certificates', {
+  id: serial('id').primaryKey(),
+  certificateNumber: text('certificate_number').notNull().unique(),
+  verificationCode: text('verification_code').notNull().unique(),
+  productId: integer('product_id').notNull().references(() => products.id),
+  orderId: integer('order_id').references(() => orders.id),
+  orderItemId: integer('order_item_id').references(() => orderItems.id),
+  customerId: text('customer_id'),
+  status: text('status').notNull().default('DRAFT'),
+  language: text('language').notNull().default('de'),
+  issuedAt: timestamp('issued_at'),
+  replacedById: integer('replaced_by_id'),
+  snapshotData: jsonb('snapshot_data').notNull().default({}),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const certificateAudit = pgTable('certificate_audit', {
+  id: serial('id').primaryKey(),
+  certificateId: integer('certificate_id').notNull().references(() => certificates.id, { onDelete: 'cascade' }),
+  changedAt: timestamp('changed_at').defaultNow().notNull(),
+  adminUid: text('admin_uid').notNull(),
+  adminName: text('admin_name'),
+  adminEmail: text('admin_email'),
+  fieldName: text('field_name').notNull(),
+  oldValue: text('old_value'),
+  newValue: text('new_value'),
+});
+
+export const legalDocuments = pgTable('legal_documents', {
+  id: serial('id').primaryKey(),
+  documentKey: text('document_key').notNull(),
+  language: text('language').notNull().default('de'),
+  version: integer('version').notNull(),
+  title: text('title').notNull(),
+  contentHtml: text('content_html').notNull(),
+  changeNote: text('change_note'),
+  adminUid: text('admin_uid'),
+  adminName: text('admin_name'),
+  adminEmail: text('admin_email'),
+  isActive: boolean('is_active').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow(),
 });
 
 export const invoices = pgTable('invoices', {

@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { User, Package, MapPin, Heart, Shield, LogOut, ChevronRight, Settings } from "lucide-react";
+import { User, Package, MapPin, Heart, Shield, LogOut, ChevronRight, Settings, Award } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext.tsx";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
 import InvoiceActions from "../components/InvoiceActions.tsx";
+import CertificateActions from "../components/CertificateActions.tsx";
 import { useWishlist } from "../contexts/WishlistContext.tsx";
 import { useIsAdmin } from "../hooks/useIsAdmin.ts";
 import { Link, Navigate, Routes, Route, useLocation } from "react-router-dom";
@@ -402,6 +403,98 @@ function ProfileView() {
   );
 }
 
+function CertificatesView() {
+  const { user } = useAuth();
+  const [certs, setCerts] = useState<
+    {
+      id: number;
+      certificateNumber: string;
+      status: string;
+      issuedAt: string | null;
+      productName: string;
+      brand: string;
+      model: string;
+    }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    user.getIdToken().then((token) =>
+      fetch("/api/account/certificates", { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => (r.ok ? r.json() : []))
+        .then(setCerts)
+        .catch(() => setCerts([]))
+        .finally(() => setLoading(false))
+    );
+  }, [user]);
+
+  const statusLabel: Record<string, string> = {
+    ACTIVE: "Gültig",
+    CANCELLED: "Storniert",
+    REPLACED: "Ersetzt",
+  };
+
+  if (loading) {
+    return (
+      <div className="p-20 text-center text-white/20 italic animate-pulse">Zertifikate werden geladen…</div>
+    );
+  }
+
+  if (certs.length === 0) {
+    return (
+      <section className="p-10 bg-white/5 rounded-2xl border border-white/10">
+        <h3 className="text-sm uppercase tracking-widest text-[#c5a059]">Meine Zertifikate</h3>
+        <p className="mt-8 text-white/30 italic">Noch keine Echtheitszertifikate vorhanden.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-6">
+      <h3 className="text-sm uppercase tracking-widest text-[#c5a059]">Meine Zertifikate</h3>
+      <div className="space-y-4">
+        {certs.map((c) => (
+          <div
+            key={c.id}
+            className="p-6 bg-white/5 rounded-2xl border border-white/10 space-y-4"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+              <div>
+                <p className="font-serif text-lg">{c.productName || `${c.brand} ${c.model}`}</p>
+                <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">
+                  {c.certificateNumber}
+                </p>
+              </div>
+              <span
+                className={`text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full self-start ${
+                  c.status === "ACTIVE"
+                    ? "bg-emerald-500/20 text-emerald-400"
+                    : "bg-red-500/20 text-red-400"
+                }`}
+              >
+                {statusLabel[c.status] || c.status}
+              </span>
+            </div>
+            {c.issuedAt && (
+              <p className="text-xs text-white/40">
+                Ausgestellt:{" "}
+                {new Intl.DateTimeFormat("de-DE", { dateStyle: "long" }).format(new Date(c.issuedAt))}
+              </p>
+            )}
+            <CertificateActions
+              certificateId={c.id}
+              certificateNumber={c.certificateNumber}
+              getToken={() => user!.getIdToken()}
+              variant="dark"
+            />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function SecurityView() {
   const { user } = useAuth();
   const [sent, setSent] = useState(false);
@@ -451,6 +544,7 @@ export default function Account() {
   const menuItems = [
     { icon: User, label: "Profil", path: "/account/profile" },
     { icon: Package, label: "Bestellungen", path: "/account/orders" },
+    { icon: Award, label: "Meine Zertifikate", path: "/account/certificates" },
     { icon: MapPin, label: "Adressen", path: "/account/addresses" },
     { icon: Heart, label: "Wunschliste", path: "/wishlist", badge: wishlistItems.length },
     { icon: Shield, label: "Sicherheit", path: "/account/security" },
@@ -550,6 +644,7 @@ export default function Account() {
               <Route index element={<AccountDashboard />} />
               <Route path="profile" element={<ProfileView />} />
               <Route path="orders" element={<OrdersView />} />
+              <Route path="certificates" element={<CertificatesView />} />
               <Route path="addresses" element={<AddressesManager />} />
               <Route path="security" element={<SecurityView />} />
             </Routes>

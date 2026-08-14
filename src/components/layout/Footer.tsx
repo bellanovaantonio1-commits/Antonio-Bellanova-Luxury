@@ -7,7 +7,7 @@ import { formatAddressLines, useShopSettings } from "../../contexts/ShopSettings
 import NewsletterForm from "../common/NewsletterForm.tsx";
 
 export default function Footer() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const settings = useShopSettings();
   const addressLines = formatAddressLines(settings.contactAddress);
   const [brands, setBrands] = useState<{ name: string; slug: string }[]>([]);
@@ -47,7 +47,9 @@ export default function Footer() {
           <ul className="space-y-4 text-[12px] text-white/75 font-light">
             {FOOTER_NAV.discover.map((item) => (
               <li key={item.path}>
-                <Link to={item.path} className="hover:text-[#c5a059] transition-colors">{item.label}</Link>
+                <Link to={item.path} className="hover:text-[#c5a059] transition-colors">
+                  {language === "en" && item.labelEn ? item.labelEn : item.label}
+                </Link>
               </li>
             ))}
           </ul>
@@ -59,7 +61,9 @@ export default function Footer() {
           <ul className="space-y-4 text-[12px] text-white/75 font-light">
             {FOOTER_NAV.service.map((item) => (
               <li key={item.path}>
-                <Link to={item.path} className="hover:text-[#c5a059] transition-colors">{item.label}</Link>
+                <Link to={item.path} className="hover:text-[#c5a059] transition-colors">
+                  {language === "en" && item.labelEn ? item.labelEn : item.label}
+                </Link>
               </li>
             ))}
           </ul>
@@ -143,7 +147,9 @@ export default function Footer() {
         <p>© {new Date().getFullYear()} {settings.shopName}. {t("footer.rights")}</p>
         <div className="flex gap-10">
           {FOOTER_NAV.legal.map((item) => (
-            <Link key={item.path} to={item.path} className="hover:text-[#c5a059] transition-colors">{item.label}</Link>
+            <Link key={item.path} to={item.path} className="hover:text-[#c5a059] transition-colors">
+              {language === "en" && item.labelEn ? item.labelEn : item.label}
+            </Link>
           ))}
         </div>
       </div>

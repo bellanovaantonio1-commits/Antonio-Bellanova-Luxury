@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 
 import { adminProductService } from "../../services/admin/AdminProductService.ts";
 import ProductPricingSection, { type ProductPricingSectionValue } from "./ProductPricingSection.tsx";
+import ProductCertificatePanel from "./ProductCertificatePanel.tsx";
 
 interface ProductEditModalProps {
   product: Product;
@@ -174,6 +175,11 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                   }}
                   onChange={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
                 />
+
+                {formData.id ? (
+                  <ProductCertificatePanel productId={Number(formData.id)} />
+                ) : null}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Shop-Preis (Anzeige)</label>

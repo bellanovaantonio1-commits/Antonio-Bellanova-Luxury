@@ -207,6 +207,12 @@ export default function Settings() {
           Stripe-Gebühren, Rundung, Zahlungsarten und Preis-Neuberechnung werden im eigenen Admin-Bereich verwaltet.
         </p>
         <Link
+          to="/admin/legal"
+          className="inline-flex items-center gap-2 text-[10px] tracking-widest uppercase font-bold text-[#9a7b2e] hover:text-[#D4AF37]"
+        >
+          Rechtliches & Unternehmen →
+        </Link>
+        <Link
           to="/admin/pricing"
           className="inline-block mt-4 text-[10px] uppercase tracking-widest font-bold text-[#9a7b2e] hover:text-[#D4AF37]"
         >

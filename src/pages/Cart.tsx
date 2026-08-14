@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "motion/react";
 import { Trash2, ShoppingBag, ArrowRight, Minus, Plus, CheckCircle2, LogIn, FileText, CreditCard } from "lucide-react";
 import { useCart } from "../contexts/CartContext.tsx";
-import { Link, useSearchParams } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
 import { useAuth } from "../contexts/AuthContext.tsx";
 import { useShopSettings } from "../contexts/ShopSettingsContext.tsx";
@@ -68,6 +68,7 @@ export default function Cart() {
   const [shippingMethod, setShippingMethod] = useState<"standard" | "express">("standard");
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<number | "">("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [checkoutQuote, setCheckoutQuote] = useState<{
     shopSubtotalGross: number;
     subtotalGross: number;
@@ -330,6 +331,10 @@ export default function Cart() {
       setError(t("cart.shipping.required"));
       return;
     }
+    if (!termsAccepted) {
+      setError(t("cart.terms.required"));
+      return;
+    }
 
     setIsCheckingOut(true);
     setError(null);
@@ -356,6 +361,7 @@ export default function Cart() {
           paymentMethod,
           deliveryMethod,
           shippingMethod: deliveryMethod === "PICKUP" ? undefined : shippingMethod,
+          termsAccepted: true,
         }),
       });
 
@@ -804,6 +810,32 @@ export default function Cart() {
                   </div>
                 </div>
 
+                {showCheckoutForm && user && (
+                  <label className="flex items-start gap-3 cursor-pointer pt-4 border-t border-white/10">
+                    <input
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                      className="mt-1 rounded border-white/20"
+                    />
+                    <span className="text-xs text-white/60 leading-relaxed">
+                      {t("cart.terms.prefix")}{" "}
+                      <Link to="/terms" className="text-[#c5a059] underline" target="_blank" rel="noopener noreferrer">
+                        {t("cart.terms.agb")}
+                      </Link>
+                      {t("cart.terms.mid")}{" "}
+                      <Link to="/withdrawal" className="text-[#c5a059] underline" target="_blank" rel="noopener noreferrer">
+                        {t("cart.terms.withdrawal")}
+                      </Link>
+                      {t("cart.terms.suffix")}{" "}
+                      <Link to="/privacy" className="text-[#c5a059] underline" target="_blank" rel="noopener noreferrer">
+                        {t("cart.terms.privacy")}
+                      </Link>
+                      .
+                    </span>
+                  </label>
+                )}
+
                 <button
                   onClick={handleCheckout}
                   disabled={isCheckingOut}
@@ -814,7 +846,9 @@ export default function Cart() {
                     : !user
                       ? t("cart.login.button")
                       : showCheckoutForm
-                        ? t("cart.placeOrder")
+                        ? paymentMethod === "STRIPE"
+                          ? t("cart.placeOrderStripe")
+                          : t("cart.placeOrderPaid")
                         : t("cart.checkout")}{" "}
                   <ArrowRight size={16} />
                 </button>

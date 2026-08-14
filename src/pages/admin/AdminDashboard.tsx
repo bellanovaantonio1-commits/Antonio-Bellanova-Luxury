@@ -16,6 +16,8 @@ import {
   ExternalLink,
   FileText,
   CircleDollarSign,
+  Shield,
+  Scale,
 } from "lucide-react";
 import Inquiries from "./Inquiries.tsx";
 import Brands from "./Brands.tsx";
@@ -29,6 +31,8 @@ import Inventory from "./Inventory.tsx";
 import Customers from "./Customers.tsx";
 import Settings from "./Settings.tsx";
 import PricingPayments from "./PricingPayments.tsx";
+import Certificates from "./Certificates.tsx";
+import LegalCompliance from "./LegalCompliance.tsx";
 import Invoices from "./Invoices.tsx";
 import NewProduct from "./NewProduct.tsx";
 import { auth } from "../../lib/firebase.ts";
@@ -59,6 +63,8 @@ export default function AdminDashboard() {
     { label: "AI Import", icon: <BrainCircuit size={18} />, path: "/admin/ai-import", badge: 0 },
     { label: "Bestellungen", icon: <ShoppingCart size={18} />, path: "/admin/orders", badge: badges.orders },
     { label: "Rechnungen", icon: <FileText size={18} />, path: "/admin/invoices", badge: 0 },
+    { label: "Echtheitszertifikate", icon: <Shield size={18} />, path: "/admin/certificates", badge: 0 },
+    { label: "Rechtliches & Unternehmen", icon: <Scale size={18} />, path: "/admin/legal", badge: 0 },
     { label: "Anfragen", icon: <MessageSquare size={18} />, path: "/admin/inquiries", badge: badges.inquiries },
     { label: "Bestand", icon: <Warehouse size={18} />, path: "/admin/inventory", badge: badges.lowStock },
     { label: "Marken", icon: <Tag size={18} />, path: "/admin/brands", badge: 0 },
@@ -129,6 +135,8 @@ export default function AdminDashboard() {
             <Route path="/ai-import" element={<AIImport />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/invoices" element={<Invoices />} />
+            <Route path="/certificates" element={<Certificates />} />
+            <Route path="/legal" element={<LegalCompliance />} />
             <Route path="/inquiries" element={<Inquiries />} />
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/brands" element={<Brands />} />

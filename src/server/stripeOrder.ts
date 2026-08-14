@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db/index.ts";
 import { orders, orderItems, products, users } from "../db/schema.ts";
 import { createInvoiceForOrder, getInvoicePdfBufferByOrderId } from "./invoice/service.ts";
-import { sendInvoiceIssuedEmail, sendOrderEmails } from "./email.ts";
+import { sendInvoiceIssuedEmail, sendOrderEmails, type AddressBlock } from "./email.ts";
 import { getSettingsMap } from "./settings.ts";
 
 export async function restoreOrderStock(orderId: number): Promise<void> {
@@ -60,6 +60,11 @@ export async function markOrderAsPaid(
       items: emailItems,
       settings,
       language: updated.language === "en" ? "en" : "de",
+      paymentMethod: "STRIPE",
+      shippingCost: updated.shippingCost || "0",
+      prepaymentDiscount: updated.discountAmount || "0",
+      billingAddress: updated.billingAddress as AddressBlock | null,
+      shippingAddress: updated.shippingAddress as AddressBlock | null,
     }).catch((e) => console.error("Stripe order email failed", e));
   }
 

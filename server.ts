@@ -319,7 +319,7 @@ async function startServer() {
         .where(and(inArray(products.status, ["ACTIVE"]), gt(products.stock, 0)));
 
       const base = process.env.APP_URL || "https://antonio-bellanova-luxury.onrender.com";
-      const staticPages = ["", "shop", "contact", "sell", "faq", "legal", "privacy", "terms", "shipping", "returns"];
+      const staticPages = ["", "shop", "contact", "sell", "faq", "legal", "privacy", "terms", "shipping", "returns", "withdrawal", "withdrawal-form", "payment-info"];
       const brandRows = await db.select({ slug: brands.slug }).from(brands);
       const urls = [
         ...staticPages.map(p => `${base}/${p}`),
