@@ -5,6 +5,7 @@ import { auth } from "../../lib/firebase.ts";
 import { motion, AnimatePresence } from "motion/react";
 
 import { adminProductService } from "../../services/admin/AdminProductService.ts";
+import ProductPricingSection, { type ProductPricingSectionValue } from "./ProductPricingSection.tsx";
 
 interface ProductEditModalProps {
   product: Product;
@@ -37,7 +38,14 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
         },
         body: JSON.stringify({
           ...formData,
-          overwrite: true // Ensure we overwrite the existing SKU
+          pricingModel: formData.pricingModel || "STANDARD",
+          fixedSalePrice:
+            formData.pricingModel === "PREPAYMENT_DISCOUNT"
+              ? undefined
+              : formData.fixedSalePrice ?? formData.price,
+          basePrice:
+            formData.pricingModel === "STANDARD" ? undefined : formData.basePrice ?? formData.price,
+          overwrite: true,
         })
       });
 
@@ -156,16 +164,24 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                   />
                 </div>
 
+                <ProductPricingSection
+                  value={{
+                    pricingModel:
+                      (formData.pricingModel as ProductPricingSectionValue["pricingModel"]) ||
+                      (formData.basePrice ? "PREPAYMENT_DISCOUNT" : "STANDARD"),
+                    fixedSalePrice: String(formData.fixedSalePrice ?? formData.price ?? ""),
+                    basePrice: String(formData.basePrice ?? ""),
+                  }}
+                  onChange={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
+                />
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Preis (EUR)</label>
-                    <input 
-                      type="number"
-                      step="0.01"
-                      value={formData.price || ""}
-                      onChange={(e) => setFormData({...formData, price: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
-                      required
+                    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Shop-Preis (Anzeige)</label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={formData.price ? `${formData.price} €` : "—"}
+                      className="w-full px-4 py-3 bg-gray-100 border border-gray-100 rounded-lg text-sm text-gray-500 cursor-not-allowed"
                     />
                   </div>
                   <div className="space-y-2">

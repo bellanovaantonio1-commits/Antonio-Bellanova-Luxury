@@ -29,6 +29,14 @@ export type ShopSettings = {
   shippingCostWorld: string;
   shippingFreeFrom: string;
   priceOnRequestFrom: string;
+  stripeFeePercent: string;
+  stripeFeeFixed: string;
+  roundingStep: string;
+  roundingMode: string;
+  defaultPricingModel: string;
+  bankTransferEnabled: string;
+  prepaymentEnabled: string;
+  stripeEnabled: string;
   shippingExpressCostDe: string;
   shippingExpressCostEu: string;
   shippingExpressCostWorld: string;
@@ -71,6 +79,14 @@ function toSettings(raw: Record<string, unknown>): ShopSettings {
     shippingCostWorld: str("shippingCostWorld"),
     shippingFreeFrom: str("shippingFreeFrom"),
     priceOnRequestFrom: str("priceOnRequestFrom"),
+    stripeFeePercent: str("stripeFeePercent"),
+    stripeFeeFixed: str("stripeFeeFixed"),
+    roundingStep: str("roundingStep"),
+    roundingMode: str("roundingMode"),
+    defaultPricingModel: str("defaultPricingModel"),
+    bankTransferEnabled: str("bankTransferEnabled"),
+    prepaymentEnabled: str("prepaymentEnabled"),
+    stripeEnabled: str("stripeEnabled"),
     shippingExpressCostDe: str("shippingExpressCostDe"),
     shippingExpressCostEu: str("shippingExpressCostEu"),
     shippingExpressCostWorld: str("shippingExpressCostWorld"),

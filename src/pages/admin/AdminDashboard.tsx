@@ -15,6 +15,7 @@ import {
   PlusCircle,
   ExternalLink,
   FileText,
+  CircleDollarSign,
 } from "lucide-react";
 import Inquiries from "./Inquiries.tsx";
 import Brands from "./Brands.tsx";
@@ -27,6 +28,7 @@ import Orders from "./Orders.tsx";
 import Inventory from "./Inventory.tsx";
 import Customers from "./Customers.tsx";
 import Settings from "./Settings.tsx";
+import PricingPayments from "./PricingPayments.tsx";
 import Invoices from "./Invoices.tsx";
 import NewProduct from "./NewProduct.tsx";
 import { auth } from "../../lib/firebase.ts";
@@ -61,6 +63,7 @@ export default function AdminDashboard() {
     { label: "Bestand", icon: <Warehouse size={18} />, path: "/admin/inventory", badge: badges.lowStock },
     { label: "Marken", icon: <Tag size={18} />, path: "/admin/brands", badge: 0 },
     { label: "Kunden (CRM)", icon: <Users size={18} />, path: "/admin/crm", badge: 0 },
+    { label: "Preise & Zahlungen", icon: <CircleDollarSign size={18} />, path: "/admin/pricing", badge: 0 },
     { label: "Einstellungen", icon: <SettingsIcon size={18} />, path: "/admin/settings", badge: 0 },
   ];
 
@@ -130,6 +133,7 @@ export default function AdminDashboard() {
             <Route path="/inventory" element={<Inventory />} />
             <Route path="/brands" element={<Brands />} />
             <Route path="/crm" element={<Customers />} />
+            <Route path="/pricing" element={<PricingPayments />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </div>

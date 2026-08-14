@@ -69,6 +69,12 @@ export interface Product {
   
   // Legacy fields (kept for compatibility)
   price: string;
+  basePrice?: string | number | null;
+  pricingModel?: string | null;
+  fixedSalePrice?: string | number | null;
+  calculatedStripePrice?: string | number | null;
+  roundedShopPrice?: string | number | null;
+  bankTransferDiscount?: string | number | null;
   currency: string;
   status: string;
   published?: boolean;

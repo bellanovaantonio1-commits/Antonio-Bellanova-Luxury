@@ -21,9 +21,24 @@ import {
 } from "./invoice/service.ts";
 import { getMissingInvoiceSettings } from "./invoice/seller.ts";
 import { calculateShippingCost, ShippingMethod } from "./shipping.ts";
-import { createStripeCheckoutSession, createStripeRefund, isStripeEnabled } from "./stripe.ts";
+import { createStripeCheckoutSession, createStripeRefund } from "./stripe.ts";
 import { restoreOrderStock } from "./stripeOrder.ts";
 import { getSettingsMap, ensureDefaultSettings } from "./settings.ts";
+import {
+  buildCheckoutPaymentPayload,
+  getPricingAuditLog,
+  getPricingPaymentsPayload,
+  savePricingPaymentsSettings,
+} from "./pricingSettings.ts";
+import {
+  roundMoney,
+  parseShopPricingConfig,
+  resolveProductPricing,
+  resolveStoredProductPricing,
+  toProductPriceDbFields,
+  isStripePaymentAvailable,
+  resolveCheckoutPaymentMethod,
+} from "../lib/shopPricing.ts";
 
 export function registerExtraRoutes(app: Express) {
   // Health check
@@ -335,10 +350,11 @@ export function registerExtraRoutes(app: Express) {
       const cost = deliveryMethod === "PICKUP"
         ? 0
         : calculateShippingCost(country, settings as Record<string, string>, subtotal, method);
+      const paymentPayload = buildCheckoutPaymentPayload(settings);
       res.json({
         shippingCost: cost,
         freeFrom: parseFloat(String(settings.shippingFreeFrom || "500")) || 500,
-        stripeEnabled: isStripeEnabled(),
+        ...paymentPayload,
         pickupNoteDe: settings.pickupNoteDe || "",
         pickupNoteEn: settings.pickupNoteEn || "",
       });
@@ -551,6 +567,56 @@ export function registerExtraRoutes(app: Express) {
     }
   });
 
+  // Checkout quote (server-side pricing preview)
+  app.post("/api/checkout/quote", async (req, res) => {
+    try {
+      const {
+        items,
+        paymentMethod,
+        deliveryMethod,
+        shippingMethod,
+        billingAddress,
+        shippingAddress,
+      } = req.body;
+
+      if (!items?.length) return res.status(400).json({ error: "Warenkorb ist leer." });
+
+      const settings = await getSettingsMap();
+      const strSettings = settings as Record<string, string>;
+      const resolvedPaymentMethod = resolveCheckoutPaymentMethod(paymentMethod, strSettings);
+
+      const computed = await buildOrderLinesFromRequest(
+        items.map((i: { id: string; quantity: number }) => ({ id: i.id, quantity: i.quantity })),
+        { paymentMethod: resolvedPaymentMethod }
+      );
+
+      const isPickup = deliveryMethod === "PICKUP";
+      const shipAddr = shippingAddress || billingAddress;
+      const shippingCountry = isPickup ? "Deutschland" : (shipAddr?.country || "Deutschland");
+      const shipMethod: ShippingMethod = isPickup ? "pickup" : (shippingMethod === "express" ? "express" : "standard");
+      const shippingCost = calculateShippingCost(
+        shippingCountry,
+        strSettings,
+        computed.totalGross,
+        shipMethod
+      );
+
+      res.json({
+        paymentMethod: resolvedPaymentMethod,
+        shopSubtotalGross: computed.shopSubtotalGross,
+        subtotalGross: computed.totalGross,
+        prepaymentDiscount: computed.prepaymentDiscount,
+        shippingCost,
+        totalGross: roundMoney(computed.totalGross + shippingCost),
+        ...buildCheckoutPaymentPayload(settings),
+      });
+    } catch (error: unknown) {
+      res.status(400).json({
+        error: error instanceof Error ? error.message : "Preisberechnung fehlgeschlagen.",
+      });
+    }
+  });
+
   // Enhanced orders
   app.post("/api/orders", requireAuth, async (req: AuthRequest, res) => {
     try {
@@ -562,18 +628,21 @@ export function registerExtraRoutes(app: Express) {
         companyName,
         customerVatId,
         language,
-        discountAmount,
         paymentMethod,
         deliveryMethod,
         shippingMethod,
       } = req.body;
       if (!items?.length) return res.status(400).json({ error: "Warenkorb ist leer." });
 
+      const settings = await getSettingsMap();
+      const strSettings = settings as Record<string, string>;
+      const resolvedPaymentMethod = resolveCheckoutPaymentMethod(paymentMethod, strSettings);
+
       const computed = await buildOrderLinesFromRequest(
-        items.map((i: { id: string; quantity: number }) => ({ id: i.id, quantity: i.quantity }))
+        items.map((i: { id: string; quantity: number }) => ({ id: i.id, quantity: i.quantity })),
+        { paymentMethod: resolvedPaymentMethod }
       );
 
-      const settings = await getSettingsMap();
       const isPickup = deliveryMethod === "PICKUP";
       const shippingCountry = isPickup ? "Deutschland" : ((shippingAddress || billingAddress)?.country || "Deutschland");
       const shipMethod: ShippingMethod = isPickup ? "pickup" : (shippingMethod === "express" ? "express" : "standard");
@@ -583,9 +652,9 @@ export function registerExtraRoutes(app: Express) {
         computed.totalGross,
         shipMethod
       );
-      const discount = parseFloat(discountAmount) || 0;
-      const totalGross = Math.max(0, computed.totalGross + shippingCost - discount);
-      const resolvedPaymentMethod = paymentMethod === "STRIPE" && isStripeEnabled() ? "STRIPE" : "BANK_TRANSFER";
+      const prepaymentDiscount =
+        resolvedPaymentMethod === "BANK_TRANSFER" ? computed.prepaymentDiscount : 0;
+      const totalGross = Math.max(0, computed.totalGross + shippingCost);
 
       const orderNumber = generateOrderNumber();
       const billing = billingAddress || null;
@@ -602,7 +671,8 @@ export function registerExtraRoutes(app: Express) {
         taxAmount: computed.taxAmount.toString(),
         taxRatePercent: computed.taxRatePercent.toString(),
         shippingCost: shippingCost.toString(),
-        discountAmount: discount.toString(),
+        discountAmount: prepaymentDiscount.toString(),
+        shopSubtotalGross: computed.shopSubtotalGross.toString(),
         shippingAddress: isPickup ? { ...billing, type: "PICKUP" } : shipping,
         billingAddress: billing,
         deliveryMethod: isPickup ? "PICKUP" : "SHIPPING",
@@ -628,6 +698,10 @@ export function registerExtraRoutes(app: Express) {
           lineTaxAmount: line.lineTaxAmount.toString(),
           taxRatePercent: line.taxRatePercent.toString(),
           taxTreatment: line.taxTreatment,
+          pricingModel: line.pricingModel,
+          shopUnitPriceGross: line.shopUnitPriceGross.toString(),
+          basePriceSnapshot: line.basePriceSnapshot != null ? line.basePriceSnapshot.toString() : null,
+          prepaymentDiscountSnapshot: line.prepaymentDiscountSnapshot.toString(),
         });
 
         orderItemsForEmail.push({ name: line.name, quantity: line.quantity, price: line.unitPriceGross });
@@ -681,7 +755,7 @@ export function registerExtraRoutes(app: Express) {
         invoiceNumber: null,
         paymentInfo: settings,
         checkoutUrl,
-        stripeEnabled: isStripeEnabled(),
+        ...buildCheckoutPaymentPayload(settings),
         invoiceSettingsWarning: getMissingInvoiceSettings(settings),
       });
     } catch (error: unknown) {
@@ -1063,6 +1137,102 @@ export function registerExtraRoutes(app: Express) {
       res.json(await getSettingsMap());
     } catch {
       res.json(DEFAULT_SHOP_SETTINGS);
+    }
+  });
+
+  // Admin: Preise & Zahlungen
+  app.get("/api/admin/pricing-payments", requireAuth, requireRole(["ADMIN"]), async (_req, res) => {
+    try {
+      res.json(await getPricingPaymentsPayload());
+    } catch (error: unknown) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Laden fehlgeschlagen." });
+    }
+  });
+
+  app.put("/api/admin/pricing-payments", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
+    try {
+      const result = await savePricingPaymentsSettings(req.body, {
+        uid: req.user!.uid,
+        name: req.user!.name,
+        email: req.user!.email,
+      });
+      res.json(result);
+    } catch (error: unknown) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Speichern fehlgeschlagen." });
+    }
+  });
+
+  app.get("/api/admin/pricing-payments/audit-log", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
+    try {
+      const limit = parseInt(String(req.query.limit || "100"), 10) || 100;
+      res.json({ entries: await getPricingAuditLog(limit) });
+    } catch (error: unknown) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Audit-Log fehlgeschlagen." });
+    }
+  });
+
+  // Admin: Preise neu berechnen (nur PREPAYMENT_DISCOUNT)
+  app.post("/api/admin/products/recalculate-prices/preview", requireAuth, requireRole(["ADMIN"]), async (_req, res) => {
+    try {
+      const settings = await getSettingsMap();
+      const config = parseShopPricingConfig(settings as Record<string, string>);
+      const all = await db.select().from(products);
+
+      const changes = all
+        .filter((p) => p.pricingModel === "PREPAYMENT_DISCOUNT")
+        .map((p) => {
+          const oldShop = parseFloat(String(p.price || "0")) || 0;
+          const oldDiscount = parseFloat(String(p.bankTransferDiscount || "0")) || 0;
+          const resolved = resolveProductPricing(
+            { pricingModel: "PREPAYMENT_DISCOUNT", basePrice: p.basePrice },
+            config
+          );
+          const fields = toProductPriceDbFields(resolved);
+          return {
+            id: p.id,
+            name: p.name,
+            sku: p.sku,
+            oldPrice: oldShop,
+            newPrice: parseFloat(fields.price),
+            oldDiscount,
+            newDiscount: parseFloat(fields.bankTransferDiscount),
+          };
+        })
+        .filter((c) => c.oldPrice !== c.newPrice || c.oldDiscount !== c.newDiscount);
+
+      res.json({ count: changes.length, changes });
+    } catch (error: unknown) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Vorschau fehlgeschlagen." });
+    }
+  });
+
+  app.post("/api/admin/products/recalculate-prices/apply", requireAuth, requireRole(["ADMIN"]), async (_req, res) => {
+    try {
+      const settings = await getSettingsMap();
+      const config = parseShopPricingConfig(settings as Record<string, string>);
+      const all = await db.select().from(products).where(eq(products.pricingModel, "PREPAYMENT_DISCOUNT"));
+
+      let updated = 0;
+      for (const p of all) {
+        const resolved = resolveProductPricing(
+          { pricingModel: "PREPAYMENT_DISCOUNT", basePrice: p.basePrice },
+          config
+        );
+        const fields = toProductPriceDbFields(resolved);
+        await db.update(products).set({
+          price: fields.price,
+          roundedShopPrice: fields.roundedShopPrice,
+          calculatedStripePrice: fields.calculatedStripePrice,
+          bankTransferDiscount: fields.bankTransferDiscount,
+          basePrice: fields.basePrice,
+          updatedAt: new Date(),
+        }).where(eq(products.id, p.id));
+        updated += 1;
+      }
+
+      res.json({ updated, message: `${updated} Produkte neu berechnet.` });
+    } catch (error: unknown) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Neuberechnung fehlgeschlagen." });
     }
   });
 

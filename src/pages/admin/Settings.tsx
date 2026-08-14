@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Settings as SettingsIcon, Save, AlertTriangle } from "lucide-react";
+import { Link } from "react-router-dom";
 import { auth } from "../../lib/firebase.ts";
 import { useReloadShopSettings } from "../../contexts/ShopSettingsContext.tsx";
 
@@ -199,6 +200,19 @@ export default function Settings() {
           )}
         </div>
       )}
+
+      <div className="max-w-2xl rounded-2xl border border-[#D4AF37]/20 bg-[#faf8f3] p-6">
+        <h4 className="text-sm font-serif text-gray-900">Preise & Zahlungen</h4>
+        <p className="text-xs text-gray-500 mt-2">
+          Stripe-Gebühren, Rundung, Zahlungsarten und Preis-Neuberechnung werden im eigenen Admin-Bereich verwaltet.
+        </p>
+        <Link
+          to="/admin/pricing"
+          className="inline-block mt-4 text-[10px] uppercase tracking-widest font-bold text-[#9a7b2e] hover:text-[#D4AF37]"
+        >
+          → Preise & Zahlungen öffnen
+        </Link>
+      </div>
 
       {sections.map((section) => (
         <div key={section.title} className="space-y-6 max-w-2xl">

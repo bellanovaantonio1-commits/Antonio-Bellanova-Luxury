@@ -215,6 +215,16 @@ export default function ProductDetails() {
   const isFavorited = product.id ? isInWishlist(String(product.id)) : false;
   const priceOnRequestThreshold = parsePriceOnRequestThreshold(shopSettings);
   const priceOnRequest = isPriceOnRequest(product.price, priceOnRequestThreshold);
+  const prepaymentDiscountAmount =
+    product.pricingModel === "PREPAYMENT_DISCOUNT" &&
+    shopSettings.prepaymentEnabled !== "false"
+      ? parseFloat(String(product.bankTransferDiscount || "0")) || 0
+      : 0;
+  const showPrepaymentSavings = !priceOnRequest && prepaymentDiscountAmount > 0;
+  const formattedPrepaymentSavings = new Intl.NumberFormat(language === "en" ? "en-US" : "de-DE", {
+    style: "currency",
+    currency: "EUR",
+  }).format(prepaymentDiscountAmount);
   const authenticityNote = language === "en" ? shopSettings.authenticityNoteEn : shopSettings.authenticityNoteDe;
   const marginTaxNote = language === "en" ? shopSettings.marginTaxNoteEn : shopSettings.marginTaxNoteDe;
   const seoDescription =
@@ -313,14 +323,21 @@ export default function ProductDetails() {
               <h1 className="text-4xl md:text-5xl font-serif tracking-tight leading-tight mb-8 italic font-light">
                 {displayTitle}
               </h1>
-              <div className="flex items-end justify-between">
-                <span className="text-3xl font-serif italic text-[#c5a059]">
-                  {priceOnRequest
-                    ? t("product.price_on_request")
-                    : new Intl.NumberFormat(language === "en" ? "en-US" : "de-DE", { style: "currency", currency: "EUR" }).format(parseFloat(product.price))}
-                </span>
-                {!priceOnRequest && (
-                  <span className="text-[10px] tracking-widest text-white/30 uppercase italic font-light">{marginTaxNote}</span>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-end justify-between">
+                  <span className="text-3xl font-serif italic text-[#c5a059]">
+                    {priceOnRequest
+                      ? t("product.price_on_request")
+                      : new Intl.NumberFormat(language === "en" ? "en-US" : "de-DE", { style: "currency", currency: "EUR" }).format(parseFloat(product.price))}
+                  </span>
+                  {!priceOnRequest && (
+                    <span className="text-[10px] tracking-widest text-white/30 uppercase italic font-light">{marginTaxNote}</span>
+                  )}
+                </div>
+                {showPrepaymentSavings && (
+                  <p className="text-sm text-white/50 font-light italic border-l border-[#c5a059]/30 pl-4">
+                    {t("product.prepayment_savings").replace("{amount}", formattedPrepaymentSavings)}
+                  </p>
                 )}
               </div>
             </div>

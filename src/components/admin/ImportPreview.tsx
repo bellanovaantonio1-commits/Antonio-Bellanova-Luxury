@@ -12,6 +12,7 @@ import { calculatePricing, PricingResult } from "../../lib/pricing.ts";
 import { parseLocaleNumber } from "../../lib/numbers.ts";
 import { extractInternalFields } from "../../services/import/internalFields.ts";
 import { resolveShopContentFields } from "../../services/import/shopContent.ts";
+import PricingBreakdownPanel from "./PricingBreakdownPanel.tsx";
 
 const RANK_MAP: Record<string, { de: string; en: string }> = {
   N: { de: "Neu", en: "New" },
@@ -180,7 +181,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
       if (results) {
         setFormData(prev => ({
           ...prev,
-          price: !isNaN(results.grossSalePrice) ? results.grossSalePrice.toFixed(2) : "0.00",
+          basePrice: !isNaN(results.grossSalePrice) ? results.grossSalePrice.toFixed(2) : "0.00",
           actualMargin: !isNaN(results.effectiveMarginPercent) ? results.effectiveMarginPercent.toFixed(2) : "0",
           actualProfit: !isNaN(results.profitEur) ? results.profitEur.toFixed(2) : "0",
         }));
@@ -280,7 +281,8 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
         importVatEur: pricingResults?.importVatEur,
         netSalePrice: pricingResults?.netSalePrice,
         grossSalePrice: pricingResults?.grossSalePrice,
-        price: pricingResults?.grossSalePrice, // Map to main price field for customer view
+        pricingModel: "PREPAYMENT_DISCOUNT",
+        basePrice: pricingResults?.grossSalePrice,
         profitEur: pricingResults?.profitEur,
         effectiveMarginPercent: pricingResults?.effectiveMarginPercent,
         taxAmount: pricingResults?.taxAmountEur, // for backward compatibility
@@ -1154,7 +1156,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
                 <div className="p-8 bg-[#D4AF37] rounded-[32px] text-black shadow-2xl">
                   <div className="flex justify-between items-start mb-6 gap-4">
                     <div className="space-y-1 flex-1 min-w-0">
-                      <span className="text-[11px] uppercase tracking-[0.2em] font-black opacity-60">Brutto Verkaufspreis</span>
+                      <span className="text-[11px] uppercase tracking-[0.2em] font-black opacity-60">Basispreis (Vorkasse)</span>
                       <div className="flex items-baseline gap-2">
                         <input
                           type="number"
@@ -1204,6 +1206,11 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
                     </div>
                   </div>
                 )}
+
+                <PricingBreakdownPanel
+                  basePriceInput={formData.basePrice || String(pricingResults?.grossSalePrice ?? "")}
+                  className="!bg-white/10 !border-white/20 text-white [&_dt]:text-gray-400 [&_dd]:text-white [&_p]:text-gray-500"
+                />
               </div>
             </div>
           </section>

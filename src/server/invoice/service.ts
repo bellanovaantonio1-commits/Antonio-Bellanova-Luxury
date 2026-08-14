@@ -8,6 +8,7 @@ import { generateInvoicePdf } from "./pdf.ts";
 import type { Address, InvoiceLineItem, InvoiceRecord } from "./types.ts";
 import { getSettingsMap } from "../settings.ts";
 import { isPriceOnRequest, parsePriceOnRequestThreshold } from "../../lib/priceOnRequest.ts";
+import { getUnitPriceForPayment, getShopDisplayPrice } from "../../lib/shopPricing.ts";
 
 const pool = createPgPool();
 
@@ -331,7 +332,12 @@ export async function cancelInvoiceForOrder(
   }
 }
 
-export async function buildOrderLinesFromRequest(items: { id: string; quantity: number }[]) {
+export async function buildOrderLinesFromRequest(
+  items: { id: string; quantity: number }[],
+  opts?: { paymentMethod?: "STRIPE" | "BANK_TRANSFER" }
+) {
+  const paymentMethod = opts?.paymentMethod ?? "STRIPE";
+  const isBankTransfer = paymentMethod === "BANK_TRANSFER";
   const settings = await getSettingsMap();
   const priceOnRequestThreshold = parsePriceOnRequestThreshold(settings as Record<string, string>);
 
@@ -346,11 +352,17 @@ export async function buildOrderLinesFromRequest(items: { id: string; quantity: 
     lineTaxAmount: number;
     taxRatePercent: number;
     taxTreatment: string | null;
+    shopUnitPriceGross: number;
+    pricingModel: string;
+    basePriceSnapshot: number | null;
+    prepaymentDiscountSnapshot: number;
   }[] = [];
 
   let subtotalNet = 0;
   let taxAmount = 0;
   let totalGross = 0;
+  let shopSubtotalGross = 0;
+  let prepaymentDiscount = 0;
   let hasMargin = false;
 
   for (const item of items) {
@@ -362,17 +374,32 @@ export async function buildOrderLinesFromRequest(items: { id: string; quantity: 
       throw new Error(`Produkt ${productId} ist nicht verfügbar.`);
     }
 
-    const gross = parseFloat(product.price);
-    if (isPriceOnRequest(gross, priceOnRequestThreshold)) {
+    const shopPrice = getShopDisplayPrice(product);
+    const payMethod = isBankTransfer ? "BANK_TRANSFER" : "STRIPE";
+    const { shopUnitPrice, payableUnitPrice, prepaymentDiscount: unitDiscount } = getUnitPriceForPayment(
+      product,
+      payMethod
+    );
+
+    if (isPriceOnRequest(shopPrice, priceOnRequestThreshold)) {
       throw new Error(`Produkt „${product.titleDe || product.name}“ ist nur auf Anfrage erhältlich.`);
+    }
+
+    if (isBankTransfer && unitDiscount > 0) {
+      prepaymentDiscount += unitDiscount * item.quantity;
     }
 
     const taxTreatment = product.taxTreatment || "REGULAR";
     const rate = parseFloat(product.taxRatePercent || "19");
-    const lineGross = round2(gross * item.quantity);
+    const lineGross = round2(payableUnitPrice * item.quantity);
     const { net, tax } = computeLineTax(lineGross, taxTreatment, rate);
 
     if (taxTreatment === "MARGIN") hasMargin = true;
+
+    const baseSnapshot =
+      product.basePrice != null && String(product.basePrice).trim() !== ""
+        ? parseFloat(String(product.basePrice))
+        : null;
 
     lines.push({
       productId,
@@ -380,16 +407,21 @@ export async function buildOrderLinesFromRequest(items: { id: string; quantity: 
       sku: product.sku || "",
       image: product.mainImage || (Array.isArray(product.images) ? (product.images as string[])[0] : "") || "",
       quantity: item.quantity,
-      unitPriceGross: gross,
+      unitPriceGross: payableUnitPrice,
       unitPriceNet: round2(net / item.quantity),
       lineTaxAmount: tax,
       taxRatePercent: taxTreatment === "MARGIN" ? 0 : rate,
       taxTreatment,
+      shopUnitPriceGross: shopUnitPrice,
+      pricingModel: product.pricingModel || "STANDARD",
+      basePriceSnapshot: baseSnapshot,
+      prepaymentDiscountSnapshot: unitDiscount,
     });
 
     subtotalNet += net;
     taxAmount += tax;
     totalGross += lineGross;
+    shopSubtotalGross += round2(shopUnitPrice * item.quantity);
   }
 
   return {
@@ -397,6 +429,8 @@ export async function buildOrderLinesFromRequest(items: { id: string; quantity: 
     subtotalNet: round2(subtotalNet),
     taxAmount: round2(taxAmount),
     totalGross: round2(totalGross),
+    shopSubtotalGross: round2(shopSubtotalGross),
+    prepaymentDiscount: round2(prepaymentDiscount),
     taxRatePercent: hasMargin ? 0 : 19,
     hasMargin,
   };

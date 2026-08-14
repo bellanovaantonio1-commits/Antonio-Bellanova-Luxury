@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, Plus, X, Upload, Globe, Sparkles, AlertCircle } from "lucide-react";
 import ImportInterface from "../../components/admin/ImportInterface.tsx";
 import ImportPreview from "../../components/admin/ImportPreview.tsx";
+import ProductPricingSection, { type ProductPricingSectionValue } from "../../components/admin/ProductPricingSection.tsx";
 import ErrorBoundary from "../../components/common/ErrorBoundary.tsx";
 
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
@@ -24,6 +25,9 @@ export default function NewProduct() {
     type: "WATCH",
     condition: "NEW",
     price: "",
+    basePrice: "",
+    pricingModel: "STANDARD" as const,
+    fixedSalePrice: "",
     currency: "EUR",
     descriptionDe: "",
     status: "DRAFT"
@@ -54,7 +58,15 @@ export default function NewProduct() {
       const productData = {
         ...finalData,
         images: finalImages,
-        price: parseFloat(finalData.price) || 0,
+        pricingModel: finalData.pricingModel || "STANDARD",
+        fixedSalePrice:
+          finalData.pricingModel === "STANDARD"
+            ? parseFloat(finalData.fixedSalePrice || finalData.price || "0") || 0
+            : undefined,
+        basePrice:
+          finalData.pricingModel === "PREPAYMENT_DISCOUNT"
+            ? parseFloat(finalData.basePrice || "0") || 0
+            : undefined,
       };
 
       const response = await fetch('/api/admin/products', {
@@ -165,18 +177,14 @@ export default function NewProduct() {
                       placeholder="126610LN"
                     />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Preis (EUR)</label>
-                    <input 
-                      required
-                      type="number"
-                      step="0.01"
-                      value={formData.price}
-                      onChange={e => setFormData({...formData, price: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-[13px] text-gray-900 placeholder:text-gray-400 outline-none focus:ring-1 focus:ring-[#D4AF37]"
-                      placeholder="14500"
-                    />
-                  </div>
+                  <ProductPricingSection
+                    value={{
+                      pricingModel: (formData.pricingModel as ProductPricingSectionValue["pricingModel"]) || "STANDARD",
+                      fixedSalePrice: formData.fixedSalePrice || formData.price || "",
+                      basePrice: formData.basePrice || "",
+                    }}
+                    onChange={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
+                  />
                 </div>
 
                 <div>

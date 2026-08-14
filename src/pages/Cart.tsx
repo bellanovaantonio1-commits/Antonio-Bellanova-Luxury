@@ -60,7 +60,7 @@ export default function Cart() {
   const [shippingFreeFrom, setShippingFreeFrom] = useState<number>(500);
   const [shippingLoading, setShippingLoading] = useState(false);
   const [stripeEnabled, setStripeEnabled] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"BANK_TRANSFER" | "STRIPE">("BANK_TRANSFER");
+  const [paymentMethod, setPaymentMethod] = useState<"BANK_TRANSFER" | "STRIPE" | "PREPAYMENT">("BANK_TRANSFER");
   const [stripePaymentStatus, setStripePaymentStatus] = useState<string | null>(null);
   const [stripeConfirming, setStripeConfirming] = useState(false);
   const [successItems, setSuccessItems] = useState<{ name: string; quantity: number; price: number }[]>([]);
@@ -68,12 +68,49 @@ export default function Cart() {
   const [shippingMethod, setShippingMethod] = useState<"standard" | "express">("standard");
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<number | "">("");
+  const [checkoutQuote, setCheckoutQuote] = useState<{
+    shopSubtotalGross: number;
+    subtotalGross: number;
+    prepaymentDiscount: number;
+    shippingCost: number;
+    totalGross: number;
+    bankTransferEnabled?: boolean;
+    prepaymentEnabled?: boolean;
+    stripeEnabled?: boolean;
+    paymentMethods?: { id: string; name: string; description: string; sortOrder: number }[];
+  } | null>(null);
   const { t, language } = useLanguage();
   const { user, signIn } = useAuth();
   const shopSettings = useShopSettings();
 
   const shippingCountry = deliveryMethod === "PICKUP" ? "Deutschland" : ((differentShipping ? shipping.country : billing.country) || "Deutschland");
-  const grandTotal = total + (deliveryMethod === "PICKUP" ? 0 : (shippingCost ?? 0));
+  const fallbackGrandTotal = total + (deliveryMethod === "PICKUP" ? 0 : (shippingCost ?? 0));
+  const displaySubtotal = showCheckoutForm && checkoutQuote ? checkoutQuote.shopSubtotalGross : total;
+  const displayShipping =
+    showCheckoutForm && checkoutQuote ? checkoutQuote.shippingCost : (deliveryMethod === "PICKUP" ? 0 : (shippingCost ?? 0));
+  const displayTotal = showCheckoutForm && checkoutQuote ? checkoutQuote.totalGross : fallbackGrandTotal;
+  const prepaymentDiscount = showCheckoutForm && checkoutQuote ? checkoutQuote.prepaymentDiscount : 0;
+  const bankTransferEnabled =
+    checkoutQuote?.bankTransferEnabled ?? shopSettings.bankTransferEnabled !== "false";
+  const availablePaymentMethods =
+    checkoutQuote?.paymentMethods?.length
+      ? checkoutQuote.paymentMethods
+      : [
+          ...(stripeEnabled
+            ? [{ id: "STRIPE", name: t("cart.payment.stripe"), description: t("cart.payment.stripeNote"), sortOrder: 1 }]
+            : []),
+          ...(bankTransferEnabled
+            ? [{ id: "BANK_TRANSFER", name: t("cart.payment.bank"), description: t("cart.payment.bankNote"), sortOrder: 2 }]
+            : []),
+        ];
+  const showPaymentMethods = availablePaymentMethods.length > 0;
+
+  useEffect(() => {
+    if (availablePaymentMethods.length === 0) return;
+    if (!availablePaymentMethods.some((m) => m.id === paymentMethod)) {
+      setPaymentMethod(availablePaymentMethods[0].id as "STRIPE" | "BANK_TRANSFER" | "PREPAYMENT");
+    }
+  }, [availablePaymentMethods, paymentMethod]);
 
   useEffect(() => {
     const stripeParam = searchParams.get("stripe");
@@ -226,6 +263,47 @@ export default function Cart() {
     line1: a.street.trim(),
     line2: `${a.postalCode.trim()} ${a.city.trim()}`.trim(),
   });
+
+  useEffect(() => {
+    if (!showCheckoutForm || items.length === 0) {
+      setCheckoutQuote(null);
+      return;
+    }
+
+    let cancelled = false;
+    fetch("/api/checkout/quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: items.map((i) => ({ id: i.id, quantity: i.quantity })),
+        paymentMethod,
+        deliveryMethod,
+        shippingMethod,
+        billingAddress: formatAddress(billing),
+        shippingAddress: differentShipping ? formatAddress(shipping) : formatAddress(billing),
+      }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data) setCheckoutQuote(data);
+      })
+      .catch(() => {
+        if (!cancelled) setCheckoutQuote(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    showCheckoutForm,
+    items,
+    paymentMethod,
+    deliveryMethod,
+    shippingMethod,
+    billing,
+    shipping,
+    differentShipping,
+  ]);
 
   const validateAddress = (a: AddressForm) =>
     a.name.trim() && a.street.trim() && a.postalCode.trim() && a.city.trim() && a.country.trim();
@@ -648,38 +726,36 @@ export default function Cart() {
                     </label>
                   </div>
 
-                  {stripeEnabled && (
+                  {showPaymentMethods && (
                     <div className="space-y-4 pt-4 border-t border-white/10">
                       <h3 className="text-sm tracking-[0.3em] uppercase font-bold text-[#c5a059]">{t("cart.payment.method")}</h3>
-                      <label className="flex items-start gap-3 cursor-pointer p-4 rounded-xl border border-white/10 hover:border-[#c5a059]/30 transition-colors">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          checked={paymentMethod === "BANK_TRANSFER"}
-                          onChange={() => setPaymentMethod("BANK_TRANSFER")}
-                          className="mt-1"
-                        />
-                        <div>
-                          <p className="text-sm font-bold">{t("cart.payment.bank")}</p>
-                          <p className="text-xs text-white/40 mt-1">{t("cart.payment.note")}</p>
-                        </div>
-                      </label>
-                      <label className="flex items-start gap-3 cursor-pointer p-4 rounded-xl border border-white/10 hover:border-[#c5a059]/30 transition-colors">
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          checked={paymentMethod === "STRIPE"}
-                          onChange={() => setPaymentMethod("STRIPE")}
-                          className="mt-1"
-                        />
-                        <div className="flex items-start gap-2">
-                          <CreditCard size={16} className="text-[#c5a059] mt-0.5" />
-                          <div>
-                            <p className="text-sm font-bold">{t("cart.payment.stripe")}</p>
-                            <p className="text-xs text-white/40 mt-1">{t("cart.payment.stripeNote")}</p>
+                      {availablePaymentMethods.map((method) => (
+                        <label
+                          key={method.id}
+                          className="flex items-start gap-3 cursor-pointer p-4 rounded-xl border border-white/10 hover:border-[#c5a059]/30 transition-colors"
+                        >
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            checked={paymentMethod === method.id}
+                            onChange={() =>
+                              setPaymentMethod(method.id as "STRIPE" | "BANK_TRANSFER" | "PREPAYMENT")
+                            }
+                            className="mt-1"
+                          />
+                          <div className="flex items-start gap-2 flex-1">
+                            {method.id === "STRIPE" && (
+                              <CreditCard size={16} className="text-[#c5a059] mt-0.5 shrink-0" />
+                            )}
+                            <div>
+                              <p className="text-sm font-bold">{method.name}</p>
+                              {method.description && (
+                                <p className="text-xs text-white/40 mt-1">{method.description}</p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </label>
+                        </label>
+                      ))}
                     </div>
                   )}
                 </motion.div>
@@ -693,12 +769,23 @@ export default function Cart() {
                 <div className="space-y-4">
                   <div className="flex justify-between text-sm font-light">
                     <span className="text-white/40">{t("cart.subtotal")}</span>
-                    <span>{formatMoney(total)}</span>
+                    <span>{formatMoney(displaySubtotal)}</span>
                   </div>
+                  {prepaymentDiscount > 0 &&
+                    (paymentMethod === "BANK_TRANSFER" || paymentMethod === "PREPAYMENT") && (
+                    <div className="flex justify-between text-sm font-light text-green-400">
+                      <span>{t("cart.prepaymentDiscount")}</span>
+                      <span>− {formatMoney(prepaymentDiscount)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm font-light">
                     <span className="text-white/40">{t("cart.shipping")}</span>
-                    <span className={shippingCost === 0 && !shippingLoading ? "text-green-400 uppercase tracking-widest text-[10px] font-bold" : ""}>
-                      {shippingLabel()}
+                    <span className={displayShipping === 0 && !shippingLoading ? "text-green-400 uppercase tracking-widest text-[10px] font-bold" : ""}>
+                      {showCheckoutForm && checkoutQuote
+                        ? displayShipping === 0
+                          ? t("cart.shipping.free")
+                          : formatMoney(displayShipping)
+                        : shippingLabel()}
                     </span>
                   </div>
                   {shippingFreeFrom > 0 && total < shippingFreeFrom && shippingCost !== null && shippingCost > 0 && (
@@ -712,7 +799,7 @@ export default function Cart() {
                   <div className="flex justify-between items-end">
                     <span className="text-[10px] tracking-[0.3em] uppercase font-bold">{t("cart.total")}</span>
                     <span className="text-3xl font-serif text-[#c5a059]">
-                      {formatMoney(grandTotal)}
+                      {formatMoney(displayTotal)}
                     </span>
                   </div>
                 </div>

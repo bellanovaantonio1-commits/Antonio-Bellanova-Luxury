@@ -23,6 +23,8 @@ import { registerExtraRoutes } from "./src/server/extraRoutes.ts";
 import { handleStripeWebhook } from "./src/server/stripeWebhook.ts";
 import { buildProductJsonLd, injectProductMeta, loadSpaIndexHtml } from "./src/server/seo.ts";
 import { notifyWishlistAlerts } from "./src/server/wishlistAlerts.ts";
+import { getSettingsMap } from "./src/server/settings.ts";
+import { resolveProductPricing, parseShopPricingConfig, toProductPriceDbFields } from "./src/lib/shopPricing.ts";
 
 function toEntitySlug(value: string): string {
   return value.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -753,6 +755,33 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
       const storedImages = mediaRecords.map(m => m.storageUrl);
       const mainImage = mediaRecords.find(m => m.isPrimary)?.storageUrl || storedImages[0] || null;
 
+      const settingsMap = await getSettingsMap();
+      const pricingConfig = parseShopPricingConfig(settingsMap as Record<string, string>);
+
+      const pricingModel =
+        data.pricingModel === "PREPAYMENT_DISCOUNT" ? "PREPAYMENT_DISCOUNT" : "STANDARD";
+
+      let resolvedPricing;
+      if (pricingModel === "PREPAYMENT_DISCOUNT") {
+        const baseInput =
+          data.basePrice ??
+          (data.grossSalePrice != null && String(data.grossSalePrice).trim() !== "" ? data.grossSalePrice : null);
+        resolvedPricing = resolveProductPricing(
+          { pricingModel: "PREPAYMENT_DISCOUNT", basePrice: baseInput },
+          pricingConfig
+        );
+      } else {
+        resolvedPricing = resolveProductPricing(
+          {
+            pricingModel: "STANDARD",
+            fixedSalePrice: data.fixedSalePrice ?? data.price ?? data.grossSalePrice,
+          },
+          pricingConfig
+        );
+      }
+
+      const priceFields = toProductPriceDbFields(resolvedPricing);
+
       // 3. Prepare data for SQL with explicit field mapping
       const sanitizedData: any = {
         name: data.name || data.titleDe || data.titleEn || "Unbenanntes Produkt",
@@ -769,7 +798,13 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
         specificationsEn: data.specificationsEn || data.specificationsText || "",
         scopeOfDeliveryDe: data.scopeOfDeliveryDe || data.scopeOfDelivery || "",
         scopeOfDeliveryEn: data.scopeOfDeliveryEn || data.scopeOfDelivery || "",
-        price: data.price ? data.price.toString() : (data.grossSalePrice ? data.grossSalePrice.toString() : "0"),
+        price: priceFields.price,
+        pricingModel: priceFields.pricingModel,
+        basePrice: priceFields.basePrice,
+        fixedSalePrice: priceFields.fixedSalePrice,
+        calculatedStripePrice: priceFields.calculatedStripePrice,
+        roundedShopPrice: priceFields.roundedShopPrice,
+        bankTransferDiscount: priceFields.bankTransferDiscount,
         currency: data.currency || "EUR",
         status: data.status || "DRAFT",
         year: data.year,
@@ -846,7 +881,8 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
 
       // Normalize numeric fields (reject NaN for PostgreSQL)
       const numericFields = [
-        "price", "purchasePrice", "purchasePriceEur", "purchasePriceOriginal", "exchangeRate",
+        "price", "basePrice", "fixedSalePrice", "calculatedStripePrice", "roundedShopPrice", "bankTransferDiscount",
+        "purchasePrice", "purchasePriceEur", "purchasePriceOriginal", "exchangeRate",
         "shippingCost", "insuranceCost", "customsRate", "customsRatePercent", "customsAmount",
         "customsAmountEur", "manualCustomsAmountEur", "importVatEur", "customsBrokerFee",
         "customsClearanceFee", "otherImportCosts", "landedCost", "netSalePrice", "grossSalePrice",

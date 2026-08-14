@@ -57,6 +57,12 @@ export const products = pgTable('products', {
   scopeOfDeliveryDe: text('scope_of_delivery_de'),
   scopeOfDeliveryEn: text('scope_of_delivery_en'),
   price: numeric('price', { precision: 10, scale: 2 }).notNull(),
+  basePrice: numeric('base_price', { precision: 10, scale: 2 }),
+  pricingModel: text('pricing_model').default('STANDARD'),
+  fixedSalePrice: numeric('fixed_sale_price', { precision: 10, scale: 2 }),
+  calculatedStripePrice: numeric('calculated_stripe_price', { precision: 10, scale: 2 }),
+  roundedShopPrice: numeric('rounded_shop_price', { precision: 10, scale: 2 }),
+  bankTransferDiscount: numeric('bank_transfer_discount', { precision: 10, scale: 2 }).default('0'),
   currency: text('currency').default('EUR'),
   status: text('status').default('DRAFT'), // Default to DRAFT as requested
   images: jsonb('images'),
@@ -173,6 +179,7 @@ export const orders = pgTable('orders', {
   customerVatId: text('customer_vat_id'),
   shippingCost: numeric('shipping_cost', { precision: 10, scale: 2 }).default('0'),
   discountAmount: numeric('discount_amount', { precision: 10, scale: 2 }).default('0'),
+  shopSubtotalGross: numeric('shop_subtotal_gross', { precision: 10, scale: 2 }),
   subtotalNet: numeric('subtotal_net', { precision: 10, scale: 2 }),
   taxAmount: numeric('tax_amount', { precision: 10, scale: 2 }),
   taxRatePercent: numeric('tax_rate_percent', { precision: 5, scale: 2 }).default('19'),
@@ -201,6 +208,10 @@ export const orderItems = pgTable('order_items', {
   quantity: integer('quantity').notNull(),
   price: numeric('price', { precision: 10, scale: 2 }).notNull(),
   productSku: text('product_sku'),
+  pricingModel: text('pricing_model'),
+  shopUnitPriceGross: numeric('shop_unit_price_gross', { precision: 10, scale: 2 }),
+  basePriceSnapshot: numeric('base_price_snapshot', { precision: 10, scale: 2 }),
+  prepaymentDiscountSnapshot: numeric('prepayment_discount_snapshot', { precision: 10, scale: 2 }).default('0'),
   unitPriceGross: numeric('unit_price_gross', { precision: 10, scale: 2 }),
   unitPriceNet: numeric('unit_price_net', { precision: 10, scale: 2 }),
   lineTaxAmount: numeric('line_tax_amount', { precision: 10, scale: 2 }),
@@ -213,6 +224,18 @@ export const shopSettings = pgTable('shop_settings', {
   key: text('key').notNull().unique(),
   value: jsonb('value').notNull(),
   updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const pricingSettingsAudit = pgTable('pricing_settings_audit', {
+  id: serial('id').primaryKey(),
+  changedAt: timestamp('changed_at').defaultNow().notNull(),
+  adminUid: text('admin_uid').notNull(),
+  adminName: text('admin_name'),
+  adminEmail: text('admin_email'),
+  settingKey: text('setting_key').notNull(),
+  settingLabel: text('setting_label'),
+  oldValue: text('old_value'),
+  newValue: text('new_value'),
 });
 
 export const inquiries = pgTable('inquiries', {
