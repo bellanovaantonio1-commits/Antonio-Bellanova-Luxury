@@ -50,8 +50,8 @@ export default function ProductPaymentMethods() {
       <ul className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5 sm:gap-3">
         {methods.map((method) => (
           <li key={method.id} className="group">
-            <div className="flex items-center justify-center h-12 px-2 border border-white/[0.08] bg-white/[0.03] hover:border-[#c5a059]/35 hover:bg-[#c5a059]/[0.05] transition-all duration-300">
-              <PaymentMethodIcon id={method.id} className="h-5 w-[3.25rem]" />
+            <div className="flex items-center justify-center h-14 px-2.5 border border-white/[0.08] bg-white/[0.03] hover:border-[#c5a059]/35 hover:bg-[#c5a059]/[0.05] transition-all duration-300">
+              <PaymentMethodIcon id={method.id} className="h-7 w-[4.25rem] max-w-full" />
               <span className="sr-only">
                 {language === "en" ? method.labelEn : method.labelDe}
               </span>
