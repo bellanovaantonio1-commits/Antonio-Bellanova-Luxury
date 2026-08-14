@@ -799,6 +799,15 @@ export default function Cart() {
                       {t("cart.shipping.freeFrom").replace("{amount}", formatMoney(shippingFreeFrom))}
                     </p>
                   )}
+                  {showCheckoutForm && showPaymentMethods && (
+                    <div className="flex justify-between text-sm font-light pt-2 border-t border-white/5">
+                      <span className="text-white/40">{t("cart.payment.method")}</span>
+                      <span className="text-right text-xs max-w-[60%]">
+                        {availablePaymentMethods.find((m) => m.id === paymentMethod)?.name ||
+                          (paymentMethod === "STRIPE" ? t("cart.payment.stripe") : t("cart.payment.bank"))}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-6 border-t border-white/10">

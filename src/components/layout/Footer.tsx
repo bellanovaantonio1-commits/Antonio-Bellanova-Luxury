@@ -145,7 +145,7 @@ export default function Footer() {
       {/* Bottom Bar */}
       <div className="max-w-7xl mx-auto px-10 pt-12 flex flex-col md:flex-row justify-between items-center gap-6 text-[9px] tracking-[0.3em] text-white/50 uppercase font-light">
         <p>© {new Date().getFullYear()} {settings.shopName}. {t("footer.rights")}</p>
-        <div className="flex gap-10">
+        <div className="flex flex-wrap justify-center gap-x-6 gap-y-3 max-w-3xl">
           {FOOTER_NAV.legal.map((item) => (
             <Link key={item.path} to={item.path} className="hover:text-[#c5a059] transition-colors">
               {language === "en" && item.labelEn ? item.labelEn : item.label}

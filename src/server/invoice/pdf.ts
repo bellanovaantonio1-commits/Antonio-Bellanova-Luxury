@@ -281,10 +281,12 @@ export function generateInvoicePdf(invoice: InvoiceRecord): Promise<Buffer> {
     y += 14;
     doc.text(`${L.paymentStatus}: ${paymentStatusLabel(invoice.paymentStatus, L)}`, MARGIN, y);
     y += 20;
-    doc.fontSize(8).fillColor("#333");
-    doc.text(`${invoice.seller.bankAccountHolder} · ${invoice.seller.bankName}`, MARGIN, y, { width: CONTENT_WIDTH });
-    y += 12;
-    doc.text(`IBAN: ${invoice.seller.bankIban} · BIC: ${invoice.seller.bankBic}`, MARGIN, y, { width: CONTENT_WIDTH });
+    if (invoice.paymentMethod === "BANK_TRANSFER") {
+      doc.fontSize(8).fillColor("#333");
+      doc.text(`${invoice.seller.bankAccountHolder} · ${invoice.seller.bankName}`, MARGIN, y, { width: CONTENT_WIDTH });
+      y += 12;
+      doc.text(`IBAN: ${invoice.seller.bankIban} · BIC: ${invoice.seller.bankBic}`, MARGIN, y, { width: CONTENT_WIDTH });
+    }
 
     const range = doc.bufferedPageRange();
     const totalPages = range.count;

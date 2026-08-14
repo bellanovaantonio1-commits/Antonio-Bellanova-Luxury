@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { User, Package, MapPin, Heart, Shield, LogOut, ChevronRight, Settings, Award } from "lucide-react";
+import { User, Package, MapPin, Heart, Shield, LogOut, ChevronRight, Settings, Award, Scale } from "lucide-react";
+import { FOOTER_NAV } from "../config/navigation.ts";
 import { useAuth } from "../contexts/AuthContext.tsx";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
 import InvoiceActions from "../components/InvoiceActions.tsx";
@@ -495,6 +496,37 @@ function CertificatesView() {
   );
 }
 
+function LegalLinksView() {
+  const { language } = useLanguage();
+  return (
+    <section className="p-10 bg-white/5 rounded-2xl border border-white/10 space-y-6">
+      <h3 className="text-sm uppercase tracking-widest text-[#c5a059]">
+        {language === "en" ? "Legal information" : "Rechtliches"}
+      </h3>
+      <p className="text-white/50 text-sm font-light">
+        {language === "en"
+          ? "Important legal documents for your purchases."
+          : "Wichtige Rechtstexte zu Ihren Käufen."}
+      </p>
+      <ul className="grid gap-3 sm:grid-cols-2">
+        {FOOTER_NAV.legal.map((item) => (
+          <li key={item.path}>
+            <Link
+              to={item.path}
+              className="flex items-center justify-between p-4 rounded-xl bg-black/30 border border-white/5 hover:border-[#c5a059]/30 transition-colors group"
+            >
+              <span className="text-[11px] tracking-widest uppercase font-bold text-white/80 group-hover:text-[#c5a059]">
+                {language === "en" && item.labelEn ? item.labelEn : item.label}
+              </span>
+              <ChevronRight size={14} className="text-white/20 group-hover:text-[#c5a059]" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function SecurityView() {
   const { user } = useAuth();
   const [sent, setSent] = useState(false);
@@ -545,6 +577,7 @@ export default function Account() {
     { icon: User, label: "Profil", path: "/account/profile" },
     { icon: Package, label: "Bestellungen", path: "/account/orders" },
     { icon: Award, label: "Meine Zertifikate", path: "/account/certificates" },
+    { icon: Scale, label: "Rechtliches", path: "/account/legal" },
     { icon: MapPin, label: "Adressen", path: "/account/addresses" },
     { icon: Heart, label: "Wunschliste", path: "/wishlist", badge: wishlistItems.length },
     { icon: Shield, label: "Sicherheit", path: "/account/security" },
@@ -645,6 +678,7 @@ export default function Account() {
               <Route path="profile" element={<ProfileView />} />
               <Route path="orders" element={<OrdersView />} />
               <Route path="certificates" element={<CertificatesView />} />
+              <Route path="legal" element={<LegalLinksView />} />
               <Route path="addresses" element={<AddressesManager />} />
               <Route path="security" element={<SecurityView />} />
             </Routes>
