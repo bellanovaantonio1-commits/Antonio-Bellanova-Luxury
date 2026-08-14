@@ -22,6 +22,7 @@ import {
 import { getMissingInvoiceSettings } from "./invoice/seller.ts";
 import { calculateShippingCost, ShippingMethod } from "./shipping.ts";
 import { createStripeCheckoutSession, createStripeRefund } from "./stripe.ts";
+import { getProductPagePaymentMethods } from "./paymentDisplay.ts";
 import { restoreOrderStock } from "./stripeOrder.ts";
 import { getSettingsMap, ensureDefaultSettings } from "./settings.ts";
 import {
@@ -782,7 +783,12 @@ export function registerExtraRoutes(app: Express) {
       });
     } catch (error: unknown) {
       console.error("Failed to create order", error);
-      res.status(500).json({ error: error instanceof Error ? error.message : "Bestellung fehlgeschlagen." });
+      const raw = error instanceof Error ? error.message : "";
+      const userMessage =
+        raw.includes("Failed query") || raw.includes("legal_documents")
+          ? "Bestellung fehlgeschlagen. Bitte versuchen Sie es erneut oder kontaktieren Sie uns."
+          : raw || "Bestellung fehlgeschlagen.";
+      res.status(500).json({ error: userMessage });
     }
   });
 
@@ -1164,6 +1170,16 @@ export function registerExtraRoutes(app: Express) {
       res.json(await getSettingsMap());
     } catch {
       res.json(DEFAULT_SHOP_SETTINGS);
+    }
+  });
+
+  app.get("/api/payment-methods", async (_req, res) => {
+    try {
+      const methods = await getProductPagePaymentMethods();
+      res.json({ methods });
+    } catch (error: unknown) {
+      console.error("[payment-methods]", error);
+      res.status(500).json({ methods: [], error: "Zahlungsarten konnten nicht geladen werden." });
     }
   });
 

@@ -123,6 +123,17 @@ export async function getCertificateForProduct(productId: number): Promise<Certi
   return enrichCertificate(row);
 }
 
+export async function getActiveCertificateForProduct(productId: number): Promise<CertificateRecord | null> {
+  const [row] = await db
+    .select()
+    .from(certificates)
+    .where(and(eq(certificates.productId, productId), eq(certificates.status, "ACTIVE")))
+    .orderBy(desc(certificates.issuedAt))
+    .limit(1);
+  if (!row) return null;
+  return enrichCertificate(row);
+}
+
 export async function createCertificateForProduct(
   productId: number,
   opts: {

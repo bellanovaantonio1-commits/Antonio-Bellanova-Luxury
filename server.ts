@@ -20,11 +20,17 @@ import { imageStorageService } from "./src/services/import/ImageStorageService.t
 
 
 import { registerExtraRoutes } from "./src/server/extraRoutes.ts";
+import { ensureLegalDefaults } from "./src/server/legal/service.ts";
 import { handleStripeWebhook } from "./src/server/stripeWebhook.ts";
 import { buildProductJsonLd, injectProductMeta, loadSpaIndexHtml } from "./src/server/seo.ts";
 import { notifyWishlistAlerts } from "./src/server/wishlistAlerts.ts";
 import { getSettingsMap } from "./src/server/settings.ts";
-import { resolveProductPricing, parseShopPricingConfig, toProductPriceDbFields } from "./src/lib/shopPricing.ts";
+import {
+  resolveProductPricing,
+  parseShopPricingConfig,
+  toProductPriceDbFields,
+  getUnitPriceForPayment,
+} from "./src/lib/shopPricing.ts";
 
 function toEntitySlug(value: string): string {
   return value.toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -414,12 +420,29 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
       if (result.length === 0) return res.status(404).json({ error: "Product not found" });
       
       const item = result[0];
+      const settings = await getSettingsMap();
+      const strSettings = settings as Record<string, string>;
+      const pricingLine = getUnitPriceForPayment(item.product, "BANK_TRANSFER");
+      const prepaymentEnabled =
+        strSettings.prepaymentEnabled !== "false" && strSettings.bankTransferEnabled !== "false";
+      const showBankTransferPrice =
+        item.product.pricingModel === "PREPAYMENT_DISCOUNT" &&
+        prepaymentEnabled &&
+        pricingLine.prepaymentDiscount > 0;
+
       const product = {
         ...item.product,
         images: Array.isArray(item.product.images) ? item.product.images : (typeof item.product.images === 'string' ? JSON.parse(item.product.images) : []),
         specifications: typeof item.product.specifications === 'string' ? JSON.parse(item.product.specifications) : (item.product.specifications || {}),
         brand: item.brand,
-        category: item.category
+        category: item.category,
+        pricing: {
+          shopPrice: pricingLine.shopUnitPrice,
+          bankTransferPrice: pricingLine.payableUnitPrice,
+          prepaymentDiscount: pricingLine.prepaymentDiscount,
+          showBankTransferPrice,
+          currency: item.product.currency || "EUR",
+        },
       };
 
       res.json(product);
@@ -466,6 +489,7 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
   });
 
   registerExtraRoutes(app);
+  ensureLegalDefaults().catch((err) => console.error("[legal] Default documents:", err));
 
   app.get("/robots.txt", (_req, res) => {
     const base = process.env.APP_URL || "https://antonio-bellanova-luxury.onrender.com";

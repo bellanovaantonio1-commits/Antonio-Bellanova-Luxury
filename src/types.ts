@@ -77,6 +77,13 @@ export interface Product {
   bankTransferDiscount?: string | number | null;
   currency: string;
   status: string;
+  pricing?: {
+    shopPrice: number;
+    bankTransferPrice: number;
+    prepaymentDiscount: number;
+    showBankTransferPrice: boolean;
+    currency: string;
+  };
   published?: boolean;
   publishedAt?: string | Date;
   stock?: number;

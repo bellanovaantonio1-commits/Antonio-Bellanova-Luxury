@@ -1,9 +1,13 @@
 import { Express, Response } from "express";
 import { AuthRequest, requireAuth, requireRole } from "../../middleware/auth.ts";
+import { eq } from "drizzle-orm";
+import { db } from "../../db/index.ts";
+import { products } from "../../db/schema.ts";
 import {
   activateCertificate,
   cancelCertificatesForOrder,
   createCertificateForProduct,
+  getActiveCertificateForProduct,
   getCertificateAuditLog,
   getCertificateById,
   getCertificateByNumber,
@@ -17,7 +21,7 @@ import {
   updateCertificateStatus,
   userCanAccessCertificate,
 } from "./service.ts";
-import type { CertificateStatus } from "./types.ts";
+import { CERTIFICATE_STATUS_LABELS, type CertificateStatus } from "./types.ts";
 
 export function registerCertificateRoutes(app: Express) {
   // Public verification (no customer data)
@@ -28,6 +32,42 @@ export function registerCertificateRoutes(app: Express) {
       res.json(toPublicVerification(cert));
     } catch (error: unknown) {
       res.status(500).json({ error: error instanceof Error ? error.message : "Verifikation fehlgeschlagen." });
+    }
+  });
+
+  app.get("/api/products/:slug/certificate", async (req, res) => {
+    try {
+      const [product] = await db
+        .select({ id: products.id })
+        .from(products)
+        .where(eq(products.slug, req.params.slug))
+        .limit(1);
+      if (!product) return res.status(404).json({ error: "Produkt nicht gefunden." });
+
+      const cert = await getActiveCertificateForProduct(product.id);
+      if (!cert) return res.json({ certificate: null });
+
+      const snap = cert.snapshotData;
+      res.json({
+        certificate: {
+          certificateNumber: cert.certificateNumber,
+          brand: snap.brand || "",
+          model: snap.model || "",
+          referenceNumber: snap.referenceNumber || snap.productSku || "",
+          serialNumber: snap.serialNumber || "",
+          status: cert.status,
+          statusLabelDe: CERTIFICATE_STATUS_LABELS[cert.status].de,
+          statusLabelEn: CERTIFICATE_STATUS_LABELS[cert.status].en,
+          issuedAt: cert.issuedAt,
+          verificationCode: cert.verificationCode,
+          verifyUrl: `/certificate/${encodeURIComponent(cert.certificateNumber)}`,
+          pdfUrl: `/api/certificates/verify/${encodeURIComponent(cert.certificateNumber)}/pdf`,
+        },
+      });
+    } catch (error: unknown) {
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Zertifikat konnte nicht geladen werden.",
+      });
     }
   });
 

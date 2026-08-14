@@ -36,7 +36,12 @@ export function registerLegalRoutes(app: Express) {
         html: doc.renderedHtml,
       });
     } catch (error: unknown) {
-      res.status(500).json({ error: error instanceof Error ? error.message : "Laden fehlgeschlagen." });
+      console.error("[legal] GET /api/legal/:key", error);
+      res.status(500).json({
+        error: parseLang(req.query.lang) === "en"
+          ? "Legal content could not be loaded."
+          : "Rechtstexte konnten nicht geladen werden.",
+      });
     }
   });
 

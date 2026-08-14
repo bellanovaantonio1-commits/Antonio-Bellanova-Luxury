@@ -34,6 +34,9 @@ async function migrate() {
     console.log(`Applied: ${file}`);
   }
   console.log("All migrations completed successfully.");
+  const { ensureLegalDefaults } = await import("../src/server/legal/service.ts");
+  await ensureLegalDefaults();
+  console.log("Legal document defaults ensured.");
   await pool.end();
 }
 

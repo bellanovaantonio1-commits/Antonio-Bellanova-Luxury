@@ -42,6 +42,75 @@ export function isStripeEnabled(): boolean {
   return !!getStripeKey();
 }
 
+export interface StripeCheckoutCapabilities {
+  card: boolean;
+  applePay: boolean;
+  googlePay: boolean;
+  paypal: boolean;
+}
+
+let stripeCapabilitiesCache: { at: number; data: StripeCheckoutCapabilities } | null = null;
+const CAPABILITIES_CACHE_MS = 5 * 60 * 1000;
+
+function readPmAvailability(config: Record<string, unknown>, key: string): boolean {
+  const entry = config[key];
+  if (!entry || typeof entry !== "object") return false;
+  const available = (entry as { available?: boolean }).available;
+  return available === true;
+}
+
+/** Reads enabled Stripe Checkout payment methods from the Stripe account configuration. */
+export async function getStripeCheckoutCapabilities(): Promise<StripeCheckoutCapabilities> {
+  const none: StripeCheckoutCapabilities = {
+    card: false,
+    applePay: false,
+    googlePay: false,
+    paypal: false,
+  };
+  const key = getStripeKey();
+  if (!key) return none;
+
+  if (stripeCapabilitiesCache && Date.now() - stripeCapabilitiesCache.at < CAPABILITIES_CACHE_MS) {
+    return stripeCapabilitiesCache.data;
+  }
+
+  try {
+    const res = await fetch(`${STRIPE_API}/payment_method_configurations?limit=10`, {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    const payload = await res.json();
+    if (!res.ok || !Array.isArray(payload.data) || payload.data.length === 0) {
+      // Checkout session uses card — card networks are available when Stripe is active.
+      const fallback = { card: true, applePay: false, googlePay: false, paypal: false };
+      stripeCapabilitiesCache = { at: Date.now(), data: fallback };
+      return fallback;
+    }
+
+    const preferred =
+      payload.data.find((row: { is_default?: boolean }) => row.is_default) || payload.data[0];
+    const config = preferred as Record<string, unknown>;
+
+    const data: StripeCheckoutCapabilities = {
+      card: readPmAvailability(config, "card") || readPmAvailability(config, "card_payments"),
+      applePay: readPmAvailability(config, "apple_pay"),
+      googlePay: readPmAvailability(config, "google_pay"),
+      paypal: readPmAvailability(config, "paypal"),
+    };
+
+    if (!data.card && !data.applePay && !data.googlePay && !data.paypal) {
+      data.card = true;
+    }
+
+    stripeCapabilitiesCache = { at: Date.now(), data };
+    return data;
+  } catch (error) {
+    console.warn("[stripe] payment_method_configurations unavailable:", error);
+    const fallback = { card: true, applePay: false, googlePay: false, paypal: false };
+    stripeCapabilitiesCache = { at: Date.now(), data: fallback };
+    return fallback;
+  }
+}
+
 export function isStripeTestMode(): boolean {
   const key = getStripeKey();
   return !!key?.startsWith("sk_test_");

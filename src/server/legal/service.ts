@@ -14,6 +14,55 @@ import { LEGAL_DOCUMENT_KEYS } from "./types.ts";
 
 type Row = typeof legalDocuments.$inferSelect;
 
+let legalTableAvailable: boolean | null = null;
+
+function isMissingLegalTableError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return (
+    msg.includes("legal_documents") &&
+    (msg.includes("does not exist") ||
+      msg.includes("relation") ||
+      msg.includes("Failed query") ||
+      msg.includes("undefined_table"))
+  );
+}
+
+async function isLegalTableReady(): Promise<boolean> {
+  if (legalTableAvailable !== null) return legalTableAvailable;
+  try {
+    await db.select({ id: legalDocuments.id }).from(legalDocuments).limit(1);
+    legalTableAvailable = true;
+  } catch (error) {
+    if (isMissingLegalTableError(error)) {
+      legalTableAvailable = false;
+      console.warn(
+        "[legal] Tabelle legal_documents fehlt — Fallback auf System-Defaults. Bitte npm run db:migrate ausführen."
+      );
+    } else {
+      throw error;
+    }
+  }
+  return legalTableAvailable ?? false;
+}
+
+function defaultLegalRecord(key: LegalDocumentKey, lang: LegalLanguage): LegalDocumentRecord {
+  const fallback = getDefaultLegalDocument(key, lang);
+  return {
+    id: 0,
+    documentKey: key,
+    language: lang,
+    version: 1,
+    title: fallback.title,
+    contentHtml: fallback.contentHtml,
+    changeNote: null,
+    adminUid: null,
+    adminName: null,
+    adminEmail: null,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 function rowToRecord(row: Row): LegalDocumentRecord {
   return {
     id: row.id,
@@ -32,23 +81,33 @@ function rowToRecord(row: Row): LegalDocumentRecord {
 }
 
 export async function ensureLegalDefaults(): Promise<void> {
-  for (const { key, lang, doc } of getAllDefaultDocuments()) {
-    const [existing] = await db
-      .select()
-      .from(legalDocuments)
-      .where(and(eq(legalDocuments.documentKey, key), eq(legalDocuments.language, lang)))
-      .limit(1);
-    if (existing) continue;
+  if (!(await isLegalTableReady())) return;
 
-    await db.insert(legalDocuments).values({
-      documentKey: key,
-      language: lang,
-      version: 1,
-      title: doc.title,
-      contentHtml: doc.contentHtml,
-      changeNote: "Initialversion (System)",
-      isActive: true,
-    });
+  for (const { key, lang, doc } of getAllDefaultDocuments()) {
+    try {
+      const [existing] = await db
+        .select()
+        .from(legalDocuments)
+        .where(and(eq(legalDocuments.documentKey, key), eq(legalDocuments.language, lang)))
+        .limit(1);
+      if (existing) continue;
+
+      await db.insert(legalDocuments).values({
+        documentKey: key,
+        language: lang,
+        version: 1,
+        title: doc.title,
+        contentHtml: doc.contentHtml,
+        changeNote: "Initialversion (System)",
+        isActive: true,
+      });
+    } catch (error) {
+      if (isMissingLegalTableError(error)) {
+        legalTableAvailable = false;
+        return;
+      }
+      throw error;
+    }
   }
 }
 
@@ -56,37 +115,36 @@ export async function getActiveLegalDocument(
   key: LegalDocumentKey,
   lang: LegalLanguage
 ): Promise<LegalDocumentRecord | null> {
+  if (!(await isLegalTableReady())) {
+    return defaultLegalRecord(key, lang);
+  }
+
   await ensureLegalDefaults();
-  const [row] = await db
-    .select()
-    .from(legalDocuments)
-    .where(
-      and(
-        eq(legalDocuments.documentKey, key),
-        eq(legalDocuments.language, lang),
-        eq(legalDocuments.isActive, true)
+
+  try {
+    const [row] = await db
+      .select()
+      .from(legalDocuments)
+      .where(
+        and(
+          eq(legalDocuments.documentKey, key),
+          eq(legalDocuments.language, lang),
+          eq(legalDocuments.isActive, true)
+        )
       )
-    )
-    .orderBy(desc(legalDocuments.version))
-    .limit(1);
+      .orderBy(desc(legalDocuments.version))
+      .limit(1);
 
-  if (row) return rowToRecord(row);
+    if (row) return rowToRecord(row);
+  } catch (error) {
+    if (isMissingLegalTableError(error)) {
+      legalTableAvailable = false;
+      return defaultLegalRecord(key, lang);
+    }
+    throw error;
+  }
 
-  const fallback = getDefaultLegalDocument(key, lang);
-  return {
-    id: 0,
-    documentKey: key,
-    language: lang,
-    version: 1,
-    title: fallback.title,
-    contentHtml: fallback.contentHtml,
-    changeNote: null,
-    adminUid: null,
-    adminName: null,
-    adminEmail: null,
-    isActive: true,
-    createdAt: new Date().toISOString(),
-  };
+  return defaultLegalRecord(key, lang);
 }
 
 export async function getRenderedLegalDocument(key: LegalDocumentKey, lang: LegalLanguage) {
@@ -100,6 +158,9 @@ export async function getRenderedLegalDocument(key: LegalDocumentKey, lang: Lega
 }
 
 export async function listLegalDocumentVersions(key: LegalDocumentKey, lang: LegalLanguage) {
+  if (!(await isLegalTableReady())) {
+    return [defaultLegalRecord(key, lang)];
+  }
   await ensureLegalDefaults();
   const rows = await db
     .select()
@@ -130,6 +191,9 @@ export async function publishLegalDocumentVersion(opts: {
   admin: { uid: string; name?: string | null; email?: string | null };
   activate?: boolean;
 }): Promise<LegalDocumentRecord> {
+  if (!(await isLegalTableReady())) {
+    throw new Error("Rechtstexte-Datenbank nicht verfügbar. Bitte npm run db:migrate ausführen.");
+  }
   const versions = await listLegalDocumentVersions(opts.key, opts.language);
   const nextVersion = (versions[0]?.version ?? 0) + 1;
 
