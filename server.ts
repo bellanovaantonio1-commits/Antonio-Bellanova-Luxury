@@ -226,7 +226,7 @@ async function startServer() {
     try {
       const {
         cat, all, limit: limitParam, sort, brand: brandSlug, minPrice, maxPrice, exclude,
-        conditionGroup, box, papers, material, movement, diameter, collection,
+        conditionGroup, box, papers, material, movement, diameter, collection, hero,
       } = req.query;
       
       let conditions: any[] = [];
@@ -234,6 +234,10 @@ async function startServer() {
       if (all !== "true") {
         conditions.push(inArray(products.status, ["ACTIVE"]));
         conditions.push(gt(products.stock, 0));
+      }
+
+      if (hero === "true") {
+        conditions.push(eq(products.featuredInHero, true));
       }
       
       if (cat === "watches") conditions.push(eq(products.type, "WATCH"));
@@ -930,6 +934,7 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
         destinationCountry: data.destinationCountry || "DE",
         margin: data.margin != null && data.margin !== "" ? String(data.margin).replace(",", ".") : null,
         stock: data.stock !== undefined ? parseInt(String(data.stock), 10) || 1 : 1,
+        featuredInHero: data.featuredInHero === true || data.featuredInHero === "true",
         model: data.model || data.modelName,
         sourceUrl: data.sourceUrl || data.url,
         sourceProvider: data.sourceProvider,

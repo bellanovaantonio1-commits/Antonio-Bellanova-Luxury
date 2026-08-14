@@ -246,6 +246,21 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                   </div>
                 </div>
 
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={formData.featuredInHero === true}
+                    onChange={(e) => setFormData({ ...formData, featuredInHero: e.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <span className="font-medium block">Im Startseiten-Hero anzeigen</span>
+                    <span className="text-xs text-gray-400">
+                      Nur veröffentlichte Produkte mit Bestand erscheinen in der Hero-Rotation.
+                    </span>
+                  </span>
+                </label>
+
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-2">
                     <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Marke</label>

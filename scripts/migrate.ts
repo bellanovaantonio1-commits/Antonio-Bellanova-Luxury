@@ -25,6 +25,7 @@ async function migrate() {
     "0010_certificates.sql",
     "0011_legal_documents.sql",
     "0012_certificate_order_item_unique.sql",
+    "0013_featured_in_hero.sql",
   ];
 
   console.log("Running database migrations...");

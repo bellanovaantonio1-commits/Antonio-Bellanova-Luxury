@@ -20,11 +20,21 @@ export default function Home() {
   useEffect(() => {
     async function fetchProducts() {
       try {
-        const response = await fetch("/api/products?limit=30");
-        if (response.ok) {
-          const data: Product[] = await response.json();
-          setHeroProducts(data);
-          setHighlights(data.slice(0, 3));
+        const [heroResponse, allResponse] = await Promise.all([
+          fetch("/api/products?hero=true&limit=30"),
+          fetch("/api/products?limit=30"),
+        ]);
+
+        if (allResponse.ok) {
+          const allData: Product[] = await allResponse.json();
+          setHighlights(allData.slice(0, 3));
+
+          if (heroResponse.ok) {
+            const heroData: Product[] = await heroResponse.json();
+            setHeroProducts(heroData.length > 0 ? heroData : allData);
+          } else {
+            setHeroProducts(allData);
+          }
         }
       } catch (err) {
         console.error("Failed to fetch products", err);

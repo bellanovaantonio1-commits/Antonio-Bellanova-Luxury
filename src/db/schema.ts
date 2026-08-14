@@ -161,6 +161,7 @@ export const products = pgTable('products', {
   publishedAt: timestamp('published_at'),
   published: text('published').default('false'), // Using text 'true'/'false' to match other boolean-like fields in this project
   stock: integer('stock').default(1),
+  featuredInHero: boolean('featured_in_hero').default(false),
 });
 
 export const orders = pgTable('orders', {

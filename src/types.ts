@@ -87,6 +87,7 @@ export interface Product {
   published?: boolean;
   publishedAt?: string | Date;
   stock?: number;
+  featuredInHero?: boolean;
   images: string[];
   mainImage?: string;
   
