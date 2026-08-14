@@ -1,141 +1,43 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { ArrowRight, ShieldCheck, Gem, Clock, Star } from "lucide-react";
+import { ShieldCheck, Gem, Clock, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Product } from "../types.ts";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
 import { useShopSettings } from "../contexts/ShopSettingsContext.tsx";
 import RecentlyViewed from "../components/shop/RecentlyViewed.tsx";
 import CuratedCollections from "../components/shop/CuratedCollections.tsx";
+import HomeHeroSection from "../components/home/HomeHeroSection.tsx";
 import { getProductImageUrl } from "../lib/productImage.ts";
 
 export default function Home() {
+  const [heroProducts, setHeroProducts] = useState<Product[]>([]);
   const [highlights, setHighlights] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const { language, t } = useLanguage();
   const shopSettings = useShopSettings();
 
   useEffect(() => {
-    async function fetchHighlights() {
+    async function fetchProducts() {
       try {
-        const response = await fetch('/api/products?limit=4');
+        const response = await fetch("/api/products?limit=30");
         if (response.ok) {
-          const data = await response.json();
+          const data: Product[] = await response.json();
+          setHeroProducts(data);
           setHighlights(data.slice(0, 3));
         }
       } catch (err) {
-        console.error("Failed to fetch highlights", err);
+        console.error("Failed to fetch products", err);
       } finally {
         setLoading(false);
       }
     }
-    fetchHighlights();
+    fetchProducts();
   }, []);
-
-  const featured = highlights[0];
-  const heroImage = getProductImageUrl(featured) || "/collections/sport.webp";
-  const heroName = featured ? (language === "en" && featured.titleEn ? featured.titleEn : (featured.titleDe || featured.name)) : "Patek Philippe Nautilus 5711/1A";
-  const heroPrice = featured ? parseFloat(featured.price) : 158400;
-  const heroSlug = featured?.slug || "/shop";
 
   return (
     <div className="overflow-hidden bg-[#050505]">
-      {/* Hero Section */}
-      <section className="relative h-screen flex overflow-hidden border-b border-white/10">
-        {/* Left Hero: Featured Masterpiece */}
-        <div className="w-full lg:w-3/5 border-r border-white/10 relative p-12 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
-          
-          {/* Cinematic Background */}
-          <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url('${heroImage}')` }} />
-
-          {/* Stylized Background Graphic Placeholder */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-            <div className="w-80 h-[500px] border border-white/20 rounded-full flex items-center justify-center">
-              <div className="w-60 h-60 border border-[#c5a059]/40 rounded-full animate-pulse" />
-            </div>
-          </div>
-
-          <div className="relative z-20">
-            <motion.p 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-[#c5a059] text-[10px] tracking-[0.4em] mb-4 uppercase font-bold"
-            >
-              {t("home.hero.subtitle")}
-            </motion.p>
-            <motion.h2 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-white text-5xl md:text-7xl font-serif leading-[0.9] mb-10 font-light"
-            >
-              {heroName.split(" ").slice(0, 2).join(" ")}<br/><span className="italic">{heroName.split(" ").slice(2).join(" ") || heroName}</span>
-            </motion.h2>
-            
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="flex flex-wrap items-center gap-10"
-            >
-              <div>
-                <p className="text-[10px] opacity-40 tracking-widest uppercase mb-1">{t("product.condition")}</p>
-                <p className="text-sm tracking-wide">Excellent (Vintage 2014)</p>
-              </div>
-              <div>
-                <p className="text-[10px] opacity-40 tracking-widest uppercase mb-1">Preis</p>
-                <p className="text-sm tracking-wide font-serif italic underline underline-offset-8 decoration-white/20">
-                   {new Intl.NumberFormat(language === "en" ? 'en-US' : 'de-DE', { style: 'currency', currency: 'EUR' }).format(heroPrice)}
-                </p>
-              </div>
-              <Link 
-                to={featured ? `/product/${heroSlug}` : "/shop"} 
-                className="ml-auto h-14 px-10 border border-white/20 text-[10px] tracking-[0.3em] hover:bg-white hover:text-black transition-all uppercase flex items-center justify-center font-bold"
-              >
-                {t("home.hero.view_details")}
-              </Link>
-            </motion.div>
-          </div>
-        </div>
-
-        {/* Right: Collections & Quick Access */}
-        <div className="hidden lg:flex lg:w-2/5 flex-col">
-          <div className="flex-1 border-b border-white/10 p-12">
-            <p className="text-[10px] tracking-[0.3em] opacity-40 uppercase mb-10">{t("home.categories.title")}</p>
-            <ul className="space-y-8">
-              {[
-                { name: t("home.categories.watches"), slug: "watches" },
-                { name: t("home.categories.jewelry"), slug: "jewelry" },
-              ].map((item) => (
-                <li key={item.slug} className="group flex items-center justify-between cursor-pointer border-b border-transparent hover:border-[#c5a059]/50 pb-4 transition-all">
-                  <Link to={`/shop?cat=${item.slug}`} className="text-3xl font-serif italic group-hover:pl-4 transition-all block w-full">
-                    {item.name}
-                  </Link>
-                  <span className="text-[10px] opacity-30 group-hover:opacity-100 transition-all tracking-widest uppercase">{t("home.categories.explore")}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Service Highlight */}
-          <div className="h-56 bg-[#0a0a0a] p-12 flex flex-col justify-center relative">
-            <div className="absolute right-0 top-0 h-full w-1 bg-[#c5a059]" />
-            <p className="text-[10px] tracking-[0.3em] text-[#c5a059] uppercase mb-3 font-bold">{t("home.service.title")}</p>
-            <p className="text-sm leading-relaxed opacity-70 mb-6 font-light">
-              {t("home.service.description")}
-            </p>
-            <div className="flex gap-8">
-              <Link to="/termin" className="text-[11px] tracking-widest border-b border-[#c5a059] pb-0.5 hover:opacity-60 transition-opacity uppercase font-bold">{t("home.service.book")}</Link>
-              {shopSettings.googleMapsUrl ? (
-                <a href={shopSettings.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] tracking-widest border-b border-white/20 pb-0.5 hover:opacity-60 transition-opacity uppercase font-light">{t("home.service.directions")}</a>
-              ) : (
-                <span className="text-[11px] tracking-widest border-b border-white/20 pb-0.5 uppercase font-light opacity-50">{t("home.service.directions")}</span>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
+      <HomeHeroSection products={heroProducts} loading={loading} />
 
       {/* Featured Collection Grid */}
       <section className="py-32 px-10 bg-[#050505]">
