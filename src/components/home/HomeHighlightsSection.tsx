@@ -24,6 +24,7 @@ export default function HomeHighlightsSection({ products, loading }: HomeHighlig
   const [isHovered, setIsHovered] = useState(false);
 
   const { visibleItems, canRotate, goNext, goPrev } = useProductWindowRotation(products, {
+    intervalMs: 60_000,
     paused: isHovered,
     autoRotate: !prefersReducedMotion,
   });
