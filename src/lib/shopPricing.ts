@@ -181,22 +181,31 @@ export function normalizeRoundingMode(value: unknown): RoundingMode {
   return "ROUND_UP";
 }
 
+function normalizePaymentMethodList(parsed: PaymentMethodConfig[]): PaymentMethodConfig[] {
+  return parsed
+    .map((m, idx) => ({
+      id: (m.id === "STRIPE" || m.id === "BANK_TRANSFER" || m.id === "PREPAYMENT"
+        ? m.id
+        : DEFAULT_PAYMENT_METHODS[idx]?.id || "BANK_TRANSFER") as PaymentMethodId,
+      enabled: m.enabled !== false,
+      name: String(m.name || "").trim() || "Zahlungsart",
+      description: String(m.description || "").trim(),
+      sortOrder: Number.isFinite(m.sortOrder) ? m.sortOrder : idx + 1,
+    }))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
 export function parsePaymentMethodsJson(raw: unknown): PaymentMethodConfig[] {
-  if (typeof raw !== "string" || !raw.trim()) return DEFAULT_PAYMENT_METHODS;
+  if (Array.isArray(raw)) {
+    return normalizePaymentMethodList(raw as PaymentMethodConfig[]);
+  }
+  if (typeof raw !== "string" || !raw.trim() || raw === "[object Object]") {
+    return DEFAULT_PAYMENT_METHODS;
+  }
   try {
     const parsed = JSON.parse(raw) as PaymentMethodConfig[];
     if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_PAYMENT_METHODS;
-    return parsed
-      .map((m, idx) => ({
-        id: (m.id === "STRIPE" || m.id === "BANK_TRANSFER" || m.id === "PREPAYMENT"
-          ? m.id
-          : DEFAULT_PAYMENT_METHODS[idx]?.id || "BANK_TRANSFER") as PaymentMethodId,
-        enabled: m.enabled !== false,
-        name: String(m.name || "").trim() || "Zahlungsart",
-        description: String(m.description || "").trim(),
-        sortOrder: Number.isFinite(m.sortOrder) ? m.sortOrder : idx + 1,
-      }))
-      .sort((a, b) => a.sortOrder - b.sortOrder);
+    return normalizePaymentMethodList(parsed);
   } catch {
     return DEFAULT_PAYMENT_METHODS;
   }

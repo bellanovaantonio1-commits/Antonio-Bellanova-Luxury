@@ -11,41 +11,55 @@ import {
   parseShopPricingConfig,
   PRICING_SETTING_KEYS,
   PRICING_SETTING_LABELS,
+  serializePaymentMethods,
+  parsePaymentMethodsJson,
   type PricingSettingKey,
   validatePricingSettingsInput,
 } from "../lib/shopPricing.ts";
-import { ensureDefaultSettings, getSettingsMap } from "./settings.ts";
+import { ensureDefaultSettings, getSettingsMap, coerceShopSettingString, coerceShopSettingForDb } from "./settings.ts";
 
 export async function getPricingPaymentsPayload() {
   await ensureDefaultSettings();
   const settings = await getSettingsMap();
-  const strSettings = Object.fromEntries(
-    Object.entries(settings).map(([k, v]) => [k, String(v ?? "")])
+  const str = (key: keyof typeof DEFAULT_SHOP_SETTINGS | string) =>
+    coerceShopSettingString(
+      settings[key],
+      String(DEFAULT_SHOP_SETTINGS[key as keyof typeof DEFAULT_SHOP_SETTINGS] ?? "")
+    );
+  const config = parseShopPricingConfig(
+    Object.fromEntries(Object.keys(settings).map((k) => [k, str(k)])) as Record<string, string>
   );
-  const config = parseShopPricingConfig(strSettings);
+  const paymentMethodsNormalized = serializePaymentMethods(
+    parsePaymentMethodsJson(settings.paymentMethodsJson)
+  );
 
   return {
     settings: {
-      stripeFeePercent: strSettings.stripeFeePercent,
-      stripeFeeFixed: strSettings.stripeFeeFixed,
-      premiumCardFeePercent: strSettings.premiumCardFeePercent,
-      premiumCardFeeFixed: strSettings.premiumCardFeeFixed,
-      internationalCardFeePercent: strSettings.internationalCardFeePercent,
-      internationalCardFeeFixed: strSettings.internationalCardFeeFixed,
-      stripeCurrency: strSettings.stripeCurrency,
-      roundingStep: strSettings.roundingStep,
-      roundingMode: strSettings.roundingMode,
-      defaultPricingModel: strSettings.defaultPricingModel,
-      stripeEnabled: strSettings.stripeEnabled,
-      bankTransferEnabled: strSettings.bankTransferEnabled,
-      prepaymentEnabled: strSettings.prepaymentEnabled,
-      paymentMethodsJson: strSettings.paymentMethodsJson,
+      stripeFeePercent: str("stripeFeePercent"),
+      stripeFeeFixed: str("stripeFeeFixed"),
+      premiumCardFeePercent: str("premiumCardFeePercent"),
+      premiumCardFeeFixed: str("premiumCardFeeFixed"),
+      internationalCardFeePercent: str("internationalCardFeePercent"),
+      internationalCardFeeFixed: str("internationalCardFeeFixed"),
+      stripeCurrency: str("stripeCurrency"),
+      roundingStep: str("roundingStep"),
+      roundingMode: str("roundingMode"),
+      defaultPricingModel: str("defaultPricingModel"),
+      stripeEnabled: str("stripeEnabled"),
+      bankTransferEnabled: str("bankTransferEnabled"),
+      prepaymentEnabled: str("prepaymentEnabled"),
+      paymentMethodsJson: paymentMethodsNormalized,
     },
     config,
     stripeFeeTiers: getStripeFeeTiers(config),
     stripeEnvConfigured: hasStripeEnvKey(),
-    stripeAvailable: isStripePaymentAvailable(strSettings),
-    paymentMethods: getActivePaymentMethods(config, strSettings),
+    stripeAvailable: isStripePaymentAvailable(
+      Object.fromEntries(Object.keys(settings).map((k) => [k, str(k)])) as Record<string, string>
+    ),
+    paymentMethods: getActivePaymentMethods(
+      config,
+      Object.fromEntries(Object.keys(settings).map((k) => [k, str(k)])) as Record<string, string>
+    ),
   };
 }
 
@@ -62,23 +76,27 @@ export async function savePricingPaymentsSettings(
   const oldStr = Object.fromEntries(
     Object.entries(oldSettings).map(([k, v]) => [
       k,
-      String(v ?? DEFAULT_SHOP_SETTINGS[k as keyof typeof DEFAULT_SHOP_SETTINGS] ?? ""),
+      coerceShopSettingString(v, String(DEFAULT_SHOP_SETTINGS[k as keyof typeof DEFAULT_SHOP_SETTINGS] ?? "")),
     ])
   );
 
   const updates: Record<string, string> = {};
   for (const key of PRICING_SETTING_KEYS) {
     if (data[key] !== undefined) {
-      updates[key] = String(data[key]);
+      updates[key] =
+        key === "paymentMethodsJson"
+          ? serializePaymentMethods(parsePaymentMethodsJson(data[key]))
+          : String(data[key]);
     }
   }
 
   for (const [key, value] of Object.entries(updates)) {
+    const dbValue = coerceShopSettingForDb(key, value);
     const existing = await db.select().from(shopSettings).where(eq(shopSettings.key, key)).limit(1);
     if (existing.length > 0) {
-      await db.update(shopSettings).set({ value, updatedAt: new Date() }).where(eq(shopSettings.key, key));
+      await db.update(shopSettings).set({ value: dbValue, updatedAt: new Date() }).where(eq(shopSettings.key, key));
     } else {
-      await db.insert(shopSettings).values({ key, value });
+      await db.insert(shopSettings).values({ key, value: dbValue });
     }
   }
 
@@ -131,8 +149,8 @@ export async function getPricingAuditLog(limit = 100) {
 
 export function buildCheckoutPaymentPayload(settings: Record<string, unknown>) {
   const strSettings = Object.fromEntries(
-    Object.entries(settings).map(([k, v]) => [k, String(v ?? "")])
-  );
+    Object.entries(settings).map(([k, v]) => [k, coerceShopSettingString(v, "")])
+  ) as Record<string, string>;
   const config = parseShopPricingConfig(strSettings);
   const paymentMethods = getActivePaymentMethods(config, strSettings);
 

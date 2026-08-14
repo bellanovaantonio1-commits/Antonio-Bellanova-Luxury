@@ -4,10 +4,12 @@ import {
   DEFAULT_SHOP_PRICING_CONFIG,
   getUnitPriceForPayment,
   isStripePaymentAvailable,
+  parsePaymentMethodsJson,
   resolveCheckoutPaymentMethod,
   resolveProductPricing,
   roundUpToStep,
 } from "../src/lib/shopPricing.ts";
+import { coerceShopSettingString } from "../src/server/settings.ts";
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message);
@@ -141,6 +143,14 @@ const config = DEFAULT_SHOP_PRICING_CONFIG;
   delete process.env.STRIPE_SECRET_KEY;
   assert(!isStripePaymentAvailable({ stripeEnabled: "true" }), "no env → stripe off");
   process.env.STRIPE_SECRET_KEY = prev;
+}
+
+// 12. paymentMethodsJson als DB-Array korrekt lesen
+{
+  const methods = [{ id: "BANK_TRANSFER", enabled: true, name: "Meine Bank", description: "Test", sortOrder: 2 }];
+  const parsed = parsePaymentMethodsJson(methods);
+  assert(parsed[0].name === "Meine Bank", "array input parsed");
+  assert(coerceShopSettingString(methods).includes("Meine Bank"), "array serialized for API");
 }
 
 console.log("All pricing model tests passed.");
