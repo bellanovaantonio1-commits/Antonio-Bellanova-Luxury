@@ -4,48 +4,48 @@ import { ArrowRight } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext.tsx";
 import { SHOP_COLLECTIONS, type ShopCollectionSlug } from "../../config/shopCollections.ts";
 import { getProductImageUrl, isValidImageUrl } from "../../lib/productImage.ts";
+import { pickUniqueCollectionPreviews } from "../../lib/shopCollectionFilters.ts";
 import type { Product } from "../../types.ts";
 
-type CollectionImageState = Record<ShopCollectionSlug, string>;
+type CollectionPreviewState = Record<ShopCollectionSlug, Product | null>;
 
-function buildInitialImages(): CollectionImageState {
-  return Object.fromEntries(
-    SHOP_COLLECTIONS.map((c) => [c.slug, c.fallbackImage])
-  ) as CollectionImageState;
+function buildEmptyPreviews(): CollectionPreviewState {
+  return Object.fromEntries(SHOP_COLLECTIONS.map((c) => [c.slug, null])) as CollectionPreviewState;
+}
+
+function getProductLabel(product: Product, language: string): string {
+  if (language === "en" && product.titleEn) return product.titleEn;
+  return product.titleDe || product.name;
 }
 
 export default function CuratedCollections() {
   const { language, t } = useLanguage();
-  const [images, setImages] = useState<CollectionImageState>(buildInitialImages);
+  const [previews, setPreviews] = useState<CollectionPreviewState>(buildEmptyPreviews);
+  const [imageOverrides, setImageOverrides] = useState<Partial<Record<ShopCollectionSlug, string>>>({});
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadCollectionPreviews() {
-      const entries = await Promise.all(
-        SHOP_COLLECTIONS.map(async (collection) => {
+      const slugs = SHOP_COLLECTIONS.map((collection) => collection.slug);
+      const responses = await Promise.all(
+        slugs.map(async (slug) => {
           try {
-            const res = await fetch(
-              `/api/products?collection=${collection.slug}&limit=1`
-            );
-            if (!res.ok) return [collection.slug, collection.fallbackImage] as const;
-
+            const res = await fetch(`/api/products?collection=${slug}&limit=30`);
+            if (!res.ok) return [slug, [] as Product[]] as const;
             const products: Product[] = await res.json();
-            const preview = products[0];
-            const productImage = getProductImageUrl(preview);
-
-            if (productImage && isValidImageUrl(productImage)) {
-              return [collection.slug, productImage] as const;
-            }
+            return [slug, products] as const;
           } catch {
-            /* keep bundled fallback */
+            return [slug, [] as Product[]] as const;
           }
-          return [collection.slug, collection.fallbackImage] as const;
         })
       );
 
       if (cancelled) return;
-      setImages(Object.fromEntries(entries) as CollectionImageState);
+
+      const byCollection = Object.fromEntries(responses) as Record<ShopCollectionSlug, Product[]>;
+      setPreviews(pickUniqueCollectionPreviews(byCollection, slugs));
+      setImageOverrides({});
     }
 
     loadCollectionPreviews();
@@ -57,7 +57,7 @@ export default function CuratedCollections() {
   const handleImageError = (slug: ShopCollectionSlug) => {
     const fallback = SHOP_COLLECTIONS.find((c) => c.slug === slug)?.fallbackImage;
     if (fallback) {
-      setImages((prev) =>
+      setImageOverrides((prev) =>
         prev[slug] === fallback ? prev : { ...prev, [slug]: fallback }
       );
     }
@@ -78,8 +78,16 @@ export default function CuratedCollections() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-8 lg:gap-10">
           {SHOP_COLLECTIONS.map((collection) => {
             const label = t(collection.labelKey);
-            const alt = language === "en" ? collection.altEn : collection.altDe;
-            const src = images[collection.slug] || collection.fallbackImage;
+            const preview = previews[collection.slug];
+            const productImage = preview ? getProductImageUrl(preview) : null;
+            const src =
+              imageOverrides[collection.slug] ||
+              (productImage && isValidImageUrl(productImage) ? productImage : collection.fallbackImage);
+            const alt = preview
+              ? getProductLabel(preview, language)
+              : language === "en"
+                ? collection.altEn
+                : collection.altDe;
 
             return (
               <Link
