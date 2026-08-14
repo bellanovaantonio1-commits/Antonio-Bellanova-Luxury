@@ -10,12 +10,20 @@ interface CertRow {
   issuedAt: string | null;
   productName: string | null;
   orderNumber: string | null;
+  paymentStatus: string | null;
   customerEmail: string | null;
   customerName: string | null;
   snapshotData: { brand: string; model: string; referenceNumber: string };
 }
 
 const STATUS_OPTIONS = ["ALL", "DRAFT", "ACTIVE", "CANCELLED", "REPLACED"];
+
+const STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Ausstehend",
+  ACTIVE: "Aktiv",
+  CANCELLED: "Widerrufen",
+  REPLACED: "Ersetzt",
+};
 
 export default function Certificates() {
   const [rows, setRows] = useState<CertRow[]>([]);
@@ -112,6 +120,7 @@ export default function Certificates() {
               <th className="p-3">Marke / Modell</th>
               <th className="p-3">Referenz</th>
               <th className="p-3">Bestellung</th>
+              <th className="p-3">Zahlung</th>
               <th className="p-3">Kunde</th>
               <th className="p-3">Ausgestellt</th>
               <th className="p-3">Status</th>
@@ -121,7 +130,7 @@ export default function Certificates() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="p-8 text-center text-gray-400 italic">
+                <td colSpan={10} className="p-8 text-center text-gray-400 italic">
                   Laden…
                 </td>
               </tr>
@@ -141,6 +150,7 @@ export default function Certificates() {
                   </td>
                   <td className="p-3">{c.snapshotData?.referenceNumber}</td>
                   <td className="p-3">{c.orderNumber || "—"}</td>
+                  <td className="p-3">{c.paymentStatus || "—"}</td>
                   <td className="p-3 text-gray-600">
                     {c.customerName || c.customerEmail || "—"}
                   </td>
@@ -157,7 +167,7 @@ export default function Certificates() {
                     >
                       {STATUS_OPTIONS.filter((s) => s !== "ALL").map((s) => (
                         <option key={s} value={s}>
-                          {s}
+                          {STATUS_LABELS[s] || s}
                         </option>
                       ))}
                     </select>
@@ -173,7 +183,7 @@ export default function Certificates() {
                         <Download size={14} />
                       </button>
                       <Link
-                        to={`/certificate/${encodeURIComponent(c.certificateNumber)}`}
+                        to={`/verify/certificate/${encodeURIComponent(c.certificateNumber)}`}
                         target="_blank"
                         className="p-1.5 hover:bg-gray-100 rounded inline-flex"
                         title="Verifizieren"

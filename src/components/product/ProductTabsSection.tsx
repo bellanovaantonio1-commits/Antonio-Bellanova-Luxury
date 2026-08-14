@@ -1,47 +1,38 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Shield, Award } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext.tsx";
 import LegalDocumentView from "../legal/LegalDocumentView.tsx";
 import type { SpecRow } from "../../lib/productDisplay.ts";
-import type { PublicProductCertificate } from "../../lib/productPage.ts";
+import type { ProductCertificateEligibility } from "../../lib/productPage.ts";
 
 type TabId = "description" | "specifications" | "certificate" | "shipping";
 
 interface ProductTabsSectionProps {
   descriptionParagraphs: string[];
   specRows: SpecRow[];
-  certificate: PublicProductCertificate | null;
+  certificateEligible: boolean;
+  certificateMessages?: ProductCertificateEligibility["messages"] | null;
   certificateNote?: string;
 }
 
 export default function ProductTabsSection({
   descriptionParagraphs,
   specRows,
-  certificate,
+  certificateEligible,
+  certificateMessages,
   certificateNote,
 }: ProductTabsSectionProps) {
   const { language, t } = useLanguage();
   const tabs: { id: TabId; label: string }[] = [
     { id: "description", label: t("product.tabs.description") },
     { id: "specifications", label: t("product.tabs.specifications") },
-    { id: "certificate", label: t("product.tabs.certificate") },
+    ...(certificateEligible ? [{ id: "certificate" as TabId, label: t("product.tabs.certificate") }] : []),
     { id: "shipping", label: t("product.tabs.shipping") },
   ];
 
   const [activeTab, setActiveTab] = useState<TabId>("description");
 
-  const formatDate = (value: string | null) => {
-    if (!value) return "—";
-    try {
-      return new Intl.DateTimeFormat(language === "en" ? "en-GB" : "de-DE", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      }).format(new Date(value));
-    } catch {
-      return value;
-    }
-  };
+  const messages = certificateMessages?.[language === "en" ? "en" : "de"];
 
   return (
     <section className="mt-24 md:mt-32 border-t border-white/[0.06] pt-16 md:pt-20">
@@ -99,60 +90,43 @@ export default function ProductTabsSection({
           </div>
         )}
 
-        {activeTab === "certificate" && (
+        {activeTab === "certificate" && certificateEligible && (
           <div className="max-w-3xl">
-            {certificate ? (
-              <div className="space-y-8">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-6">
-                  {[
-                    [t("product.certificate.number"), certificate.certificateNumber],
-                    ["Marke / Brand", certificate.brand],
-                    ["Modell / Model", certificate.model],
-                    [t("product.certificate.reference"), certificate.referenceNumber],
-                    certificate.serialNumber ? [t("product.certificate.serial"), certificate.serialNumber] : null,
-                    [
-                      t("product.certificate.status"),
-                      language === "en" ? certificate.statusLabelEn : certificate.statusLabelDe,
-                    ],
-                    [t("product.certificate.issued"), formatDate(certificate.issuedAt)],
-                    certificate.verificationCode
-                      ? [t("product.certificate.signature"), certificate.verificationCode]
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .map((entry) => {
-                      const [label, value] = entry as [string, string];
-                      return (
-                        <div key={label} className="space-y-1">
-                          <p className="text-[9px] uppercase tracking-[0.3em] text-white/35">{label}</p>
-                          <p className="text-sm text-white/85 font-light break-all">{value}</p>
-                        </div>
-                      );
-                    })}
+            <div className="rounded-2xl border border-[#c5a059]/20 bg-gradient-to-br from-[#c5a059]/5 to-transparent p-8 md:p-10 space-y-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-full border border-[#c5a059]/30 bg-[#c5a059]/10">
+                  <Award className="text-[#c5a059]" size={22} strokeWidth={1.2} />
                 </div>
-                <div className="flex flex-wrap gap-4 pt-4">
-                  <Link
-                    to={certificate.verifyUrl}
-                    className="inline-flex items-center px-6 py-3 border border-[#c5a059]/40 text-[#c5a059] text-[10px] tracking-[0.3em] uppercase hover:bg-[#c5a059] hover:text-black transition-colors"
-                  >
-                    {t("product.certificate.view")}
-                  </Link>
-                  <a
-                    href={certificate.pdfUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center px-6 py-3 border border-white/15 text-white/70 text-[10px] tracking-[0.3em] uppercase hover:border-white/30 transition-colors"
-                  >
-                    {t("product.certificate.download")}
-                  </a>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-serif italic text-[#f5f0e8]">
+                    {messages?.title || (language === "en" ? "Certificate of authenticity" : "Echtheitszertifikat")}
+                  </h3>
+                  <p className="text-sm text-[#c5a059]/90 tracking-wide">
+                    {messages?.subtitle || (language === "en" ? "Digitally verifiable" : "Digital verifizierbar")}
+                  </p>
                 </div>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-sm text-white/50 font-light leading-relaxed">{t("product.certificate.none")}</p>
-                {certificateNote && <p className="text-xs text-white/35 italic">{certificateNote}</p>}
-              </div>
-            )}
+
+              <ul className="space-y-3 text-sm text-white/60 font-light">
+                <li className="flex items-center gap-3">
+                  <Shield size={14} className="text-[#c5a059] shrink-0" />
+                  {messages?.note ||
+                    (language === "en"
+                      ? "Certificate available after payment is received"
+                      : "Zertifikat nach Zahlungseingang verfügbar")}
+                </li>
+                <li className="flex items-center gap-3">
+                  <Shield size={14} className="text-[#c5a059] shrink-0" />
+                  {language === "en"
+                    ? "Unique certificate number and public verification"
+                    : "Eindeutige Zertifikatsnummer und öffentliche Verifizierung"}
+                </li>
+              </ul>
+
+              {certificateNote && (
+                <p className="text-xs text-white/35 italic border-t border-white/[0.06] pt-4">{certificateNote}</p>
+              )}
+            </div>
           </div>
         )}
 

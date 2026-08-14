@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Download, ExternalLink, Eye, Shield } from "lucide-react";
-import { downloadCertificatePdf, openCertificateVerify, viewCertificatePdf } from "../lib/certificatePdf.ts";
+import { downloadCertificatePdf, openCertificateVerify } from "../lib/certificatePdf.ts";
 
 interface CertificateActionsProps {
   certificateId: number;
@@ -8,6 +9,7 @@ interface CertificateActionsProps {
   getToken: () => Promise<string>;
   variant?: "dark" | "light";
   className?: string;
+  detailUrl?: string;
 }
 
 export default function CertificateActions({
@@ -16,9 +18,11 @@ export default function CertificateActions({
   getToken,
   variant = "dark",
   className = "",
+  detailUrl,
 }: CertificateActionsProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const isDark = variant === "dark";
   const btn =
@@ -36,10 +40,12 @@ export default function CertificateActions({
     try {
       if (action === "verify") {
         openCertificateVerify(certificateNumber);
+      } else if (action === "view") {
+        if (detailUrl) navigate(detailUrl);
+        else openCertificateVerify(certificateNumber);
       } else {
         const token = await getToken();
-        if (action === "view") await viewCertificatePdf(certificateId, token);
-        else await downloadCertificatePdf(certificateId, token, certificateNumber);
+        await downloadCertificatePdf(certificateId, token, certificateNumber);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Fehler");
@@ -55,10 +61,10 @@ export default function CertificateActions({
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <button type="button" className={gold} disabled={!!loading} onClick={() => run("view")}>
-          <Eye size={14} /> {loading === "view" ? "…" : "Ansehen"}
+          <Eye size={14} /> {loading === "view" ? "…" : "Zertifikat ansehen"}
         </button>
         <button type="button" className={outline} disabled={!!loading} onClick={() => run("download")}>
-          <Download size={14} /> PDF
+          <Download size={14} /> {loading === "download" ? "…" : "PDF herunterladen"}
         </button>
         <button type="button" className={outline} disabled={!!loading} onClick={() => run("verify")}>
           <ExternalLink size={14} /> Prüfen

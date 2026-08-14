@@ -11,8 +11,9 @@ import {
   users,
 } from "../../db/schema.ts";
 import { allocateCertificateNumber, generateVerificationCode } from "./numbering.ts";
-import { buildProductSnapshot, snapshotFromStored } from "./snapshot.ts";
+import { buildOrderCertificateSnapshot, buildProductSnapshot, snapshotFromStored } from "./snapshot.ts";
 import { generateCertificatePdf } from "./pdf.ts";
+import { isProductCertifiable } from "./eligibility.ts";
 import type {
   CertificateRecord,
   CertificateSnapshot,
@@ -22,6 +23,32 @@ import type {
 import { CERTIFICATE_STATUS_LABELS } from "./types.ts";
 
 const pool = createPgPool();
+
+const SYSTEM_ACTOR = { uid: "system", name: "Automatik", email: null as string | null };
+
+export interface IssueCertificatesResult {
+  created: CertificateRecord[];
+  skipped: number;
+  errors: string[];
+}
+
+export interface OrderCertificateSummary {
+  eligibleCount: number;
+  issuedCount: number;
+  activeCount: number;
+  pendingCount: number;
+  complete: boolean;
+  hasPending: boolean;
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    (err.message.includes("duplicate key") ||
+      err.message.includes("unique constraint") ||
+      err.message.includes("idx_certificates_order_item_id_unique"))
+  );
+}
 
 type CertRow = typeof certificates.$inferSelect;
 
@@ -105,6 +132,171 @@ async function enrichCertificate(row: CertRow): Promise<CertificateRecord> {
     customerEmail,
     customerName,
   });
+}
+
+export async function getCertificateByOrderItemId(orderItemId: number): Promise<CertificateRecord | null> {
+  const [row] = await db
+    .select()
+    .from(certificates)
+    .where(eq(certificates.orderItemId, orderItemId))
+    .limit(1);
+  if (!row) return null;
+  return enrichCertificate(row);
+}
+
+async function createActiveCertificateForOrderItem(opts: {
+  productId: number;
+  orderId: number;
+  orderItemId: number;
+  customerId: string | null;
+  language: "de" | "en";
+  order: typeof orders.$inferSelect;
+  admin: { uid: string; name?: string | null; email?: string | null };
+}): Promise<CertificateRecord> {
+  const snapshot = await buildOrderCertificateSnapshot(opts.productId, opts.order, opts.language);
+  const client = await pool.connect();
+  const now = new Date();
+
+  try {
+    await client.query("BEGIN");
+    const certificateNumber = await allocateCertificateNumber(client);
+    const verificationCode = generateVerificationCode();
+
+    const insert = await client.query<{ id: number }>(
+      `INSERT INTO certificates (
+        certificate_number, verification_code, product_id, order_id, order_item_id,
+        customer_id, status, language, issued_at, snapshot_data, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', $7, $8, $9, $8)
+      RETURNING id`,
+      [
+        certificateNumber,
+        verificationCode,
+        opts.productId,
+        opts.orderId,
+        opts.orderItemId,
+        opts.customerId,
+        opts.language,
+        now,
+        JSON.stringify(snapshot),
+      ]
+    );
+
+    await client.query("COMMIT");
+    const created = await getCertificateById(insert.rows[0].id);
+    if (!created) throw new Error("Zertifikat konnte nicht geladen werden.");
+
+    await logAudit(created.id, opts.admin, "status", null, "ACTIVE");
+    return created;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    if (isUniqueViolation(err)) {
+      const existing = await getCertificateByOrderItemId(opts.orderItemId);
+      if (existing) return existing;
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/** Idempotent: erstellt Zertifikate für alle zertifizierbaren Positionen einer bezahlten Bestellung. */
+export async function issueCertificatesForPaidOrder(
+  orderId: number,
+  actor?: { uid: string; name?: string | null; email?: string | null }
+): Promise<IssueCertificatesResult> {
+  const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  if (!order) {
+    return { created: [], skipped: 0, errors: ["Bestellung nicht gefunden."] };
+  }
+
+  if (order.paymentStatus !== "PAID") {
+    return { created: [], skipped: 0, errors: ["Bestellung ist nicht bezahlt."] };
+  }
+
+  if (order.status === "CANCELLED") {
+    return { created: [], skipped: 0, errors: ["Bestellung ist storniert."] };
+  }
+
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  const language = order.language === "en" ? "en" : "de";
+  const admin = actor || SYSTEM_ACTOR;
+  const created: CertificateRecord[] = [];
+  let skipped = 0;
+  const errors: string[] = [];
+
+  for (const item of items) {
+    if (!item.productId) continue;
+
+    const existing = await getCertificateByOrderItemId(item.id);
+    if (existing) {
+      skipped++;
+      continue;
+    }
+
+    const [product] = await db.select().from(products).where(eq(products.id, item.productId)).limit(1);
+    if (!product || !isProductCertifiable(product)) continue;
+
+    try {
+      const cert = await createActiveCertificateForOrderItem({
+        productId: item.productId,
+        orderId: order.id,
+        orderItemId: item.id,
+        customerId: order.userId,
+        language,
+        order,
+        admin,
+      });
+      created.push(cert);
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        const again = await getCertificateByOrderItemId(item.id);
+        if (again) {
+          skipped++;
+          continue;
+        }
+      }
+      errors.push(err instanceof Error ? err.message : "Unbekannter Fehler");
+    }
+  }
+
+  return { created, skipped, errors };
+}
+
+export async function getOrderCertificateSummary(orderId: number): Promise<OrderCertificateSummary> {
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  let eligibleCount = 0;
+
+  for (const item of items) {
+    if (!item.productId) continue;
+    const [product] = await db.select().from(products).where(eq(products.id, item.productId)).limit(1);
+    if (product && isProductCertifiable(product)) eligibleCount++;
+  }
+
+  const certRows = await db.select().from(certificates).where(eq(certificates.orderId, orderId));
+  const issuedCount = certRows.length;
+  const activeCount = certRows.filter((c) => c.status === "ACTIVE").length;
+  const pendingCount = Math.max(0, eligibleCount - issuedCount);
+
+  return {
+    eligibleCount,
+    issuedCount,
+    activeCount,
+    pendingCount,
+    complete: eligibleCount > 0 && issuedCount >= eligibleCount,
+    hasPending: eligibleCount > 0 && issuedCount < eligibleCount,
+  };
+}
+
+export async function getOrderCertificateSummaries(
+  orderIds: number[]
+): Promise<Map<number, OrderCertificateSummary>> {
+  const map = new Map<number, OrderCertificateSummary>();
+  await Promise.all(
+    orderIds.map(async (id) => {
+      map.set(id, await getOrderCertificateSummary(id));
+    })
+  );
+  return map;
 }
 
 export async function getCertificateForProduct(productId: number): Promise<CertificateRecord | null> {
@@ -343,6 +535,7 @@ export function toPublicVerification(cert: CertificateRecord): PublicCertificate
     brand: snap.brand,
     model: snap.model,
     referenceNumber: snap.referenceNumber,
+    productName: snap.productName || "",
     issuedAt: cert.issuedAt,
     messageDe,
     messageEn,
@@ -403,6 +596,7 @@ export async function listCertificatesAdmin(filters: {
       orderNumber: r.order?.orderNumber || null,
       customerEmail: r.user?.email || r.order?.customerEmail || null,
       customerName: r.order?.customerName || null,
+      paymentStatus: r.order?.paymentStatus || null,
     })
   );
 }
@@ -411,7 +605,12 @@ export async function listCertificatesForCustomer(userId: string): Promise<Certi
   const rows = await db
     .select()
     .from(certificates)
-    .where(and(eq(certificates.customerId, userId), inArray(certificates.status, ["ACTIVE", "CANCELLED", "REPLACED"])))
+    .where(
+      and(
+        eq(certificates.customerId, userId),
+        inArray(certificates.status, ["ACTIVE", "CANCELLED", "REPLACED"])
+      )
+    )
     .orderBy(desc(certificates.issuedAt));
 
   const result: CertificateRecord[] = [];

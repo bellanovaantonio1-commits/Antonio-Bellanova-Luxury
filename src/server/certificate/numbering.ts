@@ -22,5 +22,5 @@ export function generateVerificationCode(): string {
 
 export function getCertificatePublicUrl(certificateNumber: string): string {
   const base = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
-  return `${base}/certificate/${encodeURIComponent(certificateNumber)}`;
+  return `${base}/verify/certificate/${encodeURIComponent(certificateNumber)}`;
 }

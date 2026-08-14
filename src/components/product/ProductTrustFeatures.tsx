@@ -6,6 +6,7 @@ const ICONS: Record<string, typeof Shield> = {
   original: Shield,
   verified: Shield,
   certificate: Award,
+  "certificate-verify": Shield,
   "insured-shipping": Package,
   express: Clock,
   service: Headphones,

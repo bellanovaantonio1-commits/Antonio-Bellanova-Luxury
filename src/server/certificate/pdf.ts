@@ -36,6 +36,9 @@ const LABELS = {
     box: "Box",
     papers: "Papiere",
     issued: "Ausstellungsdatum",
+    orderNo: "Bestellnummer",
+    purchaseDate: "Kaufdatum",
+    location: "Standort / Atelier",
     scan: "Online prüfen",
     owner: "Inhaber",
     statement: AUTHENTICITY_STATEMENT.de,
@@ -65,6 +68,9 @@ const LABELS = {
     box: "Box",
     papers: "Papers",
     issued: "Issue date",
+    orderNo: "Order number",
+    purchaseDate: "Purchase date",
+    location: "Location / Atelier",
     scan: "Verify online",
     owner: "Proprietor",
     statement: AUTHENTICITY_STATEMENT.en,
@@ -170,6 +176,16 @@ export async function generateCertificatePdf(cert: CertificateRecord): Promise<B
     }
     if (snap.papers && snap.papers !== "Nicht angegeben" && snap.papers !== "Not specified") {
       y = drawRow(doc, L.papers, snap.papers, y);
+    }
+
+    if (snap.orderNumber && snap.orderNumber !== "Nicht angegeben" && snap.orderNumber !== "Not specified") {
+      y = drawRow(doc, L.orderNo, snap.orderNumber, y);
+    }
+    if (snap.purchaseDate) {
+      y = drawRow(doc, L.purchaseDate, fmtDate(snap.purchaseDate, locale), y);
+    }
+    if (snap.location && snap.location !== "Nicht angegeben" && snap.location !== "Not specified") {
+      y = drawRow(doc, L.location, snap.location, y);
     }
 
     y = drawRow(doc, L.issued, fmtDate(cert.issuedAt, locale), y);

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { X, Shield, Download, ExternalLink, Eye } from "lucide-react";
+import { X, Shield, Download, ExternalLink, Eye, PlusCircle } from "lucide-react";
 import { auth } from "../../lib/firebase.ts";
 
 interface OrderCertificate {
@@ -15,19 +15,35 @@ interface OrderCertificate {
 interface OrderCertificateModalProps {
   orderId: number;
   orderNumber: string;
+  paymentStatus: string;
+  certificateSummary?: {
+    eligibleCount: number;
+    issuedCount: number;
+    complete: boolean;
+    hasPending: boolean;
+  };
+  onIssue: () => Promise<void>;
   onClose: () => void;
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  DRAFT: "Entwurf",
+  DRAFT: "Ausstehend",
   ACTIVE: "Aktiv",
-  CANCELLED: "Storniert",
+  CANCELLED: "Widerrufen",
   REPLACED: "Ersetzt",
 };
 
-export default function OrderCertificateModal({ orderId, orderNumber, onClose }: OrderCertificateModalProps) {
+export default function OrderCertificateModal({
+  orderId,
+  orderNumber,
+  paymentStatus,
+  certificateSummary,
+  onIssue,
+  onClose,
+}: OrderCertificateModalProps) {
   const [certs, setCerts] = useState<OrderCertificate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [issuing, setIssuing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,6 +64,16 @@ export default function OrderCertificateModal({ orderId, orderNumber, onClose }:
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleIssue = async () => {
+    setIssuing(true);
+    try {
+      await onIssue();
+      await load();
+    } finally {
+      setIssuing(false);
+    }
+  };
 
   const downloadPdf = async (id: number, num: string) => {
     const token = await auth.currentUser?.getIdToken();
@@ -74,6 +100,8 @@ export default function OrderCertificateModal({ orderId, orderNumber, onClose }:
     window.open(URL.createObjectURL(blob), "_blank");
   };
 
+  const canIssue = paymentStatus === "PAID" && !!certificateSummary?.hasPending;
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
@@ -91,6 +119,30 @@ export default function OrderCertificateModal({ orderId, orderNumber, onClose }:
         </div>
 
         <div className="p-6 space-y-4">
+          {paymentStatus === "PAID" && certificateSummary && certificateSummary.eligibleCount > 0 && (
+            <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4 text-xs text-gray-600">
+              {certificateSummary.complete ? (
+                <p className="font-bold text-emerald-700">Zertifikat vorhanden</p>
+              ) : (
+                <p className="font-bold text-amber-700">Zertifikat ausstehend</p>
+              )}
+              <p className="mt-1">
+                {certificateSummary.issuedCount} / {certificateSummary.eligibleCount} ausgestellt
+              </p>
+            </div>
+          )}
+
+          {canIssue && (
+            <button
+              type="button"
+              onClick={handleIssue}
+              disabled={issuing}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-[#D4AF37] text-white text-[10px] uppercase tracking-widest font-bold rounded-xl disabled:opacity-50"
+            >
+              <PlusCircle size={14} /> {issuing ? "Wird erstellt…" : "Zertifikat erstellen"}
+            </button>
+          )}
+
           {loading ? (
             <p className="text-sm text-gray-400 italic">Laden…</p>
           ) : certs.length === 0 ? (
@@ -137,7 +189,7 @@ export default function OrderCertificateModal({ orderId, orderNumber, onClose }:
                     </>
                   )}
                   <a
-                    href={`/certificate/${encodeURIComponent(c.certificateNumber)}`}
+                    href={`/verify/certificate/${encodeURIComponent(c.certificateNumber)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-3 py-2 border border-gray-200 text-[10px] uppercase tracking-widest font-bold rounded-lg flex items-center gap-1"

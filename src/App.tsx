@@ -79,6 +79,7 @@ export default function App() {
 
           <Route path="/cart" element={<Cart />} />
           <Route path="/certificate/:certificateNumber" element={<CertificateVerify />} />
+          <Route path="/verify/certificate/:certificateNumber" element={<CertificateVerify />} />
           <Route path="/wishlist" element={<Wishlist />} />
           <Route 
             path="/account/*" 

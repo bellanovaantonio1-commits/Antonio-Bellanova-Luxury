@@ -23,6 +23,11 @@ export interface CertificateSnapshot {
   mainImage: string;
   productName: string;
   productSku: string;
+  orderNumber?: string;
+  purchaseDate?: string;
+  certificateDate?: string;
+  paymentStatus?: string;
+  location?: string;
 }
 
 export interface CertificateRecord {
@@ -45,6 +50,7 @@ export interface CertificateRecord {
   orderNumber?: string | null;
   customerEmail?: string | null;
   customerName?: string | null;
+  paymentStatus?: string | null;
 }
 
 export interface PublicCertificateVerification {
@@ -56,6 +62,7 @@ export interface PublicCertificateVerification {
   brand: string;
   model: string;
   referenceNumber: string;
+  productName: string;
   issuedAt: string | null;
   messageDe: string;
   messageEn: string;

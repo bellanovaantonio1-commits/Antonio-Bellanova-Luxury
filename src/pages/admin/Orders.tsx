@@ -20,6 +20,14 @@ interface AdminOrder {
   stripeCheckoutSessionId?: string | null;
   stripePaymentIntentId?: string | null;
   paidAt?: string | null;
+  certificateSummary?: {
+    eligibleCount: number;
+    issuedCount: number;
+    activeCount: number;
+    pendingCount: number;
+    complete: boolean;
+    hasPending: boolean;
+  };
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -162,6 +170,26 @@ export default function Orders() {
     await loadOrders();
   };
 
+  const issueCertificates = async (orderId: number) => {
+    const token = await auth.currentUser?.getIdToken();
+    const res = await fetch(`/api/admin/orders/${orderId}/issue-certificates`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(data.error || "Zertifikatserstellung fehlgeschlagen.");
+      return;
+    }
+    if (data.errors?.length) {
+      alert(`Hinweise: ${data.errors.join(", ")}`);
+    }
+    await loadOrders();
+    if (certModal?.id === orderId) {
+      setCertModal({ ...certModal });
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -181,6 +209,9 @@ export default function Orders() {
         <OrderCertificateModal
           orderId={certModal.id}
           orderNumber={certModal.orderNumber}
+          paymentStatus={certModal.paymentStatus}
+          certificateSummary={certModal.certificateSummary}
+          onIssue={() => issueCertificates(certModal.id)}
           onClose={() => setCertModal(null)}
         />
       )}
@@ -229,6 +260,7 @@ export default function Orders() {
                 <th className="pb-4 pr-4">Betrag</th>
                 <th className="pb-4 pr-4">Status</th>
                 <th className="pb-4 pr-4">Zahlung</th>
+                <th className="pb-4 pr-4">Zertifikat</th>
                 <th className="pb-4 pr-4">Art</th>
                 <th className="pb-4 pr-4">Tracking</th>
                 <th className="pb-4">Aktionen</th>
@@ -260,6 +292,32 @@ export default function Orders() {
                         <p className="text-[9px] text-gray-400 mt-0.5">
                           {new Date(order.paidAt).toLocaleString("de-DE")}
                         </p>
+                      )}
+                    </td>
+                    <td className="py-4 pr-4">
+                      {order.paymentStatus === "PAID" && (order.certificateSummary?.eligibleCount || 0) > 0 ? (
+                        <div className="space-y-1">
+                          <span
+                            className={`inline-block px-2 py-1 rounded-full text-[9px] font-bold uppercase ${
+                              order.certificateSummary?.complete
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {order.certificateSummary?.complete ? "Zertifikat vorhanden" : "Zertifikat ausstehend"}
+                          </span>
+                          {order.certificateSummary?.hasPending && (
+                            <button
+                              type="button"
+                              onClick={() => issueCertificates(order.id)}
+                              className="block text-[9px] uppercase tracking-widest text-[#9a7b2e] hover:underline"
+                            >
+                              Zertifikat erstellen
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-gray-300">—</span>
                       )}
                     </td>
                     <td className="py-4 pr-4 text-xs text-gray-600">

@@ -40,7 +40,7 @@ import {
   isStripePaymentAvailable,
   resolveCheckoutPaymentMethod,
 } from "../lib/shopPricing.ts";
-import { registerCertificateRoutes, cancelCertificatesForOrder, linkCertificatesForOrderItems } from "./certificate/routes.ts";
+import { registerCertificateRoutes, cancelCertificatesForOrder, issueCertificatesForPaidOrder, getOrderCertificateSummaries } from "./certificate/routes.ts";
 import { registerLegalRoutes, buildLegalAcceptanceSnapshot } from "./legal/routes.ts";
 
 export function registerExtraRoutes(app: Express) {
@@ -747,10 +747,6 @@ export function registerExtraRoutes(app: Express) {
       let checkoutUrl: string | null = null;
       let stripeCheckoutSessionId: string | null = null;
 
-      await linkCertificatesForOrderItems(order.id).catch((e) =>
-        console.error("Certificate link failed:", e)
-      );
-
       if (resolvedPaymentMethod === "STRIPE" && customerEmail) {
         const session = await createStripeCheckoutSession({
           orderId: order.id,
@@ -959,7 +955,23 @@ export function registerExtraRoutes(app: Express) {
         };
       }));
 
-      res.json(enriched);
+      const certSummaries = await getOrderCertificateSummaries(enriched.map((o) => o.id));
+      const withCerts = enriched.map((order) => {
+        const summary = certSummaries.get(order.id);
+        return {
+          ...order,
+          certificateSummary: summary || {
+            eligibleCount: 0,
+            issuedCount: 0,
+            activeCount: 0,
+            pendingCount: 0,
+            complete: false,
+            hasPending: false,
+          },
+        };
+      });
+
+      res.json(withCerts);
     } catch (error) {
       res.status(500).json({ error: "Bestellungen konnten nicht geladen werden." });
     }
@@ -1004,6 +1016,7 @@ export function registerExtraRoutes(app: Express) {
           ...(resolvedPaymentStatus && { paymentStatus: resolvedPaymentStatus }),
           ...(trackingNumber != null && { trackingNumber: String(trackingNumber).trim() || null }),
           ...(carrier != null && { carrier: String(carrier).trim() || null }),
+          ...(resolvedPaymentStatus === "PAID" && existing.paymentStatus !== "PAID" ? { paidAt: new Date() } : {}),
           updatedAt: new Date(),
         })
         .where(eq(orders.id, id))
@@ -1043,6 +1056,27 @@ export function registerExtraRoutes(app: Express) {
         } catch (invErr) {
           console.error("Auto invoice on PAID failed:", invErr);
         }
+
+        try {
+          await issueCertificatesForPaidOrder(id, {
+            uid: req.user!.uid,
+            name: req.user!.name,
+            email: req.user!.email,
+          });
+        } catch (certErr) {
+          console.error("Auto certificate on PAID failed:", certErr);
+        }
+      }
+
+      if (
+        resolvedPaymentStatus === "REFUNDED" &&
+        existing.paymentStatus !== "REFUNDED"
+      ) {
+        await cancelCertificatesForOrder(id, {
+          uid: req.user!.uid,
+          name: req.user!.name,
+          email: req.user!.email,
+        }).catch((e) => console.error("Certificate cancel on refund failed:", e));
       }
 
       res.json(updated);

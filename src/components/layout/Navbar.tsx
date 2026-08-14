@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ShoppingBag, Search, User, Menu, X, Heart } from "lucide-react";
+import { ShoppingBag, Search, User, Menu, Heart } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../../contexts/AuthContext.tsx";
 import { useCart } from "../../contexts/CartContext.tsx";
@@ -8,6 +8,8 @@ import { useLanguage } from "../../contexts/LanguageContext.tsx";
 import { MAIN_NAV } from "../../config/navigation.ts";
 import { useIsAdmin } from "../../hooks/useIsAdmin.ts";
 import SearchOverlay from "./SearchOverlay.tsx";
+import BrandMark from "./BrandMark.tsx";
+import MobileMenuPanel from "./MobileMenuPanel.tsx";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -58,10 +60,7 @@ export default function Navbar() {
         </div>
 
         {/* Logo */}
-        <Link to="/" className="flex flex-col items-center group">
-          <h1 className="text-xl md:text-2xl font-serif tracking-[0.4em] leading-tight italic">ANTONIO BELLANOVA</h1>
-          <span className="text-[9px] md:text-[10px] tracking-[0.5em] text-[#c5a059] mt-1 opacity-80">LUXURY KÖLN</span>
-        </Link>
+        <BrandMark variant="navbar" asLink className="group hover:opacity-95 transition-opacity" />
 
         {/* Actions */}
         <div className="flex items-center gap-4 md:gap-8">
@@ -135,34 +134,19 @@ export default function Navbar() {
       <AnimatePresence>
         {isMenuOpen && (
           <>
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMenuOpen(false)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 lg:hidden"
+              className="fixed inset-0 bg-black/50 backdrop-blur-[2px] z-50 lg:hidden"
             />
-            <motion.div 
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed top-0 left-0 bottom-0 w-[300px] bg-[#050505] z-[60] lg:hidden p-8 flex flex-col border-r border-white/10"
-            >
-              <div className="flex justify-between items-center mb-12">
-                <span className="font-serif text-lg tracking-widest italic">MENU</span>
-                <button onClick={() => setIsMenuOpen(false)} className="text-[#F4F4F4]"><X size={24} /></button>
-              </div>
-              <div className="flex flex-col gap-8 text-[13px] font-light tracking-[0.2em] uppercase text-[#F4F4F4]">
-                {MAIN_NAV.map((item) => (
-                  <Link key={item.path} to={item.path} className="hover:text-[#c5a059]">{item.label}</Link>
-                ))}
-                <Link to="/contact" className="hover:text-[#c5a059]">Kontakt</Link>
-              </div>
-              <div className="mt-auto border-t border-white/10 pt-8">
-                <Link to="/sell" className="text-[11px] tracking-widest uppercase text-[#c5a059] font-semibold">Ankauf & Service</Link>
-              </div>
-            </motion.div>
+            <MobileMenuPanel
+              language={language}
+              t={t}
+              setLanguage={setLanguage}
+              onClose={() => setIsMenuOpen(false)}
+            />
           </>
         )}
       </AnimatePresence>

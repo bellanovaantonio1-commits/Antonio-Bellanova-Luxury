@@ -4,6 +4,7 @@ import { orders, orderItems, products, users } from "../db/schema.ts";
 import { createInvoiceForOrder, getInvoicePdfBufferByOrderId } from "./invoice/service.ts";
 import { sendInvoiceIssuedEmail, sendOrderEmails, type AddressBlock } from "./email.ts";
 import { getSettingsMap } from "./settings.ts";
+import { issueCertificatesForPaidOrder, cancelCertificatesForOrder } from "./certificate/service.ts";
 
 export async function restoreOrderStock(orderId: number): Promise<void> {
   const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
@@ -86,6 +87,12 @@ export async function markOrderAsPaid(
     console.error("Stripe auto invoice failed:", invErr);
   }
 
+  try {
+    await issueCertificatesForPaidOrder(orderId);
+  } catch (certErr) {
+    console.error("Stripe auto certificate failed:", certErr);
+  }
+
   return true;
 }
 
@@ -128,6 +135,12 @@ export async function markOrderRefunded(
       updatedAt: new Date(),
     })
     .where(eq(orders.id, orderId));
+
+  if (!partial) {
+    await cancelCertificatesForOrder(orderId).catch((e) =>
+      console.error("Certificate cancel on refund failed:", e)
+    );
+  }
 }
 
 export async function resolveOrderIdFromStripeObject(obj: {

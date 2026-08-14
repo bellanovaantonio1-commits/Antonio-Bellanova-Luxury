@@ -3,6 +3,8 @@ import { db } from "../../db/index.ts";
 import { brands, categories, products } from "../../db/schema.ts";
 import type { CertificateSnapshot } from "./types.ts";
 import { displayOrNotSpecified, resolvePublicCondition } from "./conditionPublic.ts";
+import { getSettingsMap } from "../settings.ts";
+import { COMPANY } from "./types.ts";
 
 function pickSpec(specs: Record<string, unknown>, ...keys: string[]): string {
   for (const key of keys) {
@@ -89,6 +91,47 @@ export async function buildProductSnapshot(
     mainImage: String(product.mainImage || "").trim(),
     productName: String(product.name || "").trim(),
     productSku: String(product.sku || "").trim(),
+  };
+}
+
+function resolveLocation(
+  product: typeof products.$inferSelect,
+  settings: Record<string, string>
+): string {
+  if (product.dispatchCountry?.trim()) return product.dispatchCountry.trim();
+  const pickup = settings.pickupNoteDe || settings.pickupNoteEn;
+  if (pickup?.trim()) {
+    const match = pickup.match(/Atelier[^,—–-]*/i);
+    if (match) return match[0].trim();
+  }
+  if (settings.contactAddress?.trim()) {
+    const lines = settings.contactAddress.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lines.length >= 2) return lines.slice(-2).join(", ");
+    if (lines.length === 1) return lines[0];
+  }
+  return `${COMPANY.city}, ${COMPANY.country}`;
+}
+
+export async function buildOrderCertificateSnapshot(
+  productId: number,
+  order: { id: number; orderNumber?: string | null; paidAt?: Date | null; createdAt?: Date | null },
+  language: "de" | "en" = "de"
+): Promise<CertificateSnapshot> {
+  const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1);
+  if (!product) throw new Error("Produkt nicht gefunden.");
+
+  const base = await buildProductSnapshot(productId, language);
+  const settings = await getSettingsMap();
+  const purchaseDate = order.paidAt?.toISOString() || order.createdAt?.toISOString() || new Date().toISOString();
+  const now = new Date().toISOString();
+
+  return {
+    ...base,
+    orderNumber: order.orderNumber || `ORD-${order.id}`,
+    purchaseDate,
+    certificateDate: now,
+    paymentStatus: "PAID",
+    location: displayOrNotSpecified(resolveLocation(product, settings), language),
   };
 }
 

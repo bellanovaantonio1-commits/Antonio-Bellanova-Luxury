@@ -12,6 +12,14 @@ export interface ProductPricingQuote {
   currency: string;
 }
 
+export interface ProductCertificateEligibility {
+  eligible: boolean;
+  messages?: {
+    de: { title: string; subtitle: string; note: string };
+    en: { title: string; subtitle: string; note: string };
+  };
+}
+
 export interface PublicProductCertificate {
   certificateNumber: string;
   brand: string;
@@ -77,7 +85,7 @@ export function getProductPricingQuote(product: Product): ProductPricingQuote {
 
 export function buildTrustFeatures(
   shopSettings: ShopSettings,
-  certificate: PublicProductCertificate | null
+  certificateEligible: boolean
 ): TrustFeature[] {
   const features: TrustFeature[] = [];
 
@@ -94,12 +102,19 @@ export function buildTrustFeatures(
     });
   }
 
-  if (certificate || shopSettings.certificateNoteDe || shopSettings.certificateNoteEn) {
+  if (certificateEligible || shopSettings.certificateNoteDe || shopSettings.certificateNoteEn) {
     features.push({
       id: "certificate",
-      labelDe: certificate ? "Echtheitszertifikat" : "Echtheitszertifikat auf Anfrage",
-      labelEn: certificate ? "Certificate of authenticity" : "Certificate available on request",
+      labelDe: certificateEligible ? "Echtheitszertifikat" : "Echtheitszertifikat auf Anfrage",
+      labelEn: certificateEligible ? "Certificate of authenticity" : "Certificate available on request",
     });
+    if (certificateEligible) {
+      features.push({
+        id: "certificate-verify",
+        labelDe: "Digital verifizierbar",
+        labelEn: "Digitally verifiable",
+      });
+    }
   }
 
   if (

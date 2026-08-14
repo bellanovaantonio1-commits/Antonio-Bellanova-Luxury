@@ -1,4 +1,5 @@
 import { Express, Response } from "express";
+import QRCode from "qrcode";
 import { AuthRequest, requireAuth, requireRole } from "../../middleware/auth.ts";
 import { eq } from "drizzle-orm";
 import { db } from "../../db/index.ts";
@@ -7,13 +8,14 @@ import {
   activateCertificate,
   cancelCertificatesForOrder,
   createCertificateForProduct,
-  getActiveCertificateForProduct,
   getCertificateAuditLog,
   getCertificateById,
   getCertificateByNumber,
   getCertificateForProduct,
   getCertificatePdfBuffer,
   getCertificatePdfBufferByNumber,
+  getOrderCertificateSummary,
+  issueCertificatesForPaidOrder,
   linkCertificateToOrder,
   listCertificatesAdmin,
   listCertificatesForCustomer,
@@ -21,6 +23,8 @@ import {
   updateCertificateStatus,
   userCanAccessCertificate,
 } from "./service.ts";
+import { isProductCertifiable } from "./eligibility.ts";
+import { getCertificatePublicUrl } from "./numbering.ts";
 import { CERTIFICATE_STATUS_LABELS, type CertificateStatus } from "./types.ts";
 
 export function registerCertificateRoutes(app: Express) {
@@ -35,42 +39,6 @@ export function registerCertificateRoutes(app: Express) {
     }
   });
 
-  app.get("/api/products/:slug/certificate", async (req, res) => {
-    try {
-      const [product] = await db
-        .select({ id: products.id })
-        .from(products)
-        .where(eq(products.slug, req.params.slug))
-        .limit(1);
-      if (!product) return res.status(404).json({ error: "Produkt nicht gefunden." });
-
-      const cert = await getActiveCertificateForProduct(product.id);
-      if (!cert) return res.json({ certificate: null });
-
-      const snap = cert.snapshotData;
-      res.json({
-        certificate: {
-          certificateNumber: cert.certificateNumber,
-          brand: snap.brand || "",
-          model: snap.model || "",
-          referenceNumber: snap.referenceNumber || snap.productSku || "",
-          serialNumber: snap.serialNumber || "",
-          status: cert.status,
-          statusLabelDe: CERTIFICATE_STATUS_LABELS[cert.status].de,
-          statusLabelEn: CERTIFICATE_STATUS_LABELS[cert.status].en,
-          issuedAt: cert.issuedAt,
-          verificationCode: cert.verificationCode,
-          verifyUrl: `/certificate/${encodeURIComponent(cert.certificateNumber)}`,
-          pdfUrl: `/api/certificates/verify/${encodeURIComponent(cert.certificateNumber)}/pdf`,
-        },
-      });
-    } catch (error: unknown) {
-      res.status(500).json({
-        error: error instanceof Error ? error.message : "Zertifikat konnte nicht geladen werden.",
-      });
-    }
-  });
-
   app.get("/api/certificates/verify/:certificateNumber/pdf", async (req, res) => {
     try {
       const buffer = await getCertificatePdfBufferByNumber(req.params.certificateNumber);
@@ -82,6 +50,61 @@ export function registerCertificateRoutes(app: Express) {
       res.send(buffer);
     } catch (error: unknown) {
       res.status(404).json({ error: error instanceof Error ? error.message : "PDF nicht verfügbar." });
+    }
+  });
+
+  app.get("/api/certificates/verify/:certificateNumber/qr", async (req, res) => {
+    try {
+      const cert = await getCertificateByNumber(req.params.certificateNumber);
+      if (!cert) return res.status(404).json({ error: "Zertifikat nicht gefunden." });
+      const verifyUrl = getCertificatePublicUrl(cert.certificateNumber);
+      const png = await QRCode.toBuffer(verifyUrl, {
+        margin: 1,
+        width: 240,
+        color: { dark: "#111111", light: "#FFFFFF" },
+      });
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.send(png);
+    } catch (error: unknown) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "QR-Code fehlgeschlagen." });
+    }
+  });
+
+  app.get("/api/products/:slug/certificate", async (req, res) => {
+    try {
+      const [product] = await db
+        .select({ id: products.id, type: products.type })
+        .from(products)
+        .where(eq(products.slug, req.params.slug))
+        .limit(1);
+      if (!product) return res.status(404).json({ error: "Produkt nicht gefunden." });
+
+      const eligible = isProductCertifiable(product);
+      if (!eligible) {
+        return res.json({ eligible: false, certificate: null });
+      }
+
+      res.json({
+        eligible: true,
+        certificate: null,
+        messages: {
+          de: {
+            title: "Echtheitszertifikat",
+            subtitle: "Digital verifizierbar",
+            note: "Zertifikat nach Zahlungseingang verfügbar",
+          },
+          en: {
+            title: "Certificate of authenticity",
+            subtitle: "Digitally verifiable",
+            note: "Certificate available after payment is received",
+          },
+        },
+      });
+    } catch (error: unknown) {
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Zertifikat konnte nicht geladen werden.",
+      });
     }
   });
 
@@ -102,9 +125,39 @@ export function registerCertificateRoutes(app: Express) {
           referenceNumber: c.snapshotData.referenceNumber,
           orderId: c.orderId,
           orderNumber: c.orderNumber,
-          verifyUrl: `/certificate/${encodeURIComponent(c.certificateNumber)}`,
+          mainImage: c.snapshotData.mainImage || null,
+          verifyUrl: `/verify/certificate/${encodeURIComponent(c.certificateNumber)}`,
+          detailUrl: `/account/certificates/${c.id}`,
         }))
       );
+    } catch (error: unknown) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Laden fehlgeschlagen." });
+    }
+  });
+
+  app.get("/api/account/certificates/:id", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (!(await userCanAccessCertificate(id, req.user!.uid))) {
+        return res.status(403).json({ error: "Zugriff verweigert." });
+      }
+      const cert = await getCertificateById(id);
+      if (!cert) return res.status(404).json({ error: "Nicht gefunden." });
+      res.json({
+        certificate: {
+          id: cert.id,
+          certificateNumber: cert.certificateNumber,
+          verificationCode: cert.verificationCode,
+          status: cert.status,
+          statusLabelDe: CERTIFICATE_STATUS_LABELS[cert.status].de,
+          statusLabelEn: CERTIFICATE_STATUS_LABELS[cert.status].en,
+          issuedAt: cert.issuedAt,
+          orderNumber: cert.orderNumber,
+          snapshot: cert.snapshotData,
+          verifyUrl: `/verify/certificate/${encodeURIComponent(cert.certificateNumber)}`,
+          qrUrl: `/api/certificates/verify/${encodeURIComponent(cert.certificateNumber)}/qr`,
+        },
+      });
     } catch (error: unknown) {
       res.status(500).json({ error: error instanceof Error ? error.message : "Laden fehlgeschlagen." });
     }
@@ -243,11 +296,35 @@ export function registerCertificateRoutes(app: Express) {
     try {
       const orderId = parseInt(req.params.orderId, 10);
       const list = await listCertificatesAdmin({ q: "", status: "ALL", limit: 200 });
-      res.json({ certificates: list.filter((c) => c.orderId === orderId) });
+      const summary = await getOrderCertificateSummary(orderId);
+      res.json({
+        certificates: list.filter((c) => c.orderId === orderId),
+        summary,
+      });
     } catch (error: unknown) {
       res.status(500).json({ error: error instanceof Error ? error.message : "Laden fehlgeschlagen." });
     }
   });
+
+  app.post("/api/admin/orders/:orderId/issue-certificates", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
+    try {
+      const orderId = parseInt(req.params.orderId, 10);
+      const result = await issueCertificatesForPaidOrder(orderId, {
+        uid: req.user!.uid,
+        name: req.user!.name,
+        email: req.user!.email,
+      });
+      const summary = await getOrderCertificateSummary(orderId);
+      res.json({ ...result, summary });
+    } catch (error: unknown) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Zertifikatserstellung fehlgeschlagen." });
+    }
+  });
 }
 
-export { cancelCertificatesForOrder, linkCertificatesForOrderItems } from "./service.ts";
+export {
+  cancelCertificatesForOrder,
+  issueCertificatesForPaidOrder,
+  getOrderCertificateSummary,
+  getOrderCertificateSummaries,
+} from "./service.ts";

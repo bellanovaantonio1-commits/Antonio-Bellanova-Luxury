@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { User, Package, MapPin, Heart, Shield, LogOut, ChevronRight, Settings, Award, Scale } from "lucide-react";
 import { FOOTER_NAV } from "../config/navigation.ts";
+import CertificateDetail from "./CertificateDetail.tsx";
 import { useAuth } from "../contexts/AuthContext.tsx";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
 import InvoiceActions from "../components/InvoiceActions.tsx";
@@ -415,6 +416,9 @@ function CertificatesView() {
       productName: string;
       brand: string;
       model: string;
+      orderNumber: string | null;
+      mainImage: string | null;
+      detailUrl: string;
     }[]
   >([]);
   const [loading, setLoading] = useState(true);
@@ -453,29 +457,41 @@ function CertificatesView() {
 
   return (
     <section className="space-y-6">
-      <h3 className="text-sm uppercase tracking-widest text-[#c5a059]">Meine Zertifikate</h3>
+      <h3 className="text-sm uppercase tracking-widest text-[#c5a059]">Echtheitszertifikate</h3>
       <div className="space-y-4">
         {certs.map((c) => (
           <div
             key={c.id}
             className="p-6 bg-white/5 rounded-2xl border border-white/10 space-y-4"
           >
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-              <div>
-                <p className="font-serif text-lg">{c.productName || `${c.brand} ${c.model}`}</p>
-                <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">
-                  {c.certificateNumber}
-                </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              {c.mainImage && (
+                <div className="w-full sm:w-28 h-28 rounded-xl overflow-hidden border border-white/10 bg-black/40 shrink-0">
+                  <img src={c.mainImage} alt={c.productName} className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className="flex-1 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                <div>
+                  <p className="font-serif text-lg">{c.productName || `${c.brand} ${c.model}`}</p>
+                  <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">
+                    {c.certificateNumber}
+                  </p>
+                  {c.orderNumber && (
+                    <p className="text-[10px] text-white/30 uppercase tracking-widest mt-1">
+                      Bestellung {c.orderNumber}
+                    </p>
+                  )}
+                </div>
+                <span
+                  className={`text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full self-start ${
+                    c.status === "ACTIVE"
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : "bg-red-500/20 text-red-400"
+                  }`}
+                >
+                  {statusLabel[c.status] || c.status}
+                </span>
               </div>
-              <span
-                className={`text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full self-start ${
-                  c.status === "ACTIVE"
-                    ? "bg-emerald-500/20 text-emerald-400"
-                    : "bg-red-500/20 text-red-400"
-                }`}
-              >
-                {statusLabel[c.status] || c.status}
-              </span>
             </div>
             {c.issuedAt && (
               <p className="text-xs text-white/40">
@@ -487,6 +503,7 @@ function CertificatesView() {
               certificateId={c.id}
               certificateNumber={c.certificateNumber}
               getToken={() => user!.getIdToken()}
+              detailUrl={c.detailUrl || `/account/certificates/${c.id}`}
               variant="dark"
             />
           </div>
@@ -678,6 +695,7 @@ export default function Account() {
               <Route path="profile" element={<ProfileView />} />
               <Route path="orders" element={<OrdersView />} />
               <Route path="certificates" element={<CertificatesView />} />
+              <Route path="certificates/:id" element={<CertificateDetail />} />
               <Route path="legal" element={<LegalLinksView />} />
               <Route path="addresses" element={<AddressesManager />} />
               <Route path="security" element={<SecurityView />} />

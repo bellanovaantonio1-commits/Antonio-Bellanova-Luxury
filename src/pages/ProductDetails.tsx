@@ -34,14 +34,17 @@ import {
   buildTrustFeatures,
   canPurchaseProduct,
   getCategoryBreadcrumb,
-  type PublicProductCertificate,
+  type ProductCertificateEligibility,
 } from "../lib/productPage.ts";
 
 export default function ProductDetails() {
   const { slug } = useParams();
   const [product, setProduct] = useState<Product | null>(null);
   const [related, setRelated] = useState<Product[]>([]);
-  const [certificate, setCertificate] = useState<PublicProductCertificate | null>(null);
+  const [certificateEligible, setCertificateEligible] = useState(false);
+  const [certificateMessages, setCertificateMessages] = useState<
+    ProductCertificateEligibility["messages"] | null
+  >(null);
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(0);
   const [showAddedToast, setShowAddedToast] = useState(false);
@@ -88,7 +91,8 @@ export default function ProductDetails() {
 
           if (certRes.ok) {
             const certData = await certRes.json();
-            setCertificate(certData.certificate || null);
+            setCertificateEligible(!!certData.eligible);
+            setCertificateMessages(certData.messages || null);
           }
         }
       } catch (e) {
@@ -236,8 +240,8 @@ export default function ProductDetails() {
   }, [product, language, specRows, displayCondition, displayScope, shopSettings]);
 
   const trustFeatures = useMemo(
-    () => buildTrustFeatures(shopSettings, certificate),
-    [shopSettings, certificate]
+    () => buildTrustFeatures(shopSettings, certificateEligible),
+    [shopSettings, certificateEligible]
   );
 
   const handleAddToCart = useCallback(() => {
@@ -399,7 +403,7 @@ export default function ProductDetails() {
               <ProductTrustFeatures
                 features={trustFeatures}
                 authenticityNote={authenticityNote}
-                certificateNote={certificate ? undefined : certificateNote}
+                certificateNote={certificateEligible ? undefined : certificateNote}
               />
             </div>
 
@@ -431,7 +435,8 @@ export default function ProductDetails() {
         <ProductTabsSection
           descriptionParagraphs={descriptionParagraphs}
           specRows={specRows}
-          certificate={certificate}
+          certificateEligible={certificateEligible}
+          certificateMessages={certificateMessages}
           certificateNote={certificateNote}
         />
 

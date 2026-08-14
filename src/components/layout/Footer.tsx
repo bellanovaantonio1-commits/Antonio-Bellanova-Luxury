@@ -5,6 +5,7 @@ import { FOOTER_NAV } from "../../config/navigation.ts";
 import { useLanguage } from "../../contexts/LanguageContext.tsx";
 import { formatAddressLines, useShopSettings } from "../../contexts/ShopSettingsContext.tsx";
 import NewsletterForm from "../common/NewsletterForm.tsx";
+import BrandMark from "./BrandMark.tsx";
 
 export default function Footer() {
   const { t, language } = useLanguage();
@@ -24,10 +25,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8 border-b border-white/10 pb-16">
         {/* Brand */}
         <div className="space-y-6">
-          <Link to="/" className="flex flex-col group">
-            <span className="text-xl font-serif tracking-[0.2em] italic group-hover:text-[#c5a059] transition-colors">ANTONIO BELLANOVA</span>
-            <span className="text-[9px] tracking-[0.5em] text-[#c5a059] mt-1 uppercase">Luxury Köln</span>
-          </Link>
+          <BrandMark variant="footer" asLink />
           <p className="text-white/70 text-[12px] leading-relaxed max-w-[280px] font-light">
             {t("footer.brand.desc")}
           </p>

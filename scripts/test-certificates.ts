@@ -37,7 +37,7 @@ function assert(condition: boolean, message: string) {
   const prev = process.env.APP_URL;
   process.env.APP_URL = "https://shop.example.com";
   const url = getCertificatePublicUrl("AB-ECHT-2026-000001");
-  assert(url === "https://shop.example.com/certificate/AB-ECHT-2026-000001", "public URL");
+  assert(url === "https://shop.example.com/verify/certificate/AB-ECHT-2026-000001", "public URL");
   assert(!url.includes("localhost"), "no localhost in production URL");
   process.env.APP_URL = prev;
 }
@@ -70,12 +70,15 @@ function assert(condition: boolean, message: string) {
       clasp: "Nicht angegeben",
       waterResistance: "Nicht angegeben",
       year: "Nicht angegeben",
-      conditionDe: "Sehr guter gebrauchter Zustand",
-      conditionEn: "Very good pre-owned condition",
+      conditionPublicDe: "Sehr guter gebrauchter Zustand",
+      conditionPublicEn: "Very good pre-owned condition",
       scopeOfDeliveryDe: "Originalbox",
       scopeOfDeliveryEn: "Original box",
+      box: "Nicht angegeben",
+      papers: "Nicht angegeben",
+      mainImage: "",
+      productSku: "",
       productName: "Rolex Submariner",
-      mainImageUrl: null,
     },
     createdAt: "2026-01-15T10:00:00.000Z",
     updatedAt: "2026-01-15T10:00:00.000Z",
@@ -88,6 +91,7 @@ function assert(condition: boolean, message: string) {
   const json = JSON.stringify(pub);
   assert(pub.valid === true, "ACTIVE is valid");
   assert(pub.brand === "Rolex", "brand in public");
+  assert(pub.productName === "Rolex Submariner", "product name in public");
   assert(!json.includes("secret"), "no customer id/email in public payload");
   assert(!("customerEmail" in pub), "no customerEmail field");
 }
@@ -121,12 +125,15 @@ function assert(condition: boolean, message: string) {
         clasp: "Nicht angegeben",
         waterResistance: "Nicht angegeben",
         year: "Nicht angegeben",
-        conditionDe: "Nicht angegeben",
-        conditionEn: "Not specified",
+        conditionPublicDe: "Nicht angegeben",
+        conditionPublicEn: "Not specified",
         scopeOfDeliveryDe: "Nicht angegeben",
         scopeOfDeliveryEn: "Not specified",
+        box: "Nicht angegeben",
+        papers: "Nicht angegeben",
+        mainImage: "",
+        productSku: "",
         productName: "Omega Speedmaster",
-        mainImageUrl: null,
       },
       createdAt: "2026-01-10T10:00:00.000Z",
       updatedAt: "2026-01-11T10:00:00.000Z",

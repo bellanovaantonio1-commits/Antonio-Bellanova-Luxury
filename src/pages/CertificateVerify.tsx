@@ -13,6 +13,7 @@ interface VerificationData {
   brand: string;
   model: string;
   referenceNumber: string;
+  productName: string;
   issuedAt: string | null;
   messageDe: string;
   messageEn: string;
@@ -83,6 +84,12 @@ export default function CertificateVerify() {
             <div className="p-8 space-y-4 text-sm">
               <div className="flex justify-between gap-4 border-b border-white/5 pb-3">
                 <span className="text-white/40 uppercase text-[10px] tracking-widest">
+                  {language === "en" ? "Product" : "Produkt"}
+                </span>
+                <span className="text-right">{data.productName || `${data.brand} ${data.model}`}</span>
+              </div>
+              <div className="flex justify-between gap-4 border-b border-white/5 pb-3">
+                <span className="text-white/40 uppercase text-[10px] tracking-widest">
                   {language === "en" ? "Certificate No." : "Zertifikatsnr."}
                 </span>
                 <span className="font-mono">{data.certificateNumber}</span>
@@ -116,6 +123,19 @@ export default function CertificateVerify() {
                     }).format(new Date(data.issuedAt))}
                   </span>
                 </div>
+              )}
+            </div>
+
+            <div className="px-8 pb-8 flex flex-col items-center border-t border-white/5 pt-8">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-white/40 mb-4">
+                {language === "en" ? "Scan to verify" : "Zum Prüfen scannen"}
+              </p>
+              {certificateNumber && (
+                <img
+                  src={`/api/certificates/verify/${encodeURIComponent(certificateNumber)}/qr`}
+                  alt="QR Code"
+                  className="w-36 h-36 rounded-xl bg-white p-2"
+                />
               )}
             </div>
 

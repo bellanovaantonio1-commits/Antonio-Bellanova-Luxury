@@ -16,7 +16,7 @@ export async function downloadCertificatePdf(certificateId: number, token: strin
 }
 
 export function openCertificateVerify(certificateNumber: string) {
-  window.open(`/certificate/${encodeURIComponent(certificateNumber)}`, "_blank", "noopener,noreferrer");
+  window.open(`/verify/certificate/${encodeURIComponent(certificateNumber)}`, "_blank", "noopener,noreferrer");
 }
 
 export async function viewCertificatePdf(certificateId: number, token: string) {
