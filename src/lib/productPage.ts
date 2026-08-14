@@ -161,19 +161,8 @@ export function buildGalleryBadges(shopSettings: ShopSettings): { de: string; en
   return badges;
 }
 
-export function getProductLocation(product: Product, shopSettings: ShopSettings): string | null {
-  if (product.dispatchCountry?.trim()) return product.dispatchCountry.trim();
-  const pickup = shopSettings.pickupNoteDe || shopSettings.pickupNoteEn;
-  if (pickup?.trim()) {
-    const match = pickup.match(/Atelier[^,—–-]*/i);
-    if (match) return match[0].trim();
-  }
-  if (shopSettings.contactAddress?.trim()) {
-    const lines = shopSettings.contactAddress.split("\n").map((l) => l.trim()).filter(Boolean);
-    if (lines.length >= 2) return lines.slice(-2).join(", ");
-    return lines[0] || null;
-  }
-  return null;
+export function getProductLocation(_product: Product, _shopSettings: ShopSettings, language: "de" | "en" = "de"): string {
+  return language === "en" ? "Cologne" : "Köln";
 }
 
 export function buildDetailRows(
@@ -207,8 +196,7 @@ export function buildDetailRows(
   add("Gehäusematerial", "Case material", product.material);
   add("Herstellungsjahr", "Year of manufacture", product.year);
 
-  const location = getProductLocation(product, shopSettings);
-  if (location) add("Standort", "Location", location);
+  add("Standort", "Location", getProductLocation(product, shopSettings, language));
 
   if (product.maintenanceDescription?.trim()) {
     add("Service", "Service", product.maintenanceDescription);
