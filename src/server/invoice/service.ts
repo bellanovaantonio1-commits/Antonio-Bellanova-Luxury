@@ -98,13 +98,15 @@ export async function getInvoiceById(id: number): Promise<InvoiceRecord | null> 
 export async function getInvoicePdfBufferByOrderId(orderId: number): Promise<Buffer | null> {
   const invoice = await getInvoiceByOrderId(orderId);
   if (!invoice) return null;
-  return generateInvoicePdf(invoice);
+  const enriched = await enrichInvoiceLineItemImages(invoice);
+  return generateInvoicePdf(enriched);
 }
 
 export async function getInvoicePdfBufferById(id: number): Promise<Buffer | null> {
   const invoice = await getInvoiceById(id);
   if (!invoice) return null;
-  return generateInvoicePdf(invoice);
+  const enriched = await enrichInvoiceLineItemImages(invoice);
+  return generateInvoicePdf(enriched);
 }
 
 function buildLineItemsFromOrderItems(items: typeof orderItems.$inferSelect[]) {
@@ -126,8 +128,28 @@ function buildLineItemsFromOrderItems(items: typeof orderItems.$inferSelect[]) {
       taxAmount: tax,
       taxRatePercent: taxTreatment === "MARGIN" ? 0 : rate,
       taxTreatment,
+      image: String(item.productImage || "").trim() || undefined,
     } satisfies InvoiceLineItem;
   });
+}
+
+async function enrichInvoiceLineItemImages(invoice: InvoiceRecord): Promise<InvoiceRecord> {
+  if (invoice.lineItems.every((line) => line.image)) return invoice;
+
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, invoice.orderId));
+  if (!items.length) return invoice;
+
+  return {
+    ...invoice,
+    lineItems: invoice.lineItems.map((line) => {
+      if (line.image) return line;
+      const match =
+        items.find((item) => item.productSku && item.productSku === line.sku) ||
+        items.find((item) => item.productName === line.name);
+      const image = String(match?.productImage || "").trim();
+      return image ? { ...line, image } : line;
+    }),
+  };
 }
 
 export async function createInvoiceForOrder(

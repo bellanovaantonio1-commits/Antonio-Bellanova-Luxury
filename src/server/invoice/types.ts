@@ -22,6 +22,7 @@ export type InvoiceLineItem = {
   taxAmount: number;
   taxRatePercent: number;
   taxTreatment?: string;
+  image?: string;
 };
 
 export type SellerSnapshot = {

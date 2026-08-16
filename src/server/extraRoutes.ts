@@ -243,12 +243,21 @@ export function registerExtraRoutes(app: Express) {
         .leftJoin(users, eq(orders.userId, users.uid))
         .orderBy(desc(orders.createdAt));
 
-      const header = "Bestellnummer;Datum;Kunde;Status;Zahlung;Gesamt\n";
-      const csv = rows.map(r =>
+      const enriched = await Promise.all(rows.map(async (r) => {
+        const items = await db.select().from(orderItems).where(eq(orderItems.orderId, r.order.id));
+        const productSummary = items
+          .map((item) => `${item.quantity}x ${item.productName || "Produkt"}`)
+          .join(" | ");
+        return { ...r, productSummary };
+      }));
+
+      const header = "Bestellnummer;Datum;Kunde;Produkte;Status;Zahlung;Gesamt\n";
+      const csv = enriched.map(r =>
         [
           r.order.orderNumber || r.order.id,
           r.order.createdAt ? new Date(r.order.createdAt).toLocaleDateString("de-DE") : "",
           r.user?.email || r.order.userId,
+          r.productSummary,
           r.order.status,
           r.order.paymentStatus,
           r.order.total,
@@ -950,6 +959,15 @@ export function registerExtraRoutes(app: Express) {
           orderNumber: order.orderNumber || `ORD-${order.id}`,
           customerEmail: user?.email,
           itemCount: items.length,
+          items: items.map((item) => ({
+            id: item.id,
+            productId: item.productId,
+            name: item.productName || "Produkt",
+            sku: item.productSku,
+            quantity: item.quantity,
+            price: item.price,
+            image: item.productImage,
+          })),
           invoiceNumber: inv?.invoiceNumber || null,
           invoiceStatus: inv?.invoiceStatus || null,
         };

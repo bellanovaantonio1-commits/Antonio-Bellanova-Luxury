@@ -21,6 +21,7 @@ export interface CertificateSnapshot {
   box: string;
   papers: string;
   mainImage: string;
+  images?: string[];
   productName: string;
   productSku: string;
   orderNumber?: string;
@@ -63,6 +64,8 @@ export interface PublicCertificateVerification {
   model: string;
   referenceNumber: string;
   productName: string;
+  mainImage?: string | null;
+  images?: string[];
   issuedAt: string | null;
   messageDe: string;
   messageEn: string;

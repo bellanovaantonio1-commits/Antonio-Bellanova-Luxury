@@ -19,6 +19,22 @@ function parseSpecs(raw: unknown): Record<string, unknown> {
   return {};
 }
 
+function parseAdditionalImages(product: typeof products.$inferSelect): string[] {
+  const main = String(product.mainImage || "").trim();
+  const raw = Array.isArray(product.images) ? product.images : [];
+  const seen = new Set<string>();
+  const additional: string[] = [];
+
+  for (const entry of raw) {
+    const url = String(entry || "").trim();
+    if (!url || url === main || seen.has(url)) continue;
+    seen.add(url);
+    additional.push(url);
+  }
+
+  return additional;
+}
+
 function resolveReference(product: typeof products.$inferSelect, specs: Record<string, unknown>): string {
   const sku = String(product.sku || "").trim();
   if (sku) return sku;
@@ -87,6 +103,7 @@ export async function buildProductSnapshot(
     box: displayOrNotSpecified(product.box, "de"),
     papers: displayOrNotSpecified(product.papers, "de"),
     mainImage: String(product.mainImage || "").trim(),
+    images: parseAdditionalImages(product),
     productName: String(product.name || "").trim(),
     productSku: String(product.sku || "").trim(),
   };

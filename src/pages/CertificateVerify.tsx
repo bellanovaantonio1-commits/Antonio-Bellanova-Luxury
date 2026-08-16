@@ -14,6 +14,8 @@ interface VerificationData {
   model: string;
   referenceNumber: string;
   productName: string;
+  mainImage?: string | null;
+  images?: string[];
   issuedAt: string | null;
   messageDe: string;
   messageEn: string;
@@ -80,6 +82,29 @@ export default function CertificateVerify() {
                 <p className="text-xs text-white/50 uppercase tracking-widest mt-1">{statusLabel}</p>
               </div>
             </div>
+
+            {(data.mainImage || (data.images && data.images.length > 0)) && (
+              <div className="px-8 pt-6 border-b border-white/5 space-y-4">
+                {data.mainImage && (
+                  <div className="rounded-xl overflow-hidden border border-white/10 bg-black/40 aspect-[4/3] max-w-sm mx-auto">
+                    <img
+                      src={data.mainImage}
+                      alt={data.productName || `${data.brand} ${data.model}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                {data.images && data.images.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-lg mx-auto">
+                    {data.images.map((image) => (
+                      <div key={image} className="rounded-lg overflow-hidden border border-white/10 bg-black/40 aspect-square">
+                        <img src={image} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="p-8 space-y-4 text-sm">
               <div className="flex justify-between gap-4 border-b border-white/5 pb-3">

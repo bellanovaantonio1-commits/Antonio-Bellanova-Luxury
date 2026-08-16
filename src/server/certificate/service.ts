@@ -597,6 +597,8 @@ export function toPublicVerification(cert: CertificateRecord): PublicCertificate
     model: snap.model,
     referenceNumber: snap.referenceNumber,
     productName: snap.productName || "",
+    mainImage: snap.mainImage || null,
+    images: snap.images || [],
     issuedAt: cert.issuedAt,
     messageDe,
     messageEn,

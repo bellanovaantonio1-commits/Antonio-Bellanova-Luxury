@@ -1,5 +1,6 @@
 import PDFDocument from "pdfkit";
 import type { InvoiceRecord } from "./types.ts";
+import { fetchImageBuffer } from "../pdfImages.ts";
 
 const GOLD = "#c5a059";
 const PAGE_WIDTH = 595.28;
@@ -123,7 +124,9 @@ function ensureSpace(doc: PDFDoc, y: number, needed: number): number {
   return y;
 }
 
-export function generateInvoicePdf(invoice: InvoiceRecord): Promise<Buffer> {
+export async function generateInvoicePdf(invoice: InvoiceRecord): Promise<Buffer> {
+  const lineImages = await Promise.all(invoice.lineItems.map((item) => fetchImageBuffer(item.image)));
+
   return new Promise((resolve, reject) => {
     const lang = invoice.language === "en" ? "en" : "de";
     const L = LABELS[lang];
@@ -205,14 +208,22 @@ export function generateInvoicePdf(invoice: InvoiceRecord): Promise<Buffer> {
 
     doc.moveDown(1.2);
     let y = doc.y;
-    const col = { sku: MARGIN, name: MARGIN + 58, qty: MARGIN + 268, unit: MARGIN + 318, total: MARGIN + 408 };
+    const col = {
+      thumb: MARGIN,
+      sku: MARGIN + 46,
+      name: MARGIN + 104,
+      qty: MARGIN + 286,
+      unit: MARGIN + 326,
+      total: MARGIN + 406,
+    };
 
     const drawTableHeader = () => {
       doc.fontSize(8).fillColor("#666");
+      doc.text("", col.thumb, y, { width: 38 });
       doc.text(L.sku, col.sku, y, { width: 52 });
-      doc.text(L.product, col.name, y, { width: 200 });
-      doc.text(L.qty, col.qty, y, { width: 40 });
-      doc.text(L.unit, col.unit, y, { width: 82 });
+      doc.text(L.product, col.name, y, { width: 176 });
+      doc.text(L.qty, col.qty, y, { width: 32 });
+      doc.text(L.unit, col.unit, y, { width: 72 });
       doc.text(L.total, col.total, y, { width: 90 });
       doc.moveTo(MARGIN, y + 14).lineTo(PAGE_WIDTH - MARGIN, y + 14).strokeColor("#ddd").stroke();
       y += 22;
@@ -221,19 +232,24 @@ export function generateInvoicePdf(invoice: InvoiceRecord): Promise<Buffer> {
     drawTableHeader();
     doc.fontSize(9).fillColor("#111");
 
-    for (const item of invoice.lineItems) {
-      const nameHeight = doc.heightOfString(item.name, { width: 200 });
-      const rowHeight = Math.max(22, nameHeight + 6);
+    invoice.lineItems.forEach((item, index) => {
+      const imageBuffer = lineImages[index];
+      const nameHeight = doc.heightOfString(item.name, { width: 176 });
+      const rowHeight = Math.max(imageBuffer ? 40 : 22, nameHeight + 6);
       y = ensureSpace(doc, y, rowHeight + 4);
       if (y === MARGIN + 10) drawTableHeader();
 
+      if (imageBuffer) {
+        doc.image(imageBuffer, col.thumb, y + 2, { fit: [36, 36], align: "center", valign: "center" });
+      }
+
       doc.text(item.sku || "—", col.sku, y, { width: 52 });
-      doc.text(item.name, col.name, y, { width: 200 });
-      doc.text(String(item.quantity), col.qty, y, { width: 40 });
-      doc.text(fmtMoney(item.unitPriceGross, invoice.currency, locale), col.unit, y, { width: 82 });
+      doc.text(item.name, col.name, y, { width: 176 });
+      doc.text(String(item.quantity), col.qty, y, { width: 32 });
+      doc.text(fmtMoney(item.unitPriceGross, invoice.currency, locale), col.unit, y, { width: 72 });
       doc.text(fmtMoney(item.lineTotalGross, invoice.currency, locale), col.total, y, { width: 90 });
       y += rowHeight;
-    }
+    });
 
     y = ensureSpace(doc, y, 120);
     doc.moveTo(MARGIN, y).lineTo(PAGE_WIDTH - MARGIN, y).strokeColor("#ddd").stroke();

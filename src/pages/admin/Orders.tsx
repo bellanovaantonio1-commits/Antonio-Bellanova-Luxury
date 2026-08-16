@@ -3,6 +3,16 @@ import { ShoppingCart, Package, CreditCard, Download, XCircle, Truck, CheckCircl
 import { auth } from "../../lib/firebase.ts";
 import OrderCertificateModal from "../../components/admin/OrderCertificateModal.tsx";
 
+interface AdminOrderItem {
+  id: number;
+  productId: number | null;
+  name: string;
+  sku?: string | null;
+  quantity: number;
+  price: string;
+  image?: string | null;
+}
+
 interface AdminOrder {
   id: number;
   orderNumber: string;
@@ -12,6 +22,7 @@ interface AdminOrder {
   total: string;
   customerEmail?: string;
   itemCount: number;
+  items?: AdminOrderItem[];
   createdAt: string;
   invoiceNumber?: string | null;
   invoiceStatus?: string | null;
@@ -51,6 +62,11 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   STRIPE: "Stripe",
   BANK_TRANSFER: "Überweisung",
 };
+
+function formatOrderItems(items: AdminOrderItem[] | undefined) {
+  if (!items?.length) return "—";
+  return items.map((item) => `${item.quantity}× ${item.name}`).join(", ");
+}
 
 export default function Orders() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -220,6 +236,16 @@ export default function Orders() {
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-8 max-w-md w-full space-y-6 shadow-2xl">
             <h4 className="text-lg font-serif text-gray-900">Versand — {shipModal.orderNumber}</h4>
+            {shipModal.items?.length ? (
+              <div className="rounded-lg bg-gray-50 border border-gray-100 p-4 space-y-1">
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Artikel</p>
+                {shipModal.items.map((item) => (
+                  <p key={item.id} className="text-sm text-gray-700">
+                    {item.quantity}× {item.name}
+                  </p>
+                ))}
+              </div>
+            ) : null}
             <div className="space-y-4">
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Tracking-Nummer</label>
@@ -257,6 +283,7 @@ export default function Orders() {
               <tr className="border-b border-gray-100 text-left text-[10px] tracking-widest uppercase text-gray-400">
                 <th className="pb-4 pr-4">Bestellnr.</th>
                 <th className="pb-4 pr-4">Kunde</th>
+                <th className="pb-4 pr-4">Produkte</th>
                 <th className="pb-4 pr-4">Betrag</th>
                 <th className="pb-4 pr-4">Status</th>
                 <th className="pb-4 pr-4">Zahlung</th>
@@ -273,6 +300,27 @@ export default function Orders() {
                   <tr key={order.id} className={`border-b border-gray-50 hover:bg-gray-50/50 ${isCancelled ? "opacity-60" : ""}`}>
                     <td className="py-4 pr-4 font-mono text-xs">{order.orderNumber}</td>
                     <td className="py-4 pr-4">{order.customerEmail || "—"}</td>
+                    <td className="py-4 pr-4 max-w-[220px]">
+                      {order.items?.length ? (
+                        <div className="space-y-1">
+                          {order.items.map((item) => (
+                            <div key={item.id} className="text-xs text-gray-700 leading-snug">
+                              <span className="font-medium">{item.name}</span>
+                              <span className="text-gray-400"> · {item.quantity}×</span>
+                              {item.sku && (
+                                <p className="text-[9px] font-mono text-gray-400 truncate" title={item.sku}>
+                                  {item.sku}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400" title={formatOrderItems(order.items)}>
+                          {order.itemCount > 0 ? `${order.itemCount} Artikel` : "—"}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-4 pr-4 font-serif">{parseFloat(order.total).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</td>
                     <td className="py-4 pr-4">
                       <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${statusColors[order.status] || "bg-gray-100 text-gray-600"}`}>

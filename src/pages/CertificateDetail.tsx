@@ -34,6 +34,7 @@ interface CertificateDetailData {
     scopeOfDeliveryDe: string;
     scopeOfDeliveryEn: string;
     mainImage: string;
+    images?: string[];
     orderNumber?: string;
     purchaseDate?: string;
     location?: string;
@@ -177,6 +178,21 @@ export default function CertificateDetail() {
                       alt={data.snapshot.productName}
                       className="w-full h-full object-cover"
                     />
+                  </div>
+                )}
+
+                {data.snapshot.images && data.snapshot.images.length > 0 && (
+                  <div className="mb-10 space-y-3">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-white/35">
+                      {language === "en" ? "Additional product images" : "Weitere Produktbilder"}
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-md">
+                      {data.snapshot.images.map((image) => (
+                        <div key={image} className="rounded-xl overflow-hidden border border-white/10 bg-black/40 aspect-square">
+                          <img src={image} alt="" className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
