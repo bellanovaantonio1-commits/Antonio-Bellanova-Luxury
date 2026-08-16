@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Shield, CheckCircle2, XCircle, ExternalLink, Download } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
 import MetaTags from "../components/common/MetaTags.tsx";
+import { getCertificateDisplayImages } from "../lib/certificateImages.ts";
 
 interface VerificationData {
   valid: boolean;
@@ -42,6 +43,10 @@ export default function CertificateVerify() {
 
   const msg = data ? (language === "en" ? data.messageEn : data.messageDe) : "";
   const statusLabel = data ? (language === "en" ? data.statusLabelEn : data.statusLabelDe) : "";
+  const displayImages = useMemo(
+    () => (data ? getCertificateDisplayImages(data) : []),
+    [data]
+  );
 
   return (
     <div className="min-h-screen bg-[#050505] text-white pt-32 pb-20 px-6">
@@ -83,26 +88,33 @@ export default function CertificateVerify() {
               </div>
             </div>
 
-            {(data.mainImage || (data.images && data.images.length > 0)) && (
+            {displayImages.length > 0 && (
               <div className="px-8 pt-6 border-b border-white/5 space-y-4">
-                {data.mainImage && (
-                  <div className="rounded-xl overflow-hidden border border-white/10 bg-black/40 aspect-[4/3] max-w-sm mx-auto">
-                    <img
-                      src={data.mainImage}
-                      alt={data.productName || `${data.brand} ${data.model}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-                {data.images && data.images.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-lg mx-auto">
-                    {data.images.map((image) => (
-                      <div key={image} className="rounded-lg overflow-hidden border border-white/10 bg-black/40 aspect-square">
-                        <img src={image} alt="" className="w-full h-full object-cover" />
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <p className="text-[10px] uppercase tracking-[0.3em] text-white/35 text-center">
+                  {language === "en" ? "Product images" : "Produktbilder"}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
+                  {displayImages.map((image, index) => (
+                    <div
+                      key={`${image}-${index}`}
+                      className={`rounded-lg overflow-hidden border border-white/10 bg-black/40 ${
+                        index === 0 && displayImages.length > 1
+                          ? "col-span-2 sm:col-span-3 aspect-[4/3]"
+                          : "aspect-square"
+                      }`}
+                    >
+                      <img
+                        src={image}
+                        alt={
+                          index === 0
+                            ? data.productName || `${data.brand} ${data.model}`
+                            : `${language === "en" ? "Product image" : "Produktbild"} ${index + 1}`
+                        }
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

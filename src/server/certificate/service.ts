@@ -12,6 +12,7 @@ import {
 } from "../../db/schema.ts";
 import { allocateCertificateNumber, generateVerificationCode } from "./numbering.ts";
 import { buildOrderCertificateSnapshot, buildProductSnapshot, snapshotFromStored } from "./snapshot.ts";
+import { applySnapshotImages, getAllCertificateImageUrls } from "./images.ts";
 import { generateCertificatePdf } from "./pdf.ts";
 import { isProductCertifiable } from "./eligibility.ts";
 import type {
@@ -131,6 +132,7 @@ async function enrichCertificate(row: CertRow): Promise<CertificateRecord> {
     orderNumber,
     customerEmail,
     customerName,
+    snapshotData: applySnapshotImages(snapshotFromStored(row.snapshotData), product),
   });
 }
 
@@ -565,6 +567,7 @@ export async function linkCertificatesForOrderItems(orderId: number) {
 
 export function toPublicVerification(cert: CertificateRecord): PublicCertificateVerification {
   const snap = cert.snapshotData;
+  const imageUrls = getAllCertificateImageUrls(snap);
   const status = cert.status;
   const labels = CERTIFICATE_STATUS_LABELS[status];
   const valid = status === "ACTIVE";
@@ -597,8 +600,8 @@ export function toPublicVerification(cert: CertificateRecord): PublicCertificate
     model: snap.model,
     referenceNumber: snap.referenceNumber,
     productName: snap.productName || "",
-    mainImage: snap.mainImage || null,
-    images: snap.images || [],
+    mainImage: imageUrls[0] || null,
+    images: imageUrls,
     issuedAt: cert.issuedAt,
     messageDe,
     messageEn,

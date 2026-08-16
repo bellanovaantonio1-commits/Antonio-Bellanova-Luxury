@@ -3,7 +3,8 @@ import QRCode from "qrcode";
 import type { CertificateRecord } from "./types.ts";
 import { AUTHENTICITY_STATEMENT, COMPANY } from "./types.ts";
 import { getCertificatePublicUrl } from "./numbering.ts";
-import { fetchImageBuffer, fetchImageBuffers } from "../pdfImages.ts";
+import { fetchImageBuffers } from "../pdfImages.ts";
+import { getAllCertificateImageUrls } from "./images.ts";
 
 const GOLD = "#c5a059";
 const BLACK = "#111111";
@@ -83,6 +84,45 @@ function fmtDate(iso: string | null, locale: string) {
   return new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date(iso));
 }
 
+const PAGE_HEIGHT = 841.89;
+const PAGE_BOTTOM = PAGE_HEIGHT - MARGIN - 40;
+
+function ensureSpace(doc: InstanceType<typeof PDFDocument>, y: number, needed: number): number {
+  if (y + needed > PAGE_BOTTOM) {
+    doc.addPage();
+    return MARGIN + 20;
+  }
+  return y;
+}
+
+function drawImageGrid(
+  doc: InstanceType<typeof PDFDocument>,
+  buffers: Buffer[],
+  y: number,
+  title: string
+): number {
+  if (buffers.length === 0) return y;
+
+  y = ensureSpace(doc, y, 90);
+  doc.font("Helvetica-Bold").fontSize(10).fillColor(BLACK).text(title, MARGIN, y);
+  y += 16;
+
+  const thumb = 72;
+  const gap = 10;
+  let x = MARGIN;
+
+  for (const buffer of buffers) {
+    if (x + thumb > PAGE_WIDTH - MARGIN) {
+      x = MARGIN;
+      y = ensureSpace(doc, y + thumb + gap, thumb + 24);
+    }
+    doc.image(buffer, x, y, { fit: [thumb, thumb], align: "center", valign: "center" });
+    x += thumb + gap;
+  }
+
+  return y + thumb + 14;
+}
+
 function drawRow(doc: InstanceType<typeof PDFDocument>, label: string, value: string, y: number): number {
   doc.fontSize(9).fillColor("#666").text(label, MARGIN, y, { width: 140 });
   doc.fontSize(10).fillColor(BLACK).text(value, MARGIN + 145, y, { width: CONTENT_WIDTH - 145 });
@@ -97,8 +137,9 @@ export async function generateCertificatePdf(cert: CertificateRecord): Promise<B
   const verifyUrl = getCertificatePublicUrl(cert.certificateNumber);
   const qrDataUrl = await QRCode.toDataURL(verifyUrl, { margin: 1, width: 120, color: { dark: "#111111", light: "#FFFFFF" } });
   const qrBuffer = Buffer.from(qrDataUrl.split(",")[1], "base64");
-  const mainImageBuffer = await fetchImageBuffer(snap.mainImage);
-  const additionalImages = await fetchImageBuffers(snap.images || []);
+  const imageUrls = getAllCertificateImageUrls(snap);
+  const imageBuffers = await fetchImageBuffers(imageUrls);
+  const [heroImage, ...galleryImages] = imageBuffers;
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", margin: MARGIN });
@@ -125,11 +166,11 @@ export async function generateCertificatePdf(cert: CertificateRecord): Promise<B
     doc.moveDown(1);
     let y = doc.y + 10;
 
-    if (mainImageBuffer) {
+    if (heroImage) {
       const imgW = 220;
       const imgH = 140;
       const imgX = MARGIN + (CONTENT_WIDTH - imgW) / 2;
-      doc.image(mainImageBuffer, imgX, y, { fit: [imgW, imgH], align: "center", valign: "center" });
+      doc.image(heroImage, imgX, y, { fit: [imgW, imgH], align: "center", valign: "center" });
       y += imgH + 18;
     }
 
@@ -201,29 +242,16 @@ export async function generateCertificatePdf(cert: CertificateRecord): Promise<B
 
     y = drawRow(doc, L.issued, fmtDate(cert.issuedAt, locale), y);
 
-    if (additionalImages.length > 0) {
-      y += 10;
-      doc.font("Helvetica-Bold").fontSize(10).fillColor(BLACK).text(
-        lang === "en" ? "Additional product images" : "Weitere Produktbilder",
-        MARGIN,
-        y
+    if (galleryImages.length > 0) {
+      y = drawImageGrid(
+        doc,
+        galleryImages,
+        y + 10,
+        lang === "en" ? "Additional product images" : "Weitere Produktbilder"
       );
-      y += 16;
-      const thumb = 72;
-      const gap = 10;
-      let x = MARGIN;
-      for (const buffer of additionalImages.slice(0, 8)) {
-        if (x + thumb > PAGE_WIDTH - MARGIN) {
-          x = MARGIN;
-          y += thumb + gap;
-        }
-        doc.image(buffer, x, y, { fit: [thumb, thumb], align: "center", valign: "center" });
-        x += thumb + gap;
-      }
-      y += thumb + 14;
     }
 
-    y += 12;
+    y = ensureSpace(doc, y + 12, 130);
     doc.font("Helvetica").fontSize(8.5).fillColor("#444").text(L.statement, MARGIN, y, {
       width: CONTENT_WIDTH - 130,
       align: "left",

@@ -3,6 +3,7 @@ import { db } from "../../db/index.ts";
 import { brands, categories, products } from "../../db/schema.ts";
 import type { CertificateSnapshot } from "./types.ts";
 import { displayOrNotSpecified, resolvePublicCondition } from "./conditionPublic.ts";
+import { collectProductImageUrls } from "./images.ts";
 
 function pickSpec(specs: Record<string, unknown>, ...keys: string[]): string {
   for (const key of keys) {
@@ -17,22 +18,6 @@ function parseSpecs(raw: unknown): Record<string, unknown> {
     return raw as Record<string, unknown>;
   }
   return {};
-}
-
-function parseAdditionalImages(product: typeof products.$inferSelect): string[] {
-  const main = String(product.mainImage || "").trim();
-  const raw = Array.isArray(product.images) ? product.images : [];
-  const seen = new Set<string>();
-  const additional: string[] = [];
-
-  for (const entry of raw) {
-    const url = String(entry || "").trim();
-    if (!url || url === main || seen.has(url)) continue;
-    seen.add(url);
-    additional.push(url);
-  }
-
-  return additional;
 }
 
 function resolveReference(product: typeof products.$inferSelect, specs: Record<string, unknown>): string {
@@ -81,6 +66,7 @@ export async function buildProductSnapshot(
 
   const scopeDe = String(product.scopeOfDeliveryDe || "").trim();
   const scopeEn = String(product.scopeOfDeliveryEn || scopeDe).trim();
+  const productImages = collectProductImageUrls(product);
 
   return {
     brand: displayOrNotSpecified(brandName, "de"),
@@ -102,8 +88,8 @@ export async function buildProductSnapshot(
     scopeOfDeliveryEn: scopeEn || displayOrNotSpecified("", "en"),
     box: displayOrNotSpecified(product.box, "de"),
     papers: displayOrNotSpecified(product.papers, "de"),
-    mainImage: String(product.mainImage || "").trim(),
-    images: parseAdditionalImages(product),
+    mainImage: productImages[0] || "",
+    images: productImages,
     productName: String(product.name || "").trim(),
     productSku: String(product.sku || "").trim(),
   };

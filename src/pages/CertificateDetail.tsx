@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Shield, Download, ArrowLeft } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext.tsx";
 import { useLanguage } from "../contexts/LanguageContext.tsx";
 import MetaTags from "../components/common/MetaTags.tsx";
 import { downloadCertificatePdf } from "../lib/certificatePdf.ts";
+import { getCertificateDisplayImages } from "../lib/certificateImages.ts";
 
 interface CertificateDetailData {
   id: number;
@@ -93,6 +94,10 @@ export default function CertificateDetail() {
     data && language === "en" ? data.snapshot.conditionPublicEn : data?.snapshot.conditionPublicDe;
   const scope =
     data && language === "en" ? data.snapshot.scopeOfDeliveryEn : data?.snapshot.scopeOfDeliveryDe;
+  const displayImages = useMemo(
+    () => (data ? getCertificateDisplayImages(data.snapshot) : []),
+    [data]
+  );
 
   const handleDownload = async () => {
     if (!data || !user) return;
@@ -171,25 +176,30 @@ export default function CertificateDetail() {
 
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] gap-0">
               <div className="px-6 md:px-12 py-10">
-                {isSpecified(data.snapshot.mainImage) && (
-                  <div className="mb-10 rounded-2xl overflow-hidden border border-white/10 bg-black/40 aspect-[4/3] max-w-md">
-                    <img
-                      src={data.snapshot.mainImage}
-                      alt={data.snapshot.productName}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-
-                {data.snapshot.images && data.snapshot.images.length > 0 && (
+                {displayImages.length > 0 && (
                   <div className="mb-10 space-y-3">
                     <p className="text-[10px] uppercase tracking-[0.3em] text-white/35">
-                      {language === "en" ? "Additional product images" : "Weitere Produktbilder"}
+                      {language === "en" ? "Product images" : "Produktbilder"}
                     </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-md">
-                      {data.snapshot.images.map((image) => (
-                        <div key={image} className="rounded-xl overflow-hidden border border-white/10 bg-black/40 aspect-square">
-                          <img src={image} alt="" className="w-full h-full object-cover" />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-2xl">
+                      {displayImages.map((image, index) => (
+                        <div
+                          key={`${image}-${index}`}
+                          className={`rounded-xl overflow-hidden border border-white/10 bg-black/40 ${
+                            index === 0 && displayImages.length > 1
+                              ? "col-span-2 sm:col-span-3 aspect-[4/3]"
+                              : "aspect-square"
+                          }`}
+                        >
+                          <img
+                            src={image}
+                            alt={
+                              index === 0
+                                ? data.snapshot.productName
+                                : `${language === "en" ? "Product image" : "Produktbild"} ${index + 1}`
+                            }
+                            className="w-full h-full object-contain"
+                          />
                         </div>
                       ))}
                     </div>
