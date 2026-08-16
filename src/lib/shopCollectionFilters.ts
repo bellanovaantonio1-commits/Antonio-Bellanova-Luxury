@@ -4,6 +4,34 @@ import type { ShopCollectionSlug } from "../config/shopCollections.ts";
 import type { Product } from "../types.ts";
 import { shuffleOrder } from "./rotationQueue.ts";
 
+export function getCollectionFeaturePatch(
+  collection: ShopCollectionSlug,
+  featured: boolean
+): Record<string, boolean> {
+  switch (collection) {
+    case "sport":
+      return { featuredInSport: featured };
+    case "vintage":
+      return { featuredInVintage: featured };
+    case "under-5000":
+      return { featuredInUnder5000: featured };
+  }
+}
+
+export function productInCuratedCollection(
+  product: Product,
+  collection: ShopCollectionSlug
+): boolean {
+  switch (collection) {
+    case "sport":
+      return product.featuredInSport === true;
+    case "vintage":
+      return product.featuredInVintage === true;
+    case "under-5000":
+      return product.featuredInUnder5000 === true;
+  }
+}
+
 /** Shop listing filters — used when opening /shop?collection=… */
 export function getShopCollectionCondition(collection: ShopCollectionSlug): SQL {
   switch (collection) {

@@ -18,6 +18,7 @@ import {
   CircleDollarSign,
   Shield,
   Scale,
+  LayoutGrid,
 } from "lucide-react";
 import Inquiries from "./Inquiries.tsx";
 import Brands from "./Brands.tsx";
@@ -35,6 +36,7 @@ import Certificates from "./Certificates.tsx";
 import LegalCompliance from "./LegalCompliance.tsx";
 import Invoices from "./Invoices.tsx";
 import NewProduct from "./NewProduct.tsx";
+import CuratedCollectionsAdmin from "./CuratedCollectionsAdmin.tsx";
 import { auth } from "../../lib/firebase.ts";
 
 export default function AdminDashboard() {
@@ -59,6 +61,7 @@ export default function AdminDashboard() {
     { label: "Übersicht", icon: <LayoutDashboard size={18} />, path: "/admin", badge: 0 },
     { label: "Anleitung", icon: <HelpCircle size={18} />, path: "/admin/help", badge: 0 },
     { label: "Produkte", icon: <Package size={18} />, path: "/admin/products", badge: 0 },
+    { label: "Kollektionen", icon: <LayoutGrid size={18} />, path: "/admin/collections", badge: 0 },
     { label: "Neues Produkt", icon: <PlusCircle size={18} />, path: "/admin/products/new", badge: 0 },
     { label: "AI Import", icon: <BrainCircuit size={18} />, path: "/admin/ai-import", badge: 0 },
     { label: "Bestellungen", icon: <ShoppingCart size={18} />, path: "/admin/orders", badge: badges.orders },
@@ -132,6 +135,7 @@ export default function AdminDashboard() {
             <Route path="/" element={<Overview />} />
             <Route path="/help" element={<AdminHelp />} />
             <Route path="/products" element={<Products />} />
+            <Route path="/collections" element={<CuratedCollectionsAdmin />} />
             <Route path="/products/new" element={<NewProduct />} />
             <Route path="/ai-import" element={<AIImport />} />
             <Route path="/orders" element={<Orders />} />

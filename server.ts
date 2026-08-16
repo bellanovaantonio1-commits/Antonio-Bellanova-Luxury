@@ -25,7 +25,7 @@ import { handleStripeWebhook } from "./src/server/stripeWebhook.ts";
 import { buildProductJsonLd, injectProductMeta, loadSpaIndexHtml } from "./src/server/seo.ts";
 import { notifyWishlistAlerts } from "./src/server/wishlistAlerts.ts";
 import { refreshCertificatesForProduct } from "./src/server/certificate/service.ts";
-import { getShopCollectionCondition, getCuratedCollectionCondition, isShopCollectionSlug } from "./src/lib/shopCollectionFilters.ts";
+import { getShopCollectionCondition, getCuratedCollectionCondition, getCollectionFeaturePatch, isShopCollectionSlug } from "./src/lib/shopCollectionFilters.ts";
 import { getSettingsMap } from "./src/server/settings.ts";
 import {
   resolveProductPricing,
@@ -538,6 +538,94 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
   }
 
   // Admin Products Retrieval (SQL Source of Truth)
+  app.get("/api/admin/collections", requireAuth, requireRole(["ADMIN"]), async (_req: AuthRequest, res) => {
+    try {
+      const result = await db
+        .select({
+          product: products,
+          brand: brands,
+        })
+        .from(products)
+        .leftJoin(brands, eq(products.brandId, brands.id))
+        .where(
+          or(
+            eq(products.featuredInSport, true),
+            eq(products.featuredInVintage, true),
+            eq(products.featuredInUnder5000, true)
+          )
+        )
+        .orderBy(desc(products.updatedAt));
+
+      const grouped = {
+        sport: [] as any[],
+        vintage: [] as any[],
+        "under-5000": [] as any[],
+      };
+
+      for (const item of result) {
+        const mapped = {
+          ...item.product,
+          images: Array.isArray(item.product.images)
+            ? item.product.images
+            : typeof item.product.images === "string"
+              ? JSON.parse(item.product.images)
+              : [],
+          brand: item.brand,
+        };
+        if (mapped.featuredInSport) grouped.sport.push(mapped);
+        if (mapped.featuredInVintage) grouped.vintage.push(mapped);
+        if (mapped.featuredInUnder5000) grouped["under-5000"].push(mapped);
+      }
+
+      res.json(grouped);
+    } catch (error) {
+      console.error("Failed to fetch curated collections", error);
+      res.status(500).json({ error: "Failed to fetch curated collections" });
+    }
+  });
+
+  app.post("/api/admin/collections/toggle", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
+    try {
+      const productId = parseInt(String(req.body.productId), 10);
+      const collection = req.body.collection;
+      const featured = req.body.featured === true;
+
+      if (!Number.isFinite(productId) || !isShopCollectionSlug(collection)) {
+        return res.status(400).json({ error: "Ungültige Anfrage" });
+      }
+
+      const patch = getCollectionFeaturePatch(collection, featured);
+      const [updated] = await db
+        .update(products)
+        .set({ ...patch, updatedAt: new Date() })
+        .where(eq(products.id, productId))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ error: "Produkt nicht gefunden" });
+      }
+
+      if (adminDb) {
+        try {
+          const snapshot = await adminDb.collection("products").where("sqlId", "==", productId).get();
+          if (!snapshot.empty) {
+            await snapshot.docs[0].ref.update({
+              ...patch,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        } catch (fsErr) {
+          console.warn("Firestore collection toggle sync failed (non-blocking):", fsErr);
+        }
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to toggle collection membership", error);
+      res.status(500).json({ error: "Failed to update collection" });
+    }
+  });
+
   app.get("/api/admin/products", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
     try {
       const result = await db.select({
