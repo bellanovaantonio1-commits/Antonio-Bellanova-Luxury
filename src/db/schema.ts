@@ -163,6 +163,8 @@ export const products = pgTable('products', {
   stock: integer('stock').default(1),
   featuredInHero: boolean('featured_in_hero').default(false),
   featuredInSport: boolean('featured_in_sport').default(false),
+  featuredInVintage: boolean('featured_in_vintage').default(false),
+  featuredInUnder5000: boolean('featured_in_under_5000').default(false),
 });
 
 export const orders = pgTable('orders', {

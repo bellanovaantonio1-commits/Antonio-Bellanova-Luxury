@@ -25,7 +25,7 @@ import { handleStripeWebhook } from "./src/server/stripeWebhook.ts";
 import { buildProductJsonLd, injectProductMeta, loadSpaIndexHtml } from "./src/server/seo.ts";
 import { notifyWishlistAlerts } from "./src/server/wishlistAlerts.ts";
 import { refreshCertificatesForProduct } from "./src/server/certificate/service.ts";
-import { getShopCollectionCondition, isShopCollectionSlug } from "./src/lib/shopCollectionFilters.ts";
+import { getShopCollectionCondition, getCuratedCollectionCondition, isShopCollectionSlug } from "./src/lib/shopCollectionFilters.ts";
 import { getSettingsMap } from "./src/server/settings.ts";
 import {
   resolveProductPricing,
@@ -227,7 +227,7 @@ async function startServer() {
     try {
       const {
         cat, all, limit: limitParam, sort, brand: brandSlug, minPrice, maxPrice, exclude,
-        conditionGroup, box, papers, material, movement, diameter, collection, hero,
+        conditionGroup, box, papers, material, movement, diameter, collection, hero, curated,
       } = req.query;
       
       let conditions: any[] = [];
@@ -276,7 +276,11 @@ async function startServer() {
       }
 
       if (typeof collection === "string" && isShopCollectionSlug(collection)) {
-        conditions.push(getShopCollectionCondition(collection));
+        if (curated === "true") {
+          conditions.push(getCuratedCollectionCondition(collection));
+        } else {
+          conditions.push(getShopCollectionCondition(collection));
+        }
       }
 
       let orderBy = cat === "new" ? desc(products.createdAt) : desc(products.createdAt);
@@ -929,6 +933,8 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
         stock: data.stock !== undefined ? parseInt(String(data.stock), 10) || 1 : 1,
         featuredInHero: data.featuredInHero === true || data.featuredInHero === "true",
         featuredInSport: data.featuredInSport === true || data.featuredInSport === "true",
+        featuredInVintage: data.featuredInVintage === true || data.featuredInVintage === "true",
+        featuredInUnder5000: data.featuredInUnder5000 === true || data.featuredInUnder5000 === "true",
         model: data.model || data.modelName,
         sourceUrl: data.sourceUrl || data.url,
         sourceProvider: data.sourceProvider,

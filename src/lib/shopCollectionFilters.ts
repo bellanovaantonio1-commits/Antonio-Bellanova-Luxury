@@ -4,6 +4,7 @@ import type { ShopCollectionSlug } from "../config/shopCollections.ts";
 import type { Product } from "../types.ts";
 import { shuffleOrder } from "./rotationQueue.ts";
 
+/** Shop listing filters — used when opening /shop?collection=… */
 export function getShopCollectionCondition(collection: ShopCollectionSlug): SQL {
   switch (collection) {
     case "sport":
@@ -12,6 +13,18 @@ export function getShopCollectionCondition(collection: ShopCollectionSlug): SQL 
       return eq(products.conditionGroup, "VINTAGE");
     case "under-5000":
       return lte(products.price, "5000");
+  }
+}
+
+/** Startseiten-Karten — nur explizit kuratierte Produkte */
+export function getCuratedCollectionCondition(collection: ShopCollectionSlug): SQL {
+  switch (collection) {
+    case "sport":
+      return eq(products.featuredInSport, true);
+    case "vintage":
+      return eq(products.featuredInVintage, true);
+    case "under-5000":
+      return eq(products.featuredInUnder5000, true);
   }
 }
 
@@ -37,7 +50,8 @@ export function productMatchesShopCollection(
 
 export function pickUniqueCollectionPreviews(
   byCollection: Record<ShopCollectionSlug, Product[]>,
-  slugs: readonly ShopCollectionSlug[]
+  slugs: readonly ShopCollectionSlug[],
+  options?: { stable?: boolean }
 ): Record<ShopCollectionSlug, Product | null> {
   const result = Object.fromEntries(slugs.map((slug) => [slug, null])) as Record<
     ShopCollectionSlug,
@@ -45,7 +59,9 @@ export function pickUniqueCollectionPreviews(
   >;
 
   const usedIds = new Set<string>();
-  const processingOrder = shuffleOrder(slugs.length).map((index) => slugs[index]);
+  const processingOrder = options?.stable
+    ? [...slugs]
+    : shuffleOrder(slugs.length).map((index) => slugs[index]);
 
   for (const slug of processingOrder) {
     const candidates = (byCollection[slug] ?? []).filter(
@@ -53,8 +69,9 @@ export function pickUniqueCollectionPreviews(
     );
     if (candidates.length === 0) continue;
 
-    const shuffled = shuffleOrder(candidates.length).map((index) => candidates[index]);
-    const pick = shuffled[0];
+    const pick = options?.stable
+      ? candidates[0]
+      : shuffleOrder(candidates.length).map((index) => candidates[index])[0];
     if (!pick) continue;
 
     result[slug] = pick;

@@ -31,7 +31,7 @@ export default function CuratedCollections() {
       const responses = await Promise.all(
         slugs.map(async (slug) => {
           try {
-            const res = await fetch(`/api/products?collection=${slug}&limit=30`);
+            const res = await fetch(`/api/products?collection=${slug}&curated=true&limit=30`);
             if (!res.ok) return [slug, [] as Product[]] as const;
             const products: Product[] = await res.json();
             return [slug, products] as const;
@@ -44,7 +44,7 @@ export default function CuratedCollections() {
       if (cancelled) return;
 
       const byCollection = Object.fromEntries(responses) as Record<ShopCollectionSlug, Product[]>;
-      setPreviews(pickUniqueCollectionPreviews(byCollection, slugs));
+      setPreviews(pickUniqueCollectionPreviews(byCollection, slugs, { stable: true }));
       setImageOverrides({});
     }
 

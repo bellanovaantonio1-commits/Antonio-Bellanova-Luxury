@@ -89,6 +89,8 @@ export interface Product {
   stock?: number;
   featuredInHero?: boolean;
   featuredInSport?: boolean;
+  featuredInVintage?: boolean;
+  featuredInUnder5000?: boolean;
   images: string[];
   mainImage?: string;
   

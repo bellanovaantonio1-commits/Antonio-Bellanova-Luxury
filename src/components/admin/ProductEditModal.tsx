@@ -261,20 +261,60 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                   </span>
                 </label>
 
-                <label className="flex items-start gap-3 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={formData.featuredInSport === true}
-                    onChange={(e) => setFormData({ ...formData, featuredInSport: e.target.checked })}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
-                  />
-                  <span className="text-sm text-gray-700">
-                    <span className="font-medium block">In Kollektion „Sportuhren“ anzeigen</span>
-                    <span className="text-xs text-gray-400">
-                      Nur explizit markierte Produkte erscheinen unter Sportuhren im Shop und auf der Startseite.
+                <div className="rounded-lg border border-gray-100 bg-gray-50/80 p-4 space-y-3">
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                    Kuratierte Kollektionen (Startseite)
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Wählen Sie, welches Produkt auf der jeweiligen Kollektions-Karte erscheint.
+                    Der Shop-Filter bleibt unverändert (Vintage = Zustandsgruppe, Under 5.000 € = Preis).
+                  </p>
+
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={formData.featuredInSport === true}
+                      onChange={(e) => setFormData({ ...formData, featuredInSport: e.target.checked })}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                    />
+                    <span className="text-sm text-gray-700">
+                      <span className="font-medium block">Karte „Sportuhren“</span>
+                      <span className="text-xs text-gray-400">
+                        Erscheint auf der Startseite und im Shop unter Sportuhren.
+                      </span>
                     </span>
-                  </span>
-                </label>
+                  </label>
+
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={formData.featuredInVintage === true}
+                      onChange={(e) => setFormData({ ...formData, featuredInVintage: e.target.checked })}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                    />
+                    <span className="text-sm text-gray-700">
+                      <span className="font-medium block">Karte „Vintage“</span>
+                      <span className="text-xs text-gray-400">
+                        Nur für die Startseiten-Vorschau. Im Shop gelten weiterhin Vintage-Produkte (Zustand).
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={formData.featuredInUnder5000 === true}
+                      onChange={(e) => setFormData({ ...formData, featuredInUnder5000: e.target.checked })}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                    />
+                    <span className="text-sm text-gray-700">
+                      <span className="font-medium block">Karte „Under 5.000 €“</span>
+                      <span className="text-xs text-gray-400">
+                        Nur für die Startseiten-Vorschau. Im Shop gelten weiterhin alle Produkte unter 5.000 €.
+                      </span>
+                    </span>
+                  </label>
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-2">
