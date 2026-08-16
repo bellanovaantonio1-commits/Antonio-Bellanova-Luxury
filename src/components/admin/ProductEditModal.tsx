@@ -116,7 +116,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-10">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-10 min-h-0">
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -129,10 +129,10 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+          className="relative w-full max-w-4xl max-h-[90vh] min-h-0 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
         >
           {/* Header */}
-          <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+          <div className="shrink-0 px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
             <div className="flex items-center gap-6">
               <div>
                 <h2 className="text-xl font-serif italic tracking-wide text-gray-900">Produkt bearbeiten</h2>
@@ -157,7 +157,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-10">
+          <form onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-8 space-y-10">
             {error && (
               <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm flex items-center gap-3">
                 <AlertCircle size={18} />
@@ -421,7 +421,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
           </form>
 
           {/* Footer */}
-          <div className="px-8 py-6 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center">
+          <div className="shrink-0 px-8 py-6 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center">
             <div>
               {product.id && (
                 <button 
