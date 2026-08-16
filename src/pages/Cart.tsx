@@ -38,6 +38,64 @@ const emptyAddress = (): AddressForm => ({
   country: "Deutschland",
 });
 
+function AddressFields({
+  value,
+  onChange,
+}: {
+  value: AddressForm;
+  onChange: (v: AddressForm) => void;
+  prefix?: string;
+}) {
+  const { t } = useLanguage();
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("cart.address.name")}</label>
+        <input
+          value={value.name}
+          onChange={(e) => onChange({ ...value, name: e.target.value })}
+          className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("cart.address.street")}</label>
+        <input
+          value={value.street}
+          onChange={(e) => onChange({ ...value, street: e.target.value })}
+          className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("cart.address.postal")}</label>
+          <input
+            value={value.postalCode}
+            onChange={(e) => onChange({ ...value, postalCode: e.target.value })}
+            className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("cart.address.city")}</label>
+          <input
+            value={value.city}
+            onChange={(e) => onChange({ ...value, city: e.target.value })}
+            className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("cart.address.country")}</label>
+        <input
+          value={value.country}
+          onChange={(e) => onChange({ ...value, country: e.target.value })}
+          className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function Cart() {
   const { items, removeItem, total, count, updateQuantity, clearCart } = useCart();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -500,61 +558,6 @@ export default function Cart() {
       </div>
     );
   }
-
-  const AddressFields = ({
-    value,
-    onChange,
-    prefix,
-  }: {
-    value: AddressForm;
-    onChange: (v: AddressForm) => void;
-    prefix: string;
-  }) => (
-    <div className="space-y-4">
-      <div>
-        <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("cart.address.name")}</label>
-        <input
-          value={value.name}
-          onChange={(e) => onChange({ ...value, name: e.target.value })}
-          className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
-        />
-      </div>
-      <div>
-        <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("cart.address.street")}</label>
-        <input
-          value={value.street}
-          onChange={(e) => onChange({ ...value, street: e.target.value })}
-          className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("cart.address.postal")}</label>
-          <input
-            value={value.postalCode}
-            onChange={(e) => onChange({ ...value, postalCode: e.target.value })}
-            className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
-          />
-        </div>
-        <div>
-          <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("cart.address.city")}</label>
-          <input
-            value={value.city}
-            onChange={(e) => onChange({ ...value, city: e.target.value })}
-            className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
-          />
-        </div>
-      </div>
-      <div>
-        <label className="text-[10px] tracking-widest uppercase text-white/40 font-bold">{t("cart.address.country")}</label>
-        <input
-          value={value.country}
-          onChange={(e) => onChange({ ...value, country: e.target.value })}
-          className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-[#c5a059]/50"
-        />
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen pt-40 pb-20 px-10">
