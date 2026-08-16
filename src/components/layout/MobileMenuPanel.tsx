@@ -45,7 +45,7 @@ export default function MobileMenuPanel({
       animate={{ x: 0 }}
       exit={{ x: "-100%" }}
       transition={{ type: "spring", damping: 28, stiffness: 220 }}
-      className="fixed top-0 left-0 bottom-0 z-[60] w-[min(340px,88vw)] bg-[#050505] border-r border-white/[0.08] flex flex-col overflow-hidden lg:hidden"
+      className="fixed top-0 left-0 bottom-0 z-[110] w-full max-w-[340px] bg-[#050505] border-r border-white/[0.08] flex flex-col overflow-hidden safe-area-pt"
       aria-label={language === "en" ? "Navigation menu" : "Navigationsmenü"}
     >
       <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-[#c5a059]/25 to-transparent pointer-events-none" />

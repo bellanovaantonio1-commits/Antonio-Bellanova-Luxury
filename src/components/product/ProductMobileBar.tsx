@@ -22,7 +22,7 @@ export default function ProductMobileBar({
   const canBuy = canPurchaseProduct(product, priceOnRequest);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[90] md:hidden bg-[#050505]/95 backdrop-blur-md border-t border-white/10 px-4 py-3 flex items-center gap-3 safe-area-pb">
+    <div className="fixed bottom-0 left-0 right-0 z-[90] lg:hidden bg-[#050505]/95 backdrop-blur-md border-t border-white/10 px-4 py-3 flex items-center gap-3 safe-area-pb">
       <div className="flex-1 min-w-0">
         <p className="text-[9px] uppercase tracking-widest text-white/35 truncate">{product.brand?.name}</p>
         <p className="text-sm font-serif text-[#c5a059] truncate">

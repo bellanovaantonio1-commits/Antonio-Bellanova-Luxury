@@ -12,24 +12,9 @@ import { collection, query, where, onSnapshot, gt } from "firebase/firestore";
 import { db as firestoreDb } from "../lib/firebase.ts";
 
 import { useCookieConsent } from "../contexts/CookieConsentContext.tsx";
+import { useIsDesktopLayout } from "../hooks/useMediaQuery.ts";
 
 type SortOption = "newest" | "price-asc" | "price-desc" | "name";
-
-function useIsMobile(breakpoint = 768) {
-  const [isMobile, setIsMobile] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(`(max-width: ${breakpoint - 1}px)`).matches
-  );
-
-  useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
-    const update = () => setIsMobile(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, [breakpoint]);
-
-  return isMobile;
-}
 
 export default function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -53,8 +38,8 @@ export default function Shop() {
   const shopSettings = useShopSettings();
   const priceOnRequestThreshold = parsePriceOnRequestThreshold(shopSettings);
   const { bannerVisible } = useCookieConsent();
-  const isMobile = useIsMobile();
-  const effectiveViewMode = isMobile ? "grid" : viewMode;
+  const isDesktop = useIsDesktopLayout();
+  const effectiveViewMode = isDesktop ? viewMode : "grid";
 
   useEffect(() => {
     fetch("/api/brands").then(r => r.ok ? r.json() : []).then(data =>
@@ -244,7 +229,7 @@ export default function Shop() {
                 <option value="name" className="bg-[#0a0a0a]">Name A–Z</option>
               </select>
 
-              <div className="flex items-center gap-2 border-r border-white/10 pr-4">
+              <div className="hidden lg:flex items-center gap-2 border-r border-white/10 pr-4">
                 <button onClick={() => setViewMode("grid")} className={`p-2 transition-colors ${viewMode === "grid" ? "text-[#c5a059]" : "text-white/30 hover:text-[#F4F4F4]"}`}>
                   <LayoutGrid size={18} strokeWidth={1.5} />
                 </button>
@@ -332,7 +317,7 @@ export default function Shop() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="md:hidden fixed inset-0 z-[80] bg-black/70"
+            className="lg:hidden fixed inset-0 z-[80] bg-black/70"
             onClick={() => setShowFilters(false)}
           >
             <motion.div
@@ -356,7 +341,7 @@ export default function Shop() {
       <button
         type="button"
         onClick={() => setShowFilters(true)}
-        className={`md:hidden fixed left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2 bg-[#c5a059] text-black px-6 py-3 rounded-full text-[10px] tracking-widest uppercase font-bold shadow-2xl safe-area-pb ${
+        className={`lg:hidden fixed left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2 bg-[#c5a059] text-black px-6 py-3 rounded-full text-[10px] tracking-widest uppercase font-bold shadow-2xl safe-area-pb ${
           bannerVisible ? "bottom-36" : "bottom-24"
         }`}
       >
