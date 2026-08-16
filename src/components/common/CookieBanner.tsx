@@ -18,7 +18,7 @@ export default function CookieBanner() {
   };
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-[70] p-4 md:p-6">
+    <div className="fixed bottom-0 inset-x-0 z-[70] p-4 md:p-6 safe-area-pb">
       <div className="max-w-4xl mx-auto bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 rounded-2xl p-6 flex flex-col md:flex-row items-center gap-6 shadow-2xl">
         <p className="text-sm text-white/60 font-light leading-relaxed flex-1">
           {language === "en" ? (

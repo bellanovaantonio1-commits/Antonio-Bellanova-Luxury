@@ -117,10 +117,10 @@ export default function HomeHeroSection({ products, loading }: HomeHeroSectionPr
   }, [currentItem, language, priceOnRequestThreshold, shopSettings.shopBrandName, t]);
 
   return (
-    <section className="relative h-screen flex overflow-hidden border-b border-white/10">
+    <section className="relative min-h-[100dvh] lg:h-screen flex flex-col lg:flex-row overflow-hidden border-b border-white/10">
       <div
         ref={heroPanelRef}
-        className="w-full lg:w-3/5 border-r border-white/10 relative p-12 flex flex-col justify-end outline-none"
+        className="w-full lg:w-3/5 border-r border-white/10 relative p-6 sm:p-8 lg:p-12 flex flex-col justify-end outline-none min-h-[58dvh] lg:min-h-0"
         tabIndex={canRotate && !loading ? 0 : -1}
         role="region"
         aria-roledescription="carousel"
@@ -228,7 +228,7 @@ export default function HomeHeroSection({ products, loading }: HomeHeroSectionPr
                   exit={{ opacity: 0, y: prefersReducedMotion ? 0 : -8 }}
                   transition={contentTransition}
                 >
-                  <h2 className="text-white text-5xl md:text-7xl font-serif leading-[0.9] font-light">
+                  <h2 className="text-white text-4xl sm:text-5xl md:text-7xl font-serif leading-[0.9] font-light">
                     {heroContent.line1}
                     {heroContent.line2 ? (
                       <>
@@ -260,7 +260,7 @@ export default function HomeHeroSection({ products, loading }: HomeHeroSectionPr
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={contentTransition}
-                  className="flex flex-wrap items-center gap-10"
+                  className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-6 sm:gap-10"
                 >
                   {heroContent.condition ? (
                     <div className="min-w-[8rem]">
@@ -280,7 +280,7 @@ export default function HomeHeroSection({ products, loading }: HomeHeroSectionPr
                   </div>
                   <Link
                     to={`/product/${heroContent.slug}`}
-                    className="ml-auto h-14 px-10 border border-white/20 text-[10px] tracking-[0.3em] hover:bg-white hover:text-black transition-all uppercase flex items-center justify-center font-bold pointer-events-auto"
+                    className="w-full sm:w-auto sm:ml-auto h-12 sm:h-14 px-8 sm:px-10 border border-white/20 text-[10px] tracking-[0.3em] hover:bg-white hover:text-black transition-all uppercase flex items-center justify-center font-bold pointer-events-auto"
                   >
                     {t("home.hero.view_details")}
                   </Link>

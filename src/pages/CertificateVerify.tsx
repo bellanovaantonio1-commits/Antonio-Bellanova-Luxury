@@ -49,12 +49,12 @@ export default function CertificateVerify() {
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white pt-32 pb-20 px-6">
+    <div className="min-h-screen bg-[#050505] text-white page-pt page-pb page-x">
       <MetaTags
         title={language === "en" ? "Certificate Verification" : "Zertifikatsprüfung"}
         description={language === "en" ? "Verify authenticity certificate" : "Echtheitszertifikat prüfen"}
       />
-      <div className="max-w-xl mx-auto">
+      <div className="max-w-xl mx-auto w-full">
         <div className="text-center mb-10">
           <Shield className="mx-auto text-[#c5a059] mb-4" size={40} strokeWidth={1.2} />
           <h1 className="text-3xl font-serif italic text-[#c5a059]">

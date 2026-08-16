@@ -127,7 +127,7 @@ export default function ProductGallery({
               <button
                 type="button"
                 onClick={goPrev}
-                className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-black/40 backdrop-blur-sm border border-white/10 text-white/60 hover:text-[#c5a059] opacity-0 group-hover:opacity-100 transition-all"
+                className="absolute left-3 top-1/2 -translate-y-1/2 p-2 min-h-11 min-w-11 flex items-center justify-center bg-black/40 backdrop-blur-sm border border-white/10 text-white/60 hover:text-[#c5a059] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                 aria-label="Previous image"
               >
                 <ChevronLeft size={22} strokeWidth={1} />
@@ -137,7 +137,7 @@ export default function ProductGallery({
               <button
                 type="button"
                 onClick={goNext}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-black/40 backdrop-blur-sm border border-white/10 text-white/60 hover:text-[#c5a059] opacity-0 group-hover:opacity-100 transition-all"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 min-h-11 min-w-11 flex items-center justify-center bg-black/40 backdrop-blur-sm border border-white/10 text-white/60 hover:text-[#c5a059] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                 aria-label="Next image"
               >
                 <ChevronRight size={22} strokeWidth={1} />

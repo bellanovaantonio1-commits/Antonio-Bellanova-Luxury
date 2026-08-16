@@ -14,9 +14,9 @@ const variantStyles: Record<
   { wrapper: string; title: string; subtitle: string }
 > = {
   navbar: {
-    wrapper: "items-center",
-    title: "text-xl md:text-2xl font-serif tracking-[0.4em] leading-tight italic text-[#F4F4F4]",
-    subtitle: "text-[9px] md:text-[10px] tracking-[0.5em] text-[#c5a059] mt-1 opacity-80",
+    wrapper: "items-center max-w-[42vw] sm:max-w-none",
+    title: "text-sm sm:text-xl md:text-2xl font-serif tracking-[0.15em] sm:tracking-[0.3em] md:tracking-[0.4em] leading-tight italic text-[#F4F4F4] truncate",
+    subtitle: "text-[8px] sm:text-[9px] md:text-[10px] tracking-[0.35em] sm:tracking-[0.5em] text-[#c5a059] mt-0.5 sm:mt-1 opacity-80",
   },
   menu: {
     wrapper: "items-center text-center px-2",

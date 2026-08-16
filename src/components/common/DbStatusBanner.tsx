@@ -16,7 +16,7 @@ export default function DbStatusBanner() {
   if (!offline || dismissed) return null;
 
   return (
-    <div className="fixed top-0 inset-x-0 z-[80] bg-amber-950/95 border-b border-amber-500/30 text-amber-100 px-6 py-3 text-sm">
+    <div className="bg-amber-950/95 border-b border-amber-500/30 text-amber-100 px-5 sm:px-8 py-3 text-sm">
       <div className="max-w-4xl mx-auto flex items-start gap-3">
         <AlertTriangle size={18} className="shrink-0 mt-0.5 text-amber-400" />
         <div className="flex-1">

@@ -113,7 +113,7 @@ export default function CertificateDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-[#f5f0e8] pt-28 pb-20 px-5 md:px-10">
+    <div className="min-h-screen bg-[#050505] text-[#f5f0e8] page-pt page-pb page-x">
       <MetaTags
         title={
           language === "en"

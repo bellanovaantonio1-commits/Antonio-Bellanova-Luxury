@@ -42,7 +42,7 @@ export default function BookAppointment() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen pt-40 pb-20 px-10 flex items-center justify-center text-center">
+      <div className="min-h-screen page-pt page-pb page-x flex items-center justify-center text-center">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-md space-y-6">
           <CheckCircle2 size={64} className="mx-auto text-[#c5a059]" strokeWidth={1} />
           <h1 className="text-3xl font-serif italic">Terminanfrage gesendet</h1>
@@ -58,7 +58,7 @@ export default function BookAppointment() {
   }
 
   return (
-    <div className="min-h-screen pt-40 pb-20 px-10">
+    <div className="min-h-screen page-pt page-pb page-x">
       <div className="max-w-3xl mx-auto space-y-12">
         <header className="space-y-4 text-center">
           <Calendar size={32} className="mx-auto text-[#c5a059]" strokeWidth={1.5} />

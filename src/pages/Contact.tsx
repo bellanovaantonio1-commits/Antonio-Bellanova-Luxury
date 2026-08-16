@@ -37,7 +37,7 @@ export default function Contact() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen pt-40 pb-20 px-10 flex items-center justify-center text-center">
+      <div className="min-h-screen page-pt page-pb page-x flex items-center justify-center text-center">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-md space-y-6">
           <CheckCircle2 size={64} className="mx-auto text-[#c5a059]" strokeWidth={1} />
           <h1 className="text-3xl font-serif italic tracking-wider">{t("contact.form.success.title")}</h1>
@@ -52,7 +52,7 @@ export default function Contact() {
   }
 
   return (
-    <div className="min-h-screen pt-40 pb-20 px-10">
+    <div className="min-h-screen page-pt page-pb page-x">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-24">
         <div className="space-y-16">
           <header className="space-y-6">
@@ -105,10 +105,10 @@ export default function Contact() {
           </div>
         </div>
 
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-12 rounded-2xl shadow-2xl relative overflow-hidden">
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 sm:p-12 rounded-2xl shadow-2xl relative overflow-hidden">
           <form onSubmit={handleSubmit} className="relative z-10 space-y-8">
             {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-3 text-sm">{error}</div>}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <label className="block text-[10px] tracking-[0.2em] uppercase text-[#F4F4F4]/40">{t("contact.form.firstname")}</label>
                 <input type="text" required value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}

@@ -35,7 +35,7 @@ export default function Sell() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen pt-40 pb-20 px-10 flex items-center justify-center text-center">
+      <div className="min-h-screen page-pt page-pb page-x flex items-center justify-center text-center">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-md space-y-6">
           <CheckCircle2 size={64} className="mx-auto text-[#c5a059]" strokeWidth={1} />
           <h1 className="text-3xl font-serif italic tracking-wider">Vielen Dank</h1>
@@ -55,7 +55,7 @@ export default function Sell() {
     setForm(f => ({ ...f, [key]: e.target.value }));
 
   return (
-    <div className="min-h-screen pt-40 pb-20 px-10">
+    <div className="min-h-screen page-pt page-pb page-x">
       <div className="max-w-4xl mx-auto space-y-20">
         <header className="text-center space-y-6">
           <h4 className="text-[10px] tracking-[0.4em] uppercase font-bold text-[#c5a059]">Service</h4>

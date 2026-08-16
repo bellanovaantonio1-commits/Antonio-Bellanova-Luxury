@@ -342,7 +342,7 @@ export default function ProductDetails() {
   const images = product.images?.length ? product.images : [];
 
   return (
-    <div className="pt-28 md:pt-32 pb-36 md:pb-28 px-5 md:px-10 bg-[#050505] min-h-screen">
+    <div className="page-pt pb-36 md:pb-28 page-x bg-[#050505] min-h-screen">
       <MetaTags title={displayTitle} description={seoDescription} image={product.images?.[0]} />
 
       <AnimatePresence>

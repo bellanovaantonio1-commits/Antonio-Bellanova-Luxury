@@ -46,18 +46,18 @@ export default function HomeHighlightsSection({ products, loading }: HomeHighlig
   }, [products]);
 
   return (
-    <section className="py-32 px-10 bg-[#050505]">
-      <div className="max-w-7xl mx-auto space-y-24">
-        <div className="flex justify-between items-end">
+    <section className="py-20 sm:py-32 page-x bg-[#050505]">
+      <div className="max-w-7xl mx-auto space-y-16 sm:space-y-24">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-6">
           <div>
             <span className="text-[#c5a059] text-[10px] tracking-[0.4em] uppercase font-bold mb-4 block">
               {t("home.highlights.subtitle")}
             </span>
-            <h2 className="text-5xl font-serif tracking-tight">{t("home.highlights.title")}</h2>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif tracking-tight">{t("home.highlights.title")}</h2>
           </div>
           <Link
             to="/shop"
-            className="text-[10px] tracking-[0.3em] uppercase border-b border-white/20 pb-1 hover:text-[#c5a059] hover:border-[#c5a059] transition-all mb-2"
+            className="text-[10px] tracking-[0.3em] uppercase border-b border-white/20 pb-1 hover:text-[#c5a059] hover:border-[#c5a059] transition-all self-start sm:mb-2"
           >
             {t("home.highlights.view_all")}
           </Link>

@@ -47,7 +47,7 @@ export default function BrandPage() {
   const description = language === "en" && brand.descriptionEn ? brand.descriptionEn : (brand.descriptionDe || "");
 
   return (
-    <div className="pt-32 pb-24 px-10 bg-[#050505]">
+    <div className="page-pt page-pb page-x bg-[#050505]">
       <MetaTags title={brand.name} description={description || `${brand.name} — Antonio Bellanova Luxury`} />
       <div className="max-w-7xl mx-auto">
         <nav className="text-[10px] tracking-widest uppercase text-white/30 mb-8 flex gap-2">

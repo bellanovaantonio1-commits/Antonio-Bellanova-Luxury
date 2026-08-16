@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ShoppingBag, Search, User, Menu, Heart } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../../contexts/AuthContext.tsx";
@@ -20,6 +20,7 @@ export default function Navbar() {
   const { count } = useCart();
   const { language, setLanguage, t } = useLanguage();
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
@@ -27,110 +28,175 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close search and menu on navigation
   useEffect(() => {
     setIsMenuOpen(false);
     setIsSearchOpen(false);
   }, [location]);
 
+  const handleAccountClick = () => {
+    if (user) {
+      navigate("/account");
+      return;
+    }
+    signIn();
+  };
+
   return (
-    <nav 
-      className={`fixed top-0 w-full z-50 transition-all duration-700 border-b ${
+    <nav
+      className={`w-full transition-all duration-700 border-b ${
         isScrolled
-          ? "bg-[#050505]/95 backdrop-blur-xl py-4 border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.45)]"
-          : "bg-transparent py-7 md:py-8 border-transparent"
+          ? "bg-[#050505]/95 backdrop-blur-xl py-3 md:py-4 border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.45)]"
+          : "bg-[#050505]/80 md:bg-transparent py-4 md:py-7 lg:py-8 border-transparent"
       }`}
     >
-      <div className="max-w-7xl mx-auto px-10 flex items-center justify-between">
-        {/* Mobile Menu Toggle */}
-        <button className="lg:hidden text-[#F4F4F4]" onClick={() => setIsMenuOpen(true)}>
-          <Menu size={24} />
-        </button>
+      <div className="max-w-7xl mx-auto page-x">
+        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 lg:flex lg:justify-between">
+          <div className="flex items-center gap-1 lg:gap-0">
+            <button
+              type="button"
+              className="touch-target lg:hidden text-[#F4F4F4]"
+              onClick={() => setIsMenuOpen(true)}
+              aria-label={language === "en" ? "Open menu" : "Menü öffnen"}
+            >
+              <Menu size={22} />
+            </button>
 
-        {/* Desktop Nav */}
-        <div className="hidden lg:flex items-center gap-8 text-[11px] tracking-[0.2em] font-light uppercase">
-          {MAIN_NAV.map((item) => (
-            <Link key={item.path} to={item.path} className="hover:text-[#c5a059] transition-colors">
-              {item.path === "/shop" ? t("nav.shop") : 
-               item.path === "/brands" ? t("nav.brands") :
-               item.path === "/sell" ? t("nav.sell") :
-               item.path === "/service" ? t("nav.service") : item.label}
+            <button
+              type="button"
+              onClick={() => setIsSearchOpen(true)}
+              className="touch-target lg:hidden text-[#F4F4F4] hover:text-[#c5a059] transition-colors"
+              aria-label={language === "en" ? "Search" : "Suche"}
+            >
+              <Search size={20} strokeWidth={1.5} />
+            </button>
+
+            <div className="hidden lg:flex items-center gap-8 text-[11px] tracking-[0.2em] font-light uppercase">
+              {MAIN_NAV.map((item) => (
+                <Link key={item.path} to={item.path} className="hover:text-[#c5a059] transition-colors">
+                  {item.path === "/shop"
+                    ? t("nav.shop")
+                    : item.path === "/brands"
+                      ? t("nav.brands")
+                      : item.path === "/sell"
+                        ? t("nav.sell")
+                        : item.path === "/service"
+                          ? t("nav.service")
+                          : item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <BrandMark variant="navbar" asLink className="justify-self-center group hover:opacity-95 transition-opacity" />
+
+          <div className="flex items-center justify-end gap-2 sm:gap-4 md:gap-8">
+            <div className="hidden md:flex items-center gap-3 mr-4 text-[10px] tracking-[0.2em] font-light">
+              <button
+                type="button"
+                onClick={() => setLanguage("de")}
+                className={`hover:text-[#c5a059] transition-colors ${language === "de" ? "text-[#c5a059] font-bold" : "opacity-70"}`}
+              >
+                DE
+              </button>
+              <span className="opacity-30">|</span>
+              <button
+                type="button"
+                onClick={() => setLanguage("en")}
+                className={`hover:text-[#c5a059] transition-colors ${language === "en" ? "text-[#c5a059] font-bold" : "opacity-70"}`}
+              >
+                EN
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsSearchOpen(true)}
+              className="hidden md:block hover:text-[#c5a059] transition-colors opacity-90"
+              aria-label={language === "en" ? "Search" : "Suche"}
+            >
+              <Search size={18} strokeWidth={1.5} />
+            </button>
+
+            <Link
+              to="/wishlist"
+              className="touch-target hover:text-[#c5a059] transition-colors opacity-90"
+              aria-label={language === "en" ? "Wishlist" : "Wunschliste"}
+            >
+              <Heart size={18} strokeWidth={1.5} />
             </Link>
-          ))}
-        </div>
 
-        {/* Logo */}
-        <BrandMark variant="navbar" asLink className="group hover:opacity-95 transition-opacity" />
-
-        {/* Actions */}
-        <div className="flex items-center gap-4 md:gap-8">
-          {/* Language Switcher */}
-          <div className="hidden md:flex items-center gap-3 mr-4 text-[10px] tracking-[0.2em] font-light">
-            <button 
-              onClick={() => setLanguage("de")}
-              className={`hover:text-[#c5a059] transition-colors ${language === "de" ? "text-[#c5a059] font-bold" : "opacity-70"}`}
-            >
-              DE
-            </button>
-            <span className="opacity-30">|</span>
-            <button 
-              onClick={() => setLanguage("en")}
-              className={`hover:text-[#c5a059] transition-colors ${language === "en" ? "text-[#c5a059] font-bold" : "opacity-70"}`}
-            >
-              EN
-            </button>
-          </div>
-
-          <button 
-            onClick={() => setIsSearchOpen(true)}
-            className="hidden md:block hover:text-[#c5a059] transition-colors opacity-90"
-          >
-            <Search size={18} strokeWidth={1.5} />
-          </button>
-          
-          <Link to="/wishlist" className="hover:text-[#c5a059] transition-colors opacity-90">
-            <Heart size={18} strokeWidth={1.5} />
-          </Link>
-          
-          <div className="relative group">
-            {user && isAdmin && (
-              <Link to="/admin" className="hidden md:flex items-center gap-1.5 bg-[#c5a059]/20 text-[#c5a059] px-3 py-1.5 rounded-full text-[9px] tracking-widest uppercase font-bold hover:bg-[#c5a059]/30 transition-all mr-2">
-                Admin
-              </Link>
-            )}
-            <button 
-              onClick={() => !user && signIn()}
-              className="hover:text-[#c5a059] transition-colors flex items-center gap-2 opacity-90 hover:opacity-100"
-            >
-              <User size={18} strokeWidth={1.5} />
-              {user && <span className="hidden md:block text-[10px] tracking-widest uppercase">{t("nav.account")}</span>}
-            </button>
-            {user && (
-              <div className="absolute right-0 top-full mt-4 w-48 bg-[#0a0a0a] shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 py-2 border border-white/10">
-                {isAdmin && (
-                  <Link to="/admin" className="block px-4 py-3 text-[10px] tracking-widest uppercase hover:bg-white/5 transition-colors">Admin Panel</Link>
+            <div className="relative group">
+              {user && isAdmin && (
+                <Link
+                  to="/admin"
+                  className="hidden md:flex items-center gap-1.5 bg-[#c5a059]/20 text-[#c5a059] px-3 py-1.5 rounded-full text-[9px] tracking-widest uppercase font-bold hover:bg-[#c5a059]/30 transition-all mr-2"
+                >
+                  Admin
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={handleAccountClick}
+                className="touch-target hover:text-[#c5a059] transition-colors flex items-center gap-2 opacity-90 hover:opacity-100 lg:hidden"
+                aria-label={language === "en" ? "Account" : "Konto"}
+              >
+                <User size={18} strokeWidth={1.5} />
+              </button>
+              <button
+                type="button"
+                onClick={handleAccountClick}
+                className="hidden lg:flex hover:text-[#c5a059] transition-colors items-center gap-2 opacity-90 hover:opacity-100"
+              >
+                <User size={18} strokeWidth={1.5} />
+                {user && (
+                  <span className="text-[10px] tracking-widest uppercase">{t("nav.account")}</span>
                 )}
-                <Link to="/account" className="block px-4 py-3 text-[10px] tracking-widest uppercase hover:bg-white/5 transition-colors">{t("nav.profile")}</Link>
-                <button onClick={logout} className="w-full text-left px-4 py-3 text-[10px] tracking-widest uppercase hover:bg-white/5 transition-colors text-red-400">{t("nav.logout")}</button>
-              </div>
-            )}
-          </div>
+              </button>
+              {user && (
+                <div className="absolute right-0 top-full mt-4 w-48 bg-[#0a0a0a] shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 py-2 border border-white/10 hidden lg:block">
+                  {isAdmin && (
+                    <Link
+                      to="/admin"
+                      className="block px-4 py-3 text-[10px] tracking-widest uppercase hover:bg-white/5 transition-colors"
+                    >
+                      Admin Panel
+                    </Link>
+                  )}
+                  <Link
+                    to="/account"
+                    className="block px-4 py-3 text-[10px] tracking-widest uppercase hover:bg-white/5 transition-colors"
+                  >
+                    {t("nav.profile")}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="w-full text-left px-4 py-3 text-[10px] tracking-widest uppercase hover:bg-white/5 transition-colors text-red-400"
+                  >
+                    {t("nav.logout")}
+                  </button>
+                </div>
+              )}
+            </div>
 
-          <Link to="/cart" className="hover:text-[#c5a059] transition-colors relative opacity-90 hover:opacity-100">
-            <ShoppingBag size={18} strokeWidth={1.5} />
-            {count > 0 && (
-              <span className="absolute -top-2 -right-2 bg-[#c5a059] text-black text-[8px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">
-                {count}
-              </span>
-            )}
-          </Link>
+            <Link
+              to="/cart"
+              className="touch-target hover:text-[#c5a059] transition-colors relative opacity-90 hover:opacity-100"
+              aria-label={language === "en" ? "Cart" : "Warenkorb"}
+            >
+              <ShoppingBag size={18} strokeWidth={1.5} />
+              {count > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#c5a059] text-black text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                  {count}
+                </span>
+              )}
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* Search Overlay */}
       <SearchOverlay isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
 
-      {/* Mobile Sidebar */}
       <AnimatePresence>
         {isMenuOpen && (
           <>
@@ -146,6 +212,12 @@ export default function Navbar() {
               t={t}
               setLanguage={setLanguage}
               onClose={() => setIsMenuOpen(false)}
+              onOpenSearch={() => {
+                setIsMenuOpen(false);
+                setIsSearchOpen(true);
+              }}
+              user={user}
+              onSignIn={signIn}
             />
           </>
         )}

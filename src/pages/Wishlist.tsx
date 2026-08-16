@@ -65,7 +65,7 @@ export default function Wishlist() {
   };
 
   return (
-    <div className="min-h-screen pt-40 pb-20 px-10">
+    <div className="min-h-screen page-pt page-pb page-x">
       <div className="max-w-6xl mx-auto space-y-16">
         <header className="space-y-4 text-center">
           <h4 className="text-[10px] tracking-[0.4em] uppercase font-bold text-[#c5a059]">Kollektion</h4>

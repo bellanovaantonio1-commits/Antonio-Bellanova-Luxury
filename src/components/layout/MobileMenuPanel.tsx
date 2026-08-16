@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { X } from "lucide-react";
+import { Search, User, X } from "lucide-react";
 import { motion } from "motion/react";
 import BrandMark from "./BrandMark.tsx";
 import { MAIN_NAV, FOOTER_NAV } from "../../config/navigation.ts";
@@ -10,6 +10,9 @@ interface MobileMenuPanelProps {
   t: (key: string) => string;
   setLanguage: (lang: "de" | "en") => void;
   onClose: () => void;
+  onOpenSearch: () => void;
+  user: { uid: string } | null;
+  onSignIn: () => void;
 }
 
 export default function MobileMenuPanel({
@@ -17,6 +20,9 @@ export default function MobileMenuPanel({
   t,
   setLanguage,
   onClose,
+  onOpenSearch,
+  user,
+  onSignIn,
 }: MobileMenuPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +72,49 @@ export default function MobileMenuPanel({
         </motion.div>
 
         <div className="mx-auto w-12 h-px bg-gradient-to-r from-transparent via-[#c5a059]/50 to-transparent mb-10" />
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12, duration: 0.4 }}
+          className="mb-8 flex flex-col gap-3"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onOpenSearch();
+            }}
+            className="w-full flex items-center gap-3 py-4 px-4 border border-white/10 rounded-xl text-left hover:border-[#c5a059]/40 transition-colors"
+          >
+            <Search size={18} className="text-[#c5a059]" />
+            <span className="text-[11px] tracking-[0.2em] uppercase text-white/70">
+              {language === "en" ? "Search products" : "Produkte suchen"}
+            </span>
+          </button>
+          {user ? (
+            <Link
+              to="/account"
+              onClick={onClose}
+              className="w-full flex items-center gap-3 py-4 px-4 border border-white/10 rounded-xl hover:border-[#c5a059]/40 transition-colors"
+            >
+              <User size={18} className="text-[#c5a059]" />
+              <span className="text-[11px] tracking-[0.2em] uppercase text-white/70">{t("nav.account")}</span>
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onSignIn();
+              }}
+              className="w-full flex items-center gap-3 py-4 px-4 border border-[#c5a059]/30 rounded-xl text-left"
+            >
+              <User size={18} className="text-[#c5a059]" />
+              <span className="text-[11px] tracking-[0.2em] uppercase text-[#c5a059]">{t("nav.account")}</span>
+            </button>
+          )}
+        </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 10 }}

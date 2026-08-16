@@ -10,7 +10,7 @@ interface InfoPageProps {
 
 export default function InfoPage({ title, subtitle, content }: InfoPageProps) {
   return (
-    <div className="min-h-screen pt-40 pb-20 px-10">
+    <div className="min-h-screen page-pt page-pb page-x">
       <div className="max-w-4xl mx-auto space-y-16">
         <header className="space-y-6 text-center">
           {subtitle && (

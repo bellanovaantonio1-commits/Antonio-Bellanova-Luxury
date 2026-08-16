@@ -22,7 +22,7 @@ export default function Footer() {
 
   return (
     <footer className="bg-[#050505] text-[#F4F4F4] pt-24 pb-12 border-t border-white/10">
-      <div className="max-w-7xl mx-auto px-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8 border-b border-white/10 pb-16">
+      <div className="max-w-7xl mx-auto page-x grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8 border-b border-white/10 pb-16">
         {/* Brand */}
         <div className="space-y-6">
           <BrandMark variant="footer" asLink />
@@ -130,7 +130,7 @@ export default function Footer() {
       </div>
 
       {/* Newsletter */}
-      <div className="max-w-7xl mx-auto px-10 py-12 border-b border-white/10">
+      <div className="max-w-7xl mx-auto page-x py-12 border-b border-white/10">
         <div className="max-w-md space-y-4">
           <h4 className="text-[10px] tracking-[0.3em] uppercase font-bold text-[#c5a059]">Newsletter</h4>
           <p className="text-[12px] text-white/70 font-light">Neuheiten und exklusive Angebote — direkt in Ihr Postfach.</p>
@@ -141,7 +141,7 @@ export default function Footer() {
       </div>
 
       {/* Bottom Bar */}
-      <div className="max-w-7xl mx-auto px-10 pt-12 flex flex-col md:flex-row justify-between items-center gap-6 text-[9px] tracking-[0.3em] text-white/50 uppercase font-light">
+      <div className="max-w-7xl mx-auto page-x pt-12 flex flex-col md:flex-row justify-between items-center gap-6 text-[9px] tracking-[0.3em] text-white/50 uppercase font-light">
         <p>© {new Date().getFullYear()} {settings.shopName}. {t("footer.rights")}</p>
         <div className="flex flex-wrap justify-center gap-x-6 gap-y-3 max-w-3xl">
           {FOOTER_NAV.legal.map((item) => (

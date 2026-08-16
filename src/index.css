@@ -4,15 +4,43 @@
   html {
     scroll-behavior: smooth;
     background-color: #050505;
+    overflow-x: clip;
   }
   
   body {
     @apply antialiased bg-[#050505] text-[#F4F4F4];
     font-family: 'Inter', sans-serif;
+    overflow-x: clip;
   }
 
   h1, h2, h3, h4, .font-serif {
     font-family: 'Playfair Display', serif;
+  }
+}
+
+@layer utilities {
+  .page-x {
+    @apply px-5 sm:px-8 lg:px-10;
+  }
+
+  .page-pt {
+    @apply pt-24 sm:pt-28 lg:pt-32;
+  }
+
+  .page-pb {
+    @apply pb-16 sm:pb-20;
+  }
+
+  .safe-area-pb {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .safe-area-pt {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .touch-target {
+    @apply min-h-11 min-w-11 inline-flex items-center justify-center;
   }
 }
 

@@ -54,7 +54,7 @@ function OrderTracking({ status }: { status: OrderStatus }) {
               >
                 <Icon size={14} />
               </motion.div>
-              <span className={`text-[9px] tracking-widest uppercase font-bold text-center absolute -bottom-8 w-24 transition-colors ${isActive ? "text-white" : "text-white/20"}`}>
+              <span className={`text-[9px] tracking-widest uppercase font-bold text-center sm:absolute sm:-bottom-8 sm:w-24 transition-colors ${isActive ? "text-white" : "text-white/20"}`}>
                 {step.label}
               </span>
             </div>
@@ -601,7 +601,7 @@ export default function Account() {
   ];
 
   return (
-    <div className="min-h-screen pt-40 pb-20 px-10">
+    <div className="min-h-screen page-pt page-pb page-x">
       <div className="max-w-6xl mx-auto space-y-16">
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-white/10 pb-12">
           <div className="space-y-4">

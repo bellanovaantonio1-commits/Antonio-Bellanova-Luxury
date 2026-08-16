@@ -40,7 +40,7 @@ export default function ProductMobileBar({
         <button
           type="button"
           onClick={onAddToCart}
-          className="px-4 py-3 bg-white text-black text-[9px] tracking-widest uppercase font-bold shrink-0"
+          className="min-h-11 px-4 py-3 bg-white text-black text-[9px] tracking-widest uppercase font-bold shrink-0"
         >
           {t("product.add_to_cart")}
         </button>
@@ -48,7 +48,7 @@ export default function ProductMobileBar({
       <button
         type="button"
         onClick={onReserve}
-        className="px-4 py-3 border border-[#c5a059]/50 text-[#c5a059] text-[9px] tracking-widest uppercase font-bold shrink-0"
+        className="min-h-11 px-4 py-3 border border-[#c5a059]/50 text-[#c5a059] text-[9px] tracking-widest uppercase font-bold shrink-0"
       >
         {t("product.reserve.button").split(" / ")[0]}
       </button>

@@ -455,7 +455,7 @@ export default function Cart() {
         : paymentInfo?.paymentInstructionsDe;
 
     return (
-      <div className="min-h-screen pt-40 pb-20 px-10 flex items-center justify-center">
+      <div className="min-h-screen page-pt page-pb page-x flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -560,7 +560,7 @@ export default function Cart() {
   }
 
   return (
-    <div className="min-h-screen pt-40 pb-20 px-10">
+    <div className="min-h-screen page-pt page-pb page-x">
       <div className="max-w-6xl mx-auto space-y-16">
         <header className="space-y-4">
           <h4 className="text-[10px] tracking-[0.4em] uppercase font-bold text-[#c5a059]">Checkout</h4>
@@ -573,7 +573,7 @@ export default function Cart() {
         </header>
 
         {!user && items.length > 0 && (
-          <div className="bg-[#c5a059]/10 border border-[#c5a059]/20 rounded-xl p-6 flex items-center justify-between gap-4">
+          <div className="bg-[#c5a059]/10 border border-[#c5a059]/20 rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <p className="text-sm text-white/70">{t("cart.login.required")}</p>
             <button onClick={signIn} className="flex items-center gap-2 bg-[#c5a059] text-black px-6 py-3 rounded-full text-[10px] tracking-widest uppercase font-bold">
               <LogIn size={14} /> {t("cart.login.button")}
@@ -602,9 +602,9 @@ export default function Cart() {
                 <motion.div
                   layout
                   key={item.id}
-                  className="flex gap-8 bg-white/5 border border-white/5 p-6 rounded-2xl group relative"
+                  className="flex flex-col sm:flex-row gap-6 sm:gap-8 bg-white/5 border border-white/5 p-4 sm:p-6 rounded-2xl group relative"
                 >
-                  <div className="w-32 h-40 bg-black rounded-lg overflow-hidden flex-shrink-0">
+                  <div className="w-full sm:w-32 h-48 sm:h-40 bg-black rounded-lg overflow-hidden flex-shrink-0">
                     <img src={item.image} alt={item.name} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                   </div>
                   <div className="flex-1 flex flex-col justify-between py-2">
@@ -614,11 +614,11 @@ export default function Cart() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-6 bg-black/40 rounded-full px-4 py-2 border border-white/5">
-                        <button onClick={() => updateQuantity(item.id, -1)} className="text-white/20 hover:text-white transition-colors">
+                        <button onClick={() => updateQuantity(item.id, -1)} className="touch-target text-white/20 hover:text-white transition-colors">
                           <Minus size={14} />
                         </button>
                         <span className="text-xs font-bold w-4 text-center">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.id, 1)} className="text-white/20 hover:text-white transition-colors">
+                        <button onClick={() => updateQuantity(item.id, 1)} className="touch-target text-white/20 hover:text-white transition-colors">
                           <Plus size={14} />
                         </button>
                       </div>

@@ -199,7 +199,7 @@ export default function Shop() {
   );
 
   return (
-    <div className="pt-32 pb-28 md:pb-24 px-10 bg-[#050505]">
+    <div className="page-pt page-pb page-x pb-32 md:pb-24 bg-[#050505]">
       <MetaTags title={pageTitle} description="Entdecken Sie unsere kuratierte Kollektion exklusiver Luxusuhren und Schmuckstücke." />
       <div className="max-w-7xl mx-auto">
         <div className="mb-12 border-b border-white/10 pb-8">
@@ -264,8 +264,8 @@ export default function Shop() {
           <div className={`grid ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"} gap-x-16 gap-y-24`}>
             {products.map(product => (
               <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={product.id}
-                className={`group ${viewMode === "list" ? "flex gap-16 items-center" : ""}`}>
-                <Link to={`/product/${product.slug}`} className={`block overflow-hidden bg-[#0a0a0a] ${viewMode === "list" ? "w-1/3" : "w-full"}`}>
+                className={`group ${viewMode === "list" ? "flex flex-col sm:flex-row gap-6 sm:gap-16 sm:items-center" : ""}`}>
+                <Link to={`/product/${product.slug}`} className={`block overflow-hidden bg-[#0a0a0a] ${viewMode === "list" ? "w-full sm:w-1/3" : "w-full"}`}>
                   <div className="aspect-[4/5] relative">
                     <img src={product.images?.[0] || "https://images.unsplash.com/photo-1547996160-81dfa63595aa?auto=format&fit=crop&w=800"}
                       className="absolute inset-0 w-full h-full object-cover opacity-60 transition-all duration-1000 group-hover:scale-105 group-hover:opacity-100"
@@ -335,7 +335,7 @@ export default function Shop() {
       <button
         type="button"
         onClick={() => setShowFilters(true)}
-        className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2 bg-[#c5a059] text-black px-6 py-3 rounded-full text-[10px] tracking-widest uppercase font-bold shadow-2xl"
+        className="md:hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2 bg-[#c5a059] text-black px-6 py-3 rounded-full text-[10px] tracking-widest uppercase font-bold shadow-2xl safe-area-pb"
       >
         <Filter size={14} /> {t("shop.mobile.filter")}
       </button>

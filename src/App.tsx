@@ -50,12 +50,16 @@ export default function App() {
       className={
         isAdmin
           ? "min-h-screen bg-gray-50 text-gray-900 selection:bg-[#c5a059] selection:text-black"
-          : "min-h-screen bg-[#050505] text-[#F4F4F4] selection:bg-[#c5a059] selection:text-black"
+          : "min-h-screen bg-[#050505] text-[#F4F4F4] selection:bg-[#c5a059] selection:text-black overflow-x-clip"
       }
     >
       <MetaTags />
-      <DbStatusBanner />
-      {!isAdmin && <Navbar />}
+      {!isAdmin && (
+        <header className="fixed top-0 inset-x-0 z-50 safe-area-pt">
+          <DbStatusBanner />
+          <Navbar />
+        </header>
+      )}
       <AuthErrorBanner />
       <main>
         <Routes>

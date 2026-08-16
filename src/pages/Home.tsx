@@ -51,14 +51,14 @@ export default function Home() {
 
       <CuratedCollections />
 
-      <section className="py-24 px-10">
+      <section className="py-16 sm:py-24 page-x">
         <div className="max-w-7xl mx-auto">
           <RecentlyViewed />
         </div>
       </section>
 
       {(shopSettings.testimonial1De || shopSettings.testimonial1En) && (
-        <section className="py-24 px-10 bg-[#0a0a0a] border-y border-white/5">
+        <section className="py-16 sm:py-24 page-x bg-[#0a0a0a] border-y border-white/5">
           <div className="max-w-3xl mx-auto text-center space-y-8">
             <h4 className="text-[10px] tracking-[0.4em] uppercase font-bold text-[#c5a059]">{t("home.testimonials.title")}</h4>
             <blockquote className="text-2xl md:text-3xl font-serif italic font-light leading-relaxed text-white/80">
@@ -72,7 +72,7 @@ export default function Home() {
       )}
 
       {/* Trust & Heritage Bar */}
-      <section className="bg-[#0a0a0a] border-y border-white/5 py-24 px-10">
+      <section className="bg-[#0a0a0a] border-y border-white/5 py-16 sm:py-24 page-x">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16">
           <div className="flex flex-col items-center text-center space-y-6">
             <ShieldCheck size={32} strokeWidth={1} className="text-[#c5a059]" />
