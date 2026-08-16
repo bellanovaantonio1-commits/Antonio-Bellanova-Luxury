@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ImageIcon, Loader2, Search, Trash2, X } from "lucide-react";
 import { auth } from "../../lib/firebase.ts";
 import { SHOP_COLLECTIONS, type ShopCollectionSlug } from "../../config/shopCollections.ts";
@@ -75,6 +75,11 @@ function CollectionProductPicker({
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [adding, setAdding] = useState(false);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  useEffect(() => {
+    if (open && listRef.current) listRef.current.scrollTop = 0;
+  }, [open]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -171,7 +176,7 @@ function CollectionProductPicker({
             </div>
           </div>
 
-          <ul className="max-h-72 overflow-y-auto overscroll-contain divide-y divide-gray-50">
+          <ul ref={listRef} className="max-h-72 overflow-y-auto overscroll-contain divide-y divide-gray-50">
             {filtered.length === 0 ? (
               <li className="p-4 text-sm text-gray-400 italic">Keine Treffer.</li>
             ) : (

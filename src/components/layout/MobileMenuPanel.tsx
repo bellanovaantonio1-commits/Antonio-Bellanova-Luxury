@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { X } from "lucide-react";
 import { motion } from "motion/react";
@@ -17,6 +18,12 @@ export default function MobileMenuPanel({
   setLanguage,
   onClose,
 }: MobileMenuPanelProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, []);
+
   const discoverLinks = FOOTER_NAV.discover.filter(
     (item) => !MAIN_NAV.some((nav) => nav.path === item.path)
   );
@@ -48,7 +55,7 @@ export default function MobileMenuPanel({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto overscroll-contain px-8 pb-8">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-8 pb-8">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
