@@ -12,7 +12,7 @@ export default function Home() {
   const [heroProducts, setHeroProducts] = useState<Product[]>([]);
   const [highlightProducts, setHighlightProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const shopSettings = useShopSettings();
 
   useEffect(() => {

@@ -18,7 +18,6 @@ import {
   CircleDollarSign,
   Shield,
   Scale,
-  LayoutGrid,
 } from "lucide-react";
 import Inquiries from "./Inquiries.tsx";
 import Brands from "./Brands.tsx";
@@ -61,7 +60,6 @@ export default function AdminDashboard() {
     { label: "Übersicht", icon: <LayoutDashboard size={18} />, path: "/admin", badge: 0 },
     { label: "Anleitung", icon: <HelpCircle size={18} />, path: "/admin/help", badge: 0 },
     { label: "Produkte", icon: <Package size={18} />, path: "/admin/products", badge: 0 },
-    { label: "Kollektionen", icon: <LayoutGrid size={18} />, path: "/admin/collections", badge: 0 },
     { label: "Neues Produkt", icon: <PlusCircle size={18} />, path: "/admin/products/new", badge: 0 },
     { label: "AI Import", icon: <BrainCircuit size={18} />, path: "/admin/ai-import", badge: 0 },
     { label: "Bestellungen", icon: <ShoppingCart size={18} />, path: "/admin/orders", badge: badges.orders },
@@ -132,22 +130,22 @@ export default function AdminDashboard() {
 
         <div className="admin-panel bg-white rounded-2xl p-8 shadow-sm border border-gray-100 min-h-[600px] text-gray-900 [&_input:not([type=checkbox]):not([type=radio])]:text-gray-900 [&_input]:placeholder:text-gray-400 [&_textarea]:text-gray-900 [&_textarea]:placeholder:text-gray-400 [&_select]:text-gray-900 [&_option]:text-gray-900 [&_h2]:text-gray-900 [&_h3]:text-gray-900 [&_h4]:text-gray-900">
           <Routes>
-            <Route path="/" element={<Overview />} />
-            <Route path="/help" element={<AdminHelp />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/collections" element={<CuratedCollectionsAdmin />} />
-            <Route path="/products/new" element={<NewProduct />} />
-            <Route path="/ai-import" element={<AIImport />} />
-            <Route path="/orders" element={<Orders />} />
-            <Route path="/invoices" element={<Invoices />} />
-            <Route path="/certificates" element={<Certificates />} />
-            <Route path="/legal" element={<LegalCompliance />} />
-            <Route path="/inquiries" element={<Inquiries />} />
-            <Route path="/inventory" element={<Inventory />} />
-            <Route path="/brands" element={<Brands />} />
-            <Route path="/crm" element={<Customers />} />
-            <Route path="/pricing" element={<PricingPayments />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route index element={<Overview />} />
+            <Route path="help" element={<AdminHelp />} />
+            <Route path="products" element={<Products />} />
+            <Route path="collections" element={<CuratedCollectionsAdmin />} />
+            <Route path="products/new" element={<NewProduct />} />
+            <Route path="ai-import" element={<AIImport />} />
+            <Route path="orders" element={<Orders />} />
+            <Route path="invoices" element={<Invoices />} />
+            <Route path="certificates" element={<Certificates />} />
+            <Route path="legal" element={<LegalCompliance />} />
+            <Route path="inquiries" element={<Inquiries />} />
+            <Route path="inventory" element={<Inventory />} />
+            <Route path="brands" element={<Brands />} />
+            <Route path="crm" element={<Customers />} />
+            <Route path="pricing" element={<PricingPayments />} />
+            <Route path="settings" element={<Settings />} />
           </Routes>
         </div>
         </div>

@@ -38,7 +38,13 @@ export default function CuratedCollectionsAdmin() {
         fetch("/api/admin/products", { headers }),
       ]);
 
-      if (!collectionsRes.ok) throw new Error("Kollektionen konnten nicht geladen werden.");
+      if (!collectionsRes.ok) {
+        const data = await collectionsRes.json().catch(() => ({}));
+        throw new Error(
+          data.error ||
+            "Kollektionen konnten nicht geladen werden. Bitte `npm run db:migrate` ausführen und den Server neu starten."
+        );
+      }
       if (!productsRes.ok) throw new Error("Produkte konnten nicht geladen werden.");
 
       setCollections(await collectionsRes.json());
