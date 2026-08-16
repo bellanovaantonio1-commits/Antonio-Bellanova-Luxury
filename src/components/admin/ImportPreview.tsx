@@ -49,6 +49,102 @@ function sanitizeContent(text: string): string {
   return cleaned.replace(/\s\s+/g, ' ').replace(/\s\./g, '.').trim();
 }
 
+function getConfidenceColor(level: string) {
+  if (level === "HIGH") return "text-green-500 bg-green-50";
+  if (level === "MEDIUM") return "text-orange-500 bg-orange-50";
+  return "text-red-500 bg-red-50";
+}
+
+const ImportConfidenceContext = React.createContext<Record<string, string> | undefined>(undefined);
+
+function ImportSectionHeader({
+  title,
+  icon: Icon,
+  badge,
+  action,
+}: {
+  title: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  badge?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-8">
+      <div className="flex items-center gap-3">
+        <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 shadow-sm">
+          <Icon size={18} className="text-[#D4AF37]" />
+        </div>
+        <h3 className="text-[13px] font-black uppercase tracking-[0.2em] text-gray-900">{title}</h3>
+      </div>
+      <div className="flex items-center gap-3">
+        {action}
+        {badge && (
+          <span className="px-3 py-1 bg-[#D4AF37]/10 text-[#D4AF37] text-[10px] font-black uppercase tracking-widest rounded-full">
+            {badge}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ImportInputField({
+  label,
+  value,
+  onChange,
+  confidence,
+  placeholder,
+  type = "text",
+  rows,
+  rawValue = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  confidence?: string;
+  placeholder?: string;
+  type?: string;
+  rows?: number;
+  rawValue?: boolean;
+}) {
+  const confidenceMap = React.useContext(ImportConfidenceContext);
+  const displayValue =
+    !rawValue && value && typeof value === "string" && RANK_MAP[value]
+      ? RANK_MAP[value].de
+      : (value ?? "");
+  const confidenceLevel = confidence && confidenceMap ? confidenceMap[confidence] : undefined;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">{label}</label>
+        {confidence && (
+          <span className={`px-2 py-0.5 rounded text-[8px] font-bold ${getConfidenceColor(confidenceLevel || "LOW")}`}>
+            {confidenceLevel || "LOW"}
+          </span>
+        )}
+      </div>
+      {rows ? (
+        <textarea
+          value={displayValue}
+          onChange={(e) => onChange(e.target.value)}
+          rows={rows}
+          placeholder={placeholder}
+          className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-xl text-[14px] font-medium text-gray-900 outline-none focus:ring-2 focus:ring-[#D4AF37]/20 focus:border-[#D4AF37] focus:bg-white transition-all shadow-inner resize-none"
+        />
+      ) : (
+        <input
+          type={type}
+          value={displayValue}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-xl text-[14px] font-medium text-gray-900 outline-none focus:ring-2 focus:ring-[#D4AF37]/20 focus:border-[#D4AF37] focus:bg-white transition-all shadow-inner"
+        />
+      )}
+    </div>
+  );
+}
+
 interface ImportPreviewProps {
   data: any;
   onSave: (finalData: any) => void;
@@ -337,69 +433,6 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
     }
   };
 
-  const getConfidenceColor = (field: string) => {
-    const level = data.confidence?.[field] || "LOW";
-    if (level === "HIGH") return "text-green-500 bg-green-50";
-    if (level === "MEDIUM") return "text-orange-500 bg-orange-50";
-    return "text-red-500 bg-red-50";
-  };
-
-  const SectionHeader = ({ title, icon: Icon, badge, action }: any) => (
-    <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-8">
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 shadow-sm">
-          <Icon size={18} className="text-[#D4AF37]" />
-        </div>
-        <h3 className="text-[13px] font-black uppercase tracking-[0.2em] text-gray-900">{title}</h3>
-      </div>
-      <div className="flex items-center gap-3">
-        {action}
-        {badge && (
-          <span className="px-3 py-1 bg-[#D4AF37]/10 text-[#D4AF37] text-[10px] font-black uppercase tracking-widest rounded-full">
-            {badge}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-
-  const InputField = ({ label, value, onChange, confidence, placeholder, type = "text", rows, rawValue = false }: any) => {
-    const displayValue =
-      !rawValue && value && typeof value === "string" && RANK_MAP[value]
-        ? RANK_MAP[value].de
-        : (value ?? "");
-    
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">{label}</label>
-          {confidence && (
-            <span className={`px-2 py-0.5 rounded text-[8px] font-bold ${getConfidenceColor(confidence)}`}>
-              {data.confidence?.[confidence] || "LOW"}
-            </span>
-          )}
-        </div>
-        {rows ? (
-          <textarea
-            value={displayValue}
-            onChange={e => onChange(e.target.value)}
-            rows={rows}
-            placeholder={placeholder}
-            className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-xl text-[14px] font-medium text-gray-900 outline-none focus:ring-2 focus:ring-[#D4AF37]/20 focus:border-[#D4AF37] focus:bg-white transition-all shadow-inner resize-none"
-          />
-        ) : (
-          <input
-            type={type}
-            value={displayValue}
-            onChange={e => onChange(e.target.value)}
-            placeholder={placeholder}
-            className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-xl text-[14px] font-medium text-gray-900 outline-none focus:ring-2 focus:ring-[#D4AF37]/20 focus:border-[#D4AF37] focus:bg-white transition-all shadow-inner"
-          />
-        )}
-      </div>
-    );
-  };
-
   const hasJapanese = (text: string) => /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/.test(text);
 
   const getValidationErrors = () => {
@@ -464,6 +497,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
   }
 
   return (
+    <ImportConfidenceContext.Provider value={data.confidence}>
     <div className="pb-32 space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-700">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -530,7 +564,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
           {/* Section 1: Source */}
           <section className="bg-white p-10 rounded-[32px] border border-gray-200 shadow-xl relative overflow-hidden">
             <div className="absolute top-0 left-0 w-2 h-full bg-[#D4AF37]" />
-            <SectionHeader title="Quelle & Analyse" icon={Globe} badge={formData.sourceProvider} />
+            <ImportSectionHeader title="Quelle & Analyse" icon={Globe} badge={formData.sourceProvider} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
               <div className="space-y-1.5">
                 <span className="text-[9px] uppercase tracking-[0.2em] font-black text-gray-400">Anbieter</span>
@@ -559,7 +593,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
 
           {/* Section 2: Images */}
           <section className="bg-white p-10 rounded-[32px] border border-gray-200 shadow-xl">
-            <SectionHeader title="Produktbilder" icon={ImageIcon} />
+            <ImportSectionHeader title="Produktbilder" icon={ImageIcon} />
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
               {(data.source?.images || []).map((url: string, i: number) => (
                 <div 
@@ -640,29 +674,29 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
 
           {/* Section 3: Produktdaten */}
           <section className="bg-white p-10 rounded-[32px] border border-gray-200 shadow-xl">
-            <SectionHeader title="Produktdaten" icon={Package} />
+            <ImportSectionHeader title="Produktdaten" icon={Package} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="md:col-span-2">
-                <InputField 
+                <ImportInputField 
                   label="Produkt Name" 
                   value={formData.name} 
                   onChange={(v: string) => setFormData({...formData, name: v})}
                   confidence="name"
                 />
               </div>
-              <InputField 
+              <ImportInputField 
                 label="Marke" 
                 value={formData.brand} 
                 onChange={(v: string) => setFormData({...formData, brand: v})}
                 confidence="brand"
               />
-              <InputField 
+              <ImportInputField 
                 label="Modell" 
                 value={formData.model} 
                 onChange={(v: string) => setFormData({...formData, model: v})}
                 confidence="model"
               />
-              <InputField 
+              <ImportInputField 
                 label="Referenz (SKU)" 
                 value={formData.sku} 
                 onChange={(v: string) => setFormData({...formData, sku: v})}
@@ -694,7 +728,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
                   </select>
                 </div>
               </div>
-              <InputField 
+              <ImportInputField 
                 label="Baujahr" 
                 value={formData.year} 
                 onChange={(v: string) => setFormData({...formData, year: v})}
@@ -708,21 +742,21 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
              <div className="absolute top-0 right-0 p-8 opacity-5">
                 <Star size={120} />
              </div>
-             <SectionHeader title="Interne Quelldaten (Internal Only)" icon={ShieldCheck} />
+             <ImportSectionHeader title="Interne Quelldaten (Internal Only)" icon={ShieldCheck} />
              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
-                <InputField 
+                <ImportInputField 
                   label="Source Condition" 
                   value={formData.sourceCondition} 
                   onChange={(v: string) => setFormData({...formData, sourceCondition: v})}
                   rawValue
                 />
-                <InputField 
+                <ImportInputField 
                   label="TS Rank (Internal)" 
                   value={formData.sourceRank} 
                   onChange={(v: string) => setFormData({...formData, sourceRank: v})}
                   rawValue
                 />
-                <InputField 
+                <ImportInputField 
                   label="Overall Rank (Internal)" 
                   value={formData.overallRank} 
                   onChange={(v: string) => setFormData({...formData, overallRank: v})}
@@ -730,13 +764,13 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
                 />
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-                <InputField 
+                <ImportInputField 
                   label="Case Rank (Internal)" 
                   value={formData.caseRank} 
                   onChange={(v: string) => setFormData({...formData, caseRank: v})}
                   rawValue
                 />
-                <InputField 
+                <ImportInputField 
                   label="Band Rank (Internal)" 
                   value={formData.bandRank} 
                   onChange={(v: string) => setFormData({...formData, bandRank: v})}
@@ -744,7 +778,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
                 />
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <InputField 
+                <ImportInputField 
                   label="Individuelle Bemerkungen" 
                   value={formData.conditionRemarks} 
                   onChange={(v: string) => setFormData({...formData, conditionRemarks: v})}
@@ -752,14 +786,14 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
                   placeholder="z.B. leichte Kratzer an den Bandanstößen..."
                 />
                 <div className="space-y-6">
-                  <InputField 
+                  <ImportInputField 
                     label="Wartung / Maintenance" 
                     value={formData.maintenanceDescription} 
                     onChange={(v: string) => setFormData({...formData, maintenanceDescription: v})}
                     rows={4}
                     placeholder="z.B. leichte Politur + Timing Adjustment..."
                   />
-                  <InputField 
+                  <ImportInputField 
                     label="Gangabweichung (Daily Rate)" 
                     value={formData.dailyRateDisplay} 
                     onChange={(v: string) => setFormData({...formData, dailyRateDisplay: v})}
@@ -772,16 +806,16 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
 
           {/* Section 4: Specifications */}
           <section className="bg-white p-10 rounded-[32px] border border-gray-200 shadow-xl">
-            <SectionHeader title="Technische Spezifikationen" icon={Settings} />
+            <ImportSectionHeader title="Technische Spezifikationen" icon={Settings} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <InputField 
+              <ImportInputField 
                 label="Spezifikationen (DE)" 
                 value={formData.specificationsDe} 
                 onChange={(v: string) => setFormData({...formData, specificationsDe: v})}
                 rows={8}
                 placeholder="Gehäuse: 41mm, Werk: Automatik..."
               />
-              <InputField 
+              <ImportInputField 
                 label="Specifications (EN)" 
                 value={formData.specificationsEn} 
                 onChange={(v: string) => setFormData({...formData, specificationsEn: v})}
@@ -793,7 +827,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
 
           {/* Section 5: Condition & Scope */}
           <section className="bg-white p-10 rounded-[32px] border border-gray-200 shadow-xl">
-            <SectionHeader
+            <ImportSectionHeader
               title="Zustand & Lieferumfang"
               icon={ShieldCheck}
               action={
@@ -808,13 +842,13 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
             />
             <div className="space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <InputField 
+                <ImportInputField 
                   label="Zustand (DE)" 
                   value={formData.conditionDe} 
                   onChange={(v: string) => setFormData({...formData, conditionDe: v})}
                   rows={4}
                 />
-                <InputField 
+                <ImportInputField 
                   label="Condition (EN)" 
                   value={formData.conditionEn} 
                   onChange={(v: string) => setFormData({...formData, conditionEn: v})}
@@ -822,14 +856,14 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                <InputField 
+                <ImportInputField 
                   label="Lieferumfang (DE)" 
                   value={formData.scopeOfDeliveryDe} 
                   onChange={(v: string) => setFormData({...formData, scopeOfDeliveryDe: v})}
                   rows={4}
                   placeholder="Box, Originalpapiere..."
                 />
-                <InputField 
+                <ImportInputField 
                   label="Scope of Delivery (EN)" 
                   value={formData.scopeOfDeliveryEn} 
                   onChange={(v: string) => setFormData({...formData, scopeOfDeliveryEn: v})}
@@ -856,12 +890,12 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
             
             <div className="space-y-12">
               <div className="space-y-6">
-                <InputField 
+                <ImportInputField 
                   label="Titel (DE)" 
                   value={formData.titleDe} 
                   onChange={(v: string) => setFormData({...formData, titleDe: v})}
                 />
-                <InputField 
+                <ImportInputField 
                   label="Beschreibung (DE)" 
                   value={formData.descriptionDe} 
                   onChange={(v: string) => setFormData({...formData, descriptionDe: v})}
@@ -870,12 +904,12 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
               </div>
               <div className="h-px bg-gray-100" />
               <div className="space-y-6">
-                <InputField 
+                <ImportInputField 
                   label="Title (EN)" 
                   value={formData.titleEn} 
                   onChange={(v: string) => setFormData({...formData, titleEn: v})}
                 />
-                <InputField 
+                <ImportInputField 
                   label="Description (EN)" 
                   value={formData.descriptionEn} 
                   onChange={(v: string) => setFormData({...formData, descriptionEn: v})}
@@ -890,7 +924,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
         <div className="xl:col-span-4 space-y-12">
           {/* 1. EINKAUF & WÄHRUNG */}
           <section className="bg-white p-8 rounded-[32px] border border-gray-200 shadow-xl space-y-8">
-            <SectionHeader title="1. Einkauf" icon={Euro} />
+            <ImportSectionHeader title="1. Einkauf" icon={Euro} />
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -931,7 +965,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
 
           {/* 2. IMPORT & ZOLL */}
           <section className="bg-white p-8 rounded-[32px] border border-gray-200 shadow-xl space-y-8">
-            <SectionHeader title="2. Import & Zoll" icon={Truck} />
+            <ImportSectionHeader title="2. Import & Zoll" icon={Truck} />
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -1022,7 +1056,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
 
           {/* 3. SONSTIGE IMPORTKOSTEN */}
           <section className="bg-white p-8 rounded-[32px] border border-gray-200 shadow-xl space-y-6">
-            <SectionHeader title="3. Weitere Kosten" icon={Settings} />
+            <ImportSectionHeader title="3. Weitere Kosten" icon={Settings} />
             <div className="space-y-4">
               {[
                 { label: 'Zoll-Broker', field: 'customsBrokerFee' },
@@ -1051,7 +1085,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
 
           {/* 4. STEUERBEHANDLUNG */}
           <section className="bg-white p-8 rounded-[32px] border border-gray-200 shadow-xl space-y-8">
-            <SectionHeader title="4. Steuer" icon={ShieldCheck} />
+            <ImportSectionHeader title="4. Steuer" icon={ShieldCheck} />
             <div className="space-y-6">
               <div className="space-y-4">
                 <label className="text-[9px] font-black uppercase tracking-widest text-gray-500">Besteuerungsart</label>
@@ -1097,7 +1131,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
           {/* 5. MARGENKALKULATION */}
           <section className="bg-gray-900 text-white p-10 rounded-[40px] shadow-2xl relative overflow-hidden border border-gray-800">
             <div className="absolute top-0 right-0 w-48 h-48 bg-[#D4AF37]/20 blur-[80px] rounded-full -mr-24 -mt-24" />
-            <SectionHeader title="5. Marge" icon={Calculator} />
+            <ImportSectionHeader title="5. Marge" icon={Calculator} />
             
             <div className="space-y-8 relative">
               <div className="flex p-1 bg-white/5 rounded-xl border border-white/10">
@@ -1217,7 +1251,7 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
 
           {/* 6. ADMIN-TRANSPARENZ */}
           <section className="bg-white p-8 rounded-[32px] border border-gray-200 shadow-xl space-y-8">
-            <SectionHeader title="Datenblatt & Transparenz" icon={Info} />
+            <ImportSectionHeader title="Datenblatt & Transparenz" icon={Info} />
             <div className="space-y-4 font-mono text-[10px]">
               <div className="flex justify-between pb-2 border-b border-gray-100">
                 <span className="text-gray-400">Zolltarifnummer:</span>
@@ -1250,14 +1284,14 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
 
           {/* SEO */}
           <section className="bg-white p-10 rounded-[32px] border border-gray-200 shadow-xl space-y-10">
-            <SectionHeader title="SEO Optimierung" icon={Zap} />
+            <ImportSectionHeader title="SEO Optimierung" icon={Zap} />
             <div className="space-y-8">
-              <InputField 
+              <ImportInputField 
                 label="SEO Title (DE)" 
                 value={formData.seoTitleDe} 
                 onChange={(v: string) => setFormData({...formData, seoTitleDe: v})}
               />
-              <InputField 
+              <ImportInputField 
                 label="SEO Description (DE)" 
                 value={formData.seoDescriptionDe} 
                 onChange={(v: string) => setFormData({...formData, seoDescriptionDe: v})}
@@ -1365,5 +1399,6 @@ export default function ImportPreview({ data, onSave, onCancel }: ImportPreviewP
         </div>
       </div>
     </div>
+    </ImportConfidenceContext.Provider>
   );
 }
