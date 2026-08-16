@@ -10,11 +10,14 @@ import { LanguageProvider } from './contexts/LanguageContext.tsx';
 import { ShopSettingsProvider } from './contexts/ShopSettingsContext.tsx';
 import { RecentlyViewedProvider } from './contexts/RecentlyViewedContext.tsx';
 
+import { CookieConsentProvider } from './contexts/CookieConsentContext.tsx';
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
       <LanguageProvider>
         <ShopSettingsProvider>
+        <CookieConsentProvider>
         <RecentlyViewedProvider>
         <CartProvider>
           <WishlistProvider>
@@ -24,6 +27,7 @@ createRoot(document.getElementById('root')!).render(
           </WishlistProvider>
         </CartProvider>
         </RecentlyViewedProvider>
+        </CookieConsentProvider>
         </ShopSettingsProvider>
       </LanguageProvider>
     </AuthProvider>

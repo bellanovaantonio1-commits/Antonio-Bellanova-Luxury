@@ -264,3 +264,28 @@ export async function sendInvoiceIssuedEmail(opts: {
 
   await sendEmail({ to: opts.customerEmail, subject, html: layout(title, body), attachments });
 }
+
+export async function sendCertificateReadyEmail(opts: {
+  customerEmail: string;
+  certificateNumber: string;
+  productName: string;
+  verifyUrl: string;
+  language?: "de" | "en";
+}) {
+  const lang = opts.language === "en" ? "en" : "de";
+  const subject =
+    lang === "en"
+      ? `Your certificate of authenticity — ${opts.certificateNumber}`
+      : `Ihr Echtheitszertifikat — ${opts.certificateNumber}`;
+  const title = lang === "en" ? "Certificate of authenticity" : "Echtheitszertifikat";
+  const body =
+    lang === "en"
+      ? `<p>Your certificate for <strong>${opts.productName}</strong> is now available.</p>
+         <p>Certificate number: <strong>${opts.certificateNumber}</strong></p>
+         <p><a href="${opts.verifyUrl}" style="color:#c5a059">Verify online</a></p>`
+      : `<p>Ihr Echtheitszertifikat für <strong>${opts.productName}</strong> ist jetzt verfügbar.</p>
+         <p>Zertifikatsnummer: <strong>${opts.certificateNumber}</strong></p>
+         <p><a href="${opts.verifyUrl}" style="color:#c5a059">Online prüfen</a></p>`;
+
+  await sendEmail({ to: opts.customerEmail, subject, html: layout(title, body) });
+}

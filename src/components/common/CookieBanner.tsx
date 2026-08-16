@@ -1,21 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext.tsx";
+import { useCookieConsent } from "../../contexts/CookieConsentContext.tsx";
 
 export default function CookieBanner() {
   const { language } = useLanguage();
-  const [visible, setVisible] = useState(false);
+  const { bannerVisible, acceptCookies } = useCookieConsent();
 
-  useEffect(() => {
-    if (!localStorage.getItem("cookies-accepted")) setVisible(true);
-  }, []);
-
-  if (!visible) return null;
-
-  const accept = (level: "essential" | "all") => {
-    localStorage.setItem("cookies-accepted", level);
-    setVisible(false);
-  };
+  if (!bannerVisible) return null;
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-[70] p-4 md:p-6 safe-area-pb">
@@ -33,16 +25,18 @@ export default function CookieBanner() {
             </>
           )}
         </p>
-        <div className="flex gap-3 shrink-0">
+        <div className="flex flex-col sm:flex-row gap-3 shrink-0 w-full sm:w-auto">
           <button
-            onClick={() => accept("essential")}
-            className="px-6 py-3 text-[10px] tracking-widest uppercase font-bold border border-white/20 rounded-full hover:bg-white/5 transition-all"
+            type="button"
+            onClick={() => acceptCookies("essential")}
+            className="min-h-11 px-6 py-3 text-[10px] tracking-widest uppercase font-bold border border-white/20 rounded-full hover:bg-white/5 transition-all"
           >
             {language === "en" ? "Necessary only" : "Nur Notwendige"}
           </button>
           <button
-            onClick={() => accept("all")}
-            className="px-6 py-3 text-[10px] tracking-widest uppercase font-bold bg-[#c5a059] text-black rounded-full hover:bg-[#d4af37] transition-all"
+            type="button"
+            onClick={() => acceptCookies("all")}
+            className="min-h-11 px-6 py-3 text-[10px] tracking-widest uppercase font-bold bg-[#c5a059] text-black rounded-full hover:bg-[#d4af37] transition-all"
           >
             {language === "en" ? "Accept" : "Akzeptieren"}
           </button>

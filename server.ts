@@ -25,6 +25,7 @@ import { handleStripeWebhook } from "./src/server/stripeWebhook.ts";
 import { buildProductJsonLd, injectProductMeta, loadSpaIndexHtml } from "./src/server/seo.ts";
 import { notifyWishlistAlerts } from "./src/server/wishlistAlerts.ts";
 import { refreshCertificatesForProduct } from "./src/server/certificate/service.ts";
+import { generateProductDatasheetPdf } from "./src/server/productPdf.ts";
 import { getShopCollectionCondition, getCuratedCollectionCondition, getCollectionFeaturePatch, isShopCollectionSlug } from "./src/lib/shopCollectionFilters.ts";
 import { getSettingsMap } from "./src/server/settings.ts";
 import {
@@ -403,6 +404,22 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
     } catch (error) {
       console.error("Related products failed", error);
       res.status(500).json({ error: "Failed to fetch related products" });
+    }
+  });
+
+  app.get("/api/products/:slug/datasheet.pdf", async (req, res) => {
+    try {
+      const lang = req.query.lang === "en" ? "en" : "de";
+      const buffer = await generateProductDatasheetPdf(req.params.slug, lang);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="datasheet-${req.params.slug}.pdf"`
+      );
+      res.send(buffer);
+    } catch (error) {
+      console.error("Product datasheet PDF failed", error);
+      res.status(404).json({ error: "Produktdatenblatt nicht verfügbar." });
     }
   });
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Shield, Search, Download, ExternalLink } from "lucide-react";
+import { Shield, Search, Download, ExternalLink, RefreshCw } from "lucide-react";
 import { auth } from "../../lib/firebase.ts";
 import { Link } from "react-router-dom";
 
@@ -30,6 +30,8 @@ export default function Certificates() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("ALL");
   const [loading, setLoading] = useState(true);
+  const [refreshingAll, setRefreshingAll] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,15 +80,54 @@ export default function Certificates() {
     URL.revokeObjectURL(url);
   };
 
+  const refreshAllSnapshots = async () => {
+    setRefreshingAll(true);
+    setRefreshMessage(null);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch("/api/admin/certificates/refresh-all-snapshots", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Aktualisierung fehlgeschlagen.");
+      setRefreshMessage(
+        data.errors?.length
+          ? `${data.updated} aktualisiert, ${data.errors.length} Fehler.`
+          : `${data.updated} Zertifikats-Snapshots aktualisiert.`
+      );
+      load();
+    } catch (err) {
+      setRefreshMessage(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setRefreshingAll(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
-      <div className="flex items-center gap-3">
-        <Shield className="text-[#D4AF37]" size={28} />
-        <div>
-          <h3 className="text-xl font-serif text-gray-900">Echtheitszertifikate</h3>
-          <p className="text-sm text-gray-500">Alle ausgestellten und geplanten Zertifikate verwalten.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Shield className="text-[#D4AF37]" size={28} />
+          <div>
+            <h3 className="text-xl font-serif text-gray-900">Echtheitszertifikate</h3>
+            <p className="text-sm text-gray-500">Alle ausgestellten und geplanten Zertifikate verwalten.</p>
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={refreshAllSnapshots}
+          disabled={refreshingAll}
+          className="inline-flex items-center justify-center gap-2 min-h-11 px-4 py-2 bg-gray-900 text-white rounded-lg text-[10px] tracking-widest uppercase font-bold disabled:opacity-50"
+        >
+          <RefreshCw size={14} className={refreshingAll ? "animate-spin" : ""} />
+          Alle Snapshots aktualisieren
+        </button>
       </div>
+
+      {refreshMessage && (
+        <p className="text-sm text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-4 py-3">{refreshMessage}</p>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">

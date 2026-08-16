@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext.tsx";
 import { formatProductPrice } from "../../lib/productPage.ts";
+import { getProductImageUrl } from "../../lib/productImage.ts";
 import { isPriceOnRequest, parsePriceOnRequestThreshold } from "../../lib/priceOnRequest.ts";
 import type { Product } from "../../types.ts";
 import type { ShopSettings } from "../../contexts/ShopSettingsContext.tsx";
@@ -26,12 +27,13 @@ export default function ProductRelatedGrid({ products, shopSettings }: ProductRe
           const title =
             language === "en" && item.titleEn ? item.titleEn : item.titleDe || item.name || "";
           const priceOnRequest = isPriceOnRequest(item.price, threshold);
+          const imageUrl = getProductImageUrl(item);
           return (
             <Link key={item.id} to={`/product/${item.slug}`} className="group block space-y-4">
               <div className="aspect-[4/5] bg-[#0a0a0a] overflow-hidden border border-white/[0.04]">
-                {item.images?.[0] ? (
+                {imageUrl ? (
                   <img
-                    src={item.images[0]}
+                    src={imageUrl}
                     alt={title}
                     className="w-full h-full object-cover opacity-75 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-700"
                     loading="lazy"

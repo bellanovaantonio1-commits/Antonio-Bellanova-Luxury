@@ -11,7 +11,25 @@ import { stockUrgencyKey } from "../lib/stockUrgency.ts";
 import { collection, query, where, onSnapshot, gt } from "firebase/firestore";
 import { db as firestoreDb } from "../lib/firebase.ts";
 
+import { useCookieConsent } from "../contexts/CookieConsentContext.tsx";
+
 type SortOption = "newest" | "price-asc" | "price-desc" | "name";
+
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(`(max-width: ${breakpoint - 1}px)`).matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, [breakpoint]);
+
+  return isMobile;
+}
 
 export default function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -34,6 +52,9 @@ export default function Shop() {
   const { language, t } = useLanguage();
   const shopSettings = useShopSettings();
   const priceOnRequestThreshold = parsePriceOnRequestThreshold(shopSettings);
+  const { bannerVisible } = useCookieConsent();
+  const isMobile = useIsMobile();
+  const effectiveViewMode = isMobile ? "grid" : viewMode;
 
   useEffect(() => {
     fetch("/api/brands").then(r => r.ok ? r.json() : []).then(data =>
@@ -261,11 +282,11 @@ export default function Shop() {
             <Link to="/contact" className="block mt-4 text-[10px] tracking-widest uppercase border-b border-white/20 pb-1 hover:text-[#c5a059] hover:border-[#c5a059] font-bold">{t("shop.send_request")}</Link>
           </div>
         ) : (
-          <div className={`grid ${viewMode === "grid" ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"} gap-x-16 gap-y-24`}>
+          <div className={`grid ${effectiveViewMode === "grid" ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"} gap-x-16 gap-y-24`}>
             {products.map(product => (
               <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={product.id}
-                className={`group ${viewMode === "list" ? "flex flex-col sm:flex-row gap-6 sm:gap-16 sm:items-center" : ""}`}>
-                <Link to={`/product/${product.slug}`} className={`block overflow-hidden bg-[#0a0a0a] ${viewMode === "list" ? "w-full sm:w-1/3" : "w-full"}`}>
+                className={`group ${effectiveViewMode === "list" ? "flex flex-col sm:flex-row gap-6 sm:gap-16 sm:items-center" : ""}`}>
+                <Link to={`/product/${product.slug}`} className={`block overflow-hidden bg-[#0a0a0a] ${effectiveViewMode === "list" ? "w-full sm:w-1/3" : "w-full"}`}>
                   <div className="aspect-[4/5] relative">
                     <img src={product.images?.[0] || "https://images.unsplash.com/photo-1547996160-81dfa63595aa?auto=format&fit=crop&w=800"}
                       className="absolute inset-0 w-full h-full object-cover opacity-60 transition-all duration-1000 group-hover:scale-105 group-hover:opacity-100"
@@ -280,7 +301,7 @@ export default function Shop() {
                     )}
                   </div>
                 </Link>
-                <div className={`space-y-6 ${viewMode === "list" ? "flex-1" : "mt-8"}`}>
+                <div className={`space-y-6 ${effectiveViewMode === "list" ? "flex-1" : "mt-8"}`}>
                   <div className="flex flex-col gap-2">
                     <span className="text-[10px] tracking-[0.3em] uppercase text-[#c5a059] font-bold">{product.brand?.name || "Antonio Bellanova"}</span>
                     <Link to={`/product/${product.slug}`}>
@@ -335,7 +356,9 @@ export default function Shop() {
       <button
         type="button"
         onClick={() => setShowFilters(true)}
-        className="md:hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2 bg-[#c5a059] text-black px-6 py-3 rounded-full text-[10px] tracking-widest uppercase font-bold shadow-2xl safe-area-pb"
+        className={`md:hidden fixed left-1/2 -translate-x-1/2 z-[70] flex items-center gap-2 bg-[#c5a059] text-black px-6 py-3 rounded-full text-[10px] tracking-widest uppercase font-bold shadow-2xl safe-area-pb ${
+          bannerVisible ? "bottom-36" : "bottom-24"
+        }`}
       >
         <Filter size={14} /> {t("shop.mobile.filter")}
       </button>

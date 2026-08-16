@@ -10,11 +10,12 @@ import {
   products,
   users,
 } from "../../db/schema.ts";
-import { allocateCertificateNumber, generateVerificationCode } from "./numbering.ts";
+import { allocateCertificateNumber, generateVerificationCode, getCertificatePublicUrl } from "./numbering.ts";
 import { buildOrderCertificateSnapshot, buildProductSnapshot, snapshotFromStored } from "./snapshot.ts";
 import { applySnapshotImages, getAllCertificateImageUrls } from "./images.ts";
 import { generateCertificatePdf } from "./pdf.ts";
 import { isProductCertifiable } from "./eligibility.ts";
+import { sendCertificateReadyEmail } from "../email.ts";
 import type {
   CertificateRecord,
   CertificateSnapshot,
@@ -26,6 +27,20 @@ import { CERTIFICATE_STATUS_LABELS } from "./types.ts";
 const pool = createPgPool();
 
 const SYSTEM_ACTOR = { uid: "system", name: "Automatik", email: null as string | null };
+
+async function notifyCertificateEmail(cert: CertificateRecord, language: "de" | "en") {
+  if (!cert.customerId) return;
+  const [user] = await db.select().from(users).where(eq(users.uid, cert.customerId)).limit(1);
+  if (!user?.email) return;
+
+  sendCertificateReadyEmail({
+    customerEmail: user.email,
+    certificateNumber: cert.certificateNumber,
+    productName: cert.snapshotData.productName || `${cert.snapshotData.brand} ${cert.snapshotData.model}`,
+    verifyUrl: getCertificatePublicUrl(cert.certificateNumber),
+    language,
+  }).catch((err) => console.error("[certificate-email]", err));
+}
 
 export interface IssueCertificatesResult {
   created: CertificateRecord[];
@@ -261,6 +276,10 @@ export async function issueCertificatesForPaidOrder(
     }
   }
 
+  for (const cert of created) {
+    await notifyCertificateEmail(cert, language);
+  }
+
   return { created, skipped, errors };
 }
 
@@ -403,6 +422,7 @@ export async function activateCertificate(
   await logAudit(certificateId, admin, "status", "DRAFT", "ACTIVE");
   const updated = await getCertificateById(certificateId);
   if (!updated) throw new Error("Zertifikat nicht gefunden.");
+  await notifyCertificateEmail(updated, updated.language === "en" ? "en" : "de");
   return updated;
 }
 
@@ -485,6 +505,31 @@ export async function refreshCertificatesForProduct(
     count++;
   }
   return count;
+}
+
+export async function refreshAllCertificateSnapshots(
+  admin: { uid: string; name?: string | null; email?: string | null }
+): Promise<{ updated: number; errors: string[] }> {
+  const rows = await db
+    .select()
+    .from(certificates)
+    .where(inArray(certificates.status, ["DRAFT", "ACTIVE"]));
+
+  let updated = 0;
+  const errors: string[] = [];
+
+  for (const row of rows) {
+    try {
+      await refreshCertificateSnapshot(row.id, admin);
+      updated++;
+    } catch (err) {
+      errors.push(
+        `${row.certificateNumber}: ${err instanceof Error ? err.message : "Unbekannter Fehler"}`
+      );
+    }
+  }
+
+  return { updated, errors };
 }
 
 export async function linkCertificateToOrder(

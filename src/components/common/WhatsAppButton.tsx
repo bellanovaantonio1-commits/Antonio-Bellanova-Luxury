@@ -1,27 +1,28 @@
 import { MessageCircle } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { normalizePhoneForLink, useShopSettings } from "../../contexts/ShopSettingsContext.tsx";
+import { useCookieConsent } from "../../contexts/CookieConsentContext.tsx";
 
 export default function WhatsAppButton() {
   const settings = useShopSettings();
   const location = useLocation();
+  const { bannerVisible } = useCookieConsent();
   const phone = normalizePhoneForLink(settings.whatsappNumber || settings.contactPhone || "491637607805");
   const message = encodeURIComponent("Guten Tag, ich interessiere mich für ein Produkt von Antonio Bellanova Luxury.");
 
   const isProductPage = location.pathname.startsWith("/product/");
   const isShopPage = location.pathname.startsWith("/shop");
-  const cookiesPending =
-    typeof window !== "undefined" && !localStorage.getItem("cookies-accepted");
 
   if (isProductPage) {
     return null;
   }
 
-  const bottomClass = cookiesPending
-    ? "bottom-28 sm:bottom-24"
-    : isShopPage
-      ? "bottom-24 sm:bottom-6"
-      : "bottom-6";
+  let bottomClass = "bottom-6";
+  if (bannerVisible) {
+    bottomClass = isShopPage ? "bottom-36 sm:bottom-32" : "bottom-28 sm:bottom-24";
+  } else if (isShopPage) {
+    bottomClass = "bottom-24 sm:bottom-6";
+  }
 
   return (
     <a

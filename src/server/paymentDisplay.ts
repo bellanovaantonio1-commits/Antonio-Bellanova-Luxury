@@ -11,6 +11,7 @@ const LABELS: Record<PaymentDisplayId, { labelDe: string; labelEn: string }> = {
   mastercard: { labelDe: "Mastercard", labelEn: "Mastercard" },
   amex: { labelDe: "American Express", labelEn: "American Express" },
   paypal: { labelDe: "PayPal", labelEn: "PayPal" },
+  klarna: { labelDe: "Klarna", labelEn: "Klarna" },
   bank_transfer: { labelDe: "Banküberweisung", labelEn: "Bank transfer" },
 };
 
@@ -33,6 +34,7 @@ export async function getProductPagePaymentMethods(): Promise<PaymentDisplayMeth
     if (caps.applePay) methods.push(toMethod("apple_pay"));
     if (caps.googlePay) methods.push(toMethod("google_pay"));
     if (caps.paypal) methods.push(toMethod("paypal"));
+    if (caps.klarna) methods.push(toMethod("klarna"));
   }
 
   if (checkout.bankTransferEnabled) {

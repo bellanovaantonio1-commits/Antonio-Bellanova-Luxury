@@ -46,12 +46,22 @@ import { registerLegalRoutes, buildLegalAcceptanceSnapshot } from "./legal/route
 export function registerExtraRoutes(app: Express) {
   // Health check
   app.get("/api/health", async (_req, res) => {
+    let dbStatus: "connected" | "disconnected" = "disconnected";
     try {
       await db.select({ n: sql`1` }).from(users).limit(1);
-      res.json({ status: "ok", db: "connected", timestamp: new Date().toISOString() });
+      dbStatus = "connected";
     } catch {
-      res.status(503).json({ status: "degraded", db: "disconnected", timestamp: new Date().toISOString() });
+      dbStatus = "disconnected";
     }
+
+    res.status(dbStatus === "connected" ? 200 : 503).json({
+      status: dbStatus === "connected" ? "ok" : "degraded",
+      db: dbStatus,
+      email: !!process.env.RESEND_API_KEY?.trim(),
+      stripe: !!process.env.STRIPE_SECRET_KEY?.trim(),
+      appUrl: process.env.APP_URL?.trim() || null,
+      timestamp: new Date().toISOString(),
+    });
   });
 
   // Newsletter

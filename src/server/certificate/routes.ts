@@ -24,6 +24,7 @@ import {
   userCanAccessCertificate,
   refreshCertificateSnapshot,
   refreshCertificatesForProduct,
+  refreshAllCertificateSnapshots,
 } from "./service.ts";
 import { isProductCertifiable } from "./eligibility.ts";
 import { getCertificatePublicUrl } from "./numbering.ts";
@@ -255,6 +256,19 @@ export function registerCertificateRoutes(app: Express) {
     }
   });
 
+  app.post("/api/admin/certificates/refresh-all-snapshots", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
+    try {
+      const result = await refreshAllCertificateSnapshots({
+        uid: req.user!.uid,
+        name: req.user!.name,
+        email: req.user!.email,
+      });
+      res.json(result);
+    } catch (error: unknown) {
+      res.status(500).json({ error: error instanceof Error ? error.message : "Aktualisierung fehlgeschlagen." });
+    }
+  });
+
   app.get("/api/admin/certificates/:id", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
     try {
       const cert = await getCertificateById(parseInt(req.params.id, 10));
@@ -359,4 +373,5 @@ export {
   getOrderCertificateSummaries,
   refreshCertificateSnapshot,
   refreshCertificatesForProduct,
+  refreshAllCertificateSnapshots,
 } from "./service.ts";

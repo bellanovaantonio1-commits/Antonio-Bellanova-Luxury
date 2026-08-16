@@ -47,6 +47,7 @@ export interface StripeCheckoutCapabilities {
   applePay: boolean;
   googlePay: boolean;
   paypal: boolean;
+  klarna: boolean;
 }
 
 let stripeCapabilitiesCache: { at: number; data: StripeCheckoutCapabilities } | null = null;
@@ -66,6 +67,7 @@ export async function getStripeCheckoutCapabilities(): Promise<StripeCheckoutCap
     applePay: false,
     googlePay: false,
     paypal: false,
+    klarna: false,
   };
   const key = getStripeKey();
   if (!key) return none;
@@ -81,7 +83,7 @@ export async function getStripeCheckoutCapabilities(): Promise<StripeCheckoutCap
     const payload = await res.json();
     if (!res.ok || !Array.isArray(payload.data) || payload.data.length === 0) {
       // Checkout session uses card — card networks are available when Stripe is active.
-      const fallback = { card: true, applePay: false, googlePay: false, paypal: false };
+      const fallback = { card: true, applePay: false, googlePay: false, paypal: false, klarna: false };
       stripeCapabilitiesCache = { at: Date.now(), data: fallback };
       return fallback;
     }
@@ -95,9 +97,10 @@ export async function getStripeCheckoutCapabilities(): Promise<StripeCheckoutCap
       applePay: readPmAvailability(config, "apple_pay"),
       googlePay: readPmAvailability(config, "google_pay"),
       paypal: readPmAvailability(config, "paypal"),
+      klarna: readPmAvailability(config, "klarna"),
     };
 
-    if (!data.card && !data.applePay && !data.googlePay && !data.paypal) {
+    if (!data.card && !data.applePay && !data.googlePay && !data.paypal && !data.klarna) {
       data.card = true;
     }
 
@@ -105,7 +108,7 @@ export async function getStripeCheckoutCapabilities(): Promise<StripeCheckoutCap
     return data;
   } catch (error) {
     console.warn("[stripe] payment_method_configurations unavailable:", error);
-    const fallback = { card: true, applePay: false, googlePay: false, paypal: false };
+    const fallback = { card: true, applePay: false, googlePay: false, paypal: false, klarna: false };
     stripeCapabilitiesCache = { at: Date.now(), data: fallback };
     return fallback;
   }

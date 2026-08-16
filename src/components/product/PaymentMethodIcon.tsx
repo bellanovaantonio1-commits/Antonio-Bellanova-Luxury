@@ -109,6 +109,19 @@ export default function PaymentMethodIcon({ id, className = "h-6 w-[4.75rem]" }:
         </span>
       );
 
+    case "klarna":
+      return (
+        <span className={wrap} aria-hidden>
+          <svg viewBox="0 0 48 32" className={svgClass} role="img" aria-label="Klarna">
+            <rect x="4" y="8" width="40" height="16" rx="3" fill="#FFB3C7" />
+            <path
+              fill="#0A0A0A"
+              d="M11 20.5V11.5h2.2v9H11zm5.2 0V11.5h2.4l2.2 6.1 2.2-6.1h2.3v9h-2.1v-4.1l-1.8 4.1h-1.4l-1.8-4.1v4.1H16.2zm12.1 0c-2.2 0-3.6-1.3-3.6-3.2 0-2 1.5-3.3 3.8-3.3.9 0 1.7.2 2.3.5v1.9c-.6-.4-1.3-.6-2-.6-1 0-1.6.5-1.6 1.2 0 .7.6 1.2 1.6 1.2.7 0 1.4-.2 2-.6v1.9c-.7.3-1.5.5-2.5.5z"
+            />
+          </svg>
+        </span>
+      );
+
     case "bank_transfer":
       return (
         <span className={wrap} aria-hidden>

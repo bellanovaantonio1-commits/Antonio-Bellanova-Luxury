@@ -6,6 +6,7 @@ export type PaymentDisplayId =
   | "mastercard"
   | "amex"
   | "paypal"
+  | "klarna"
   | "bank_transfer";
 
 export interface PaymentDisplayMethod {
