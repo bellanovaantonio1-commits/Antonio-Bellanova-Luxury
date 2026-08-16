@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { Search, Edit, Trash2, ExternalLink, Plus, AlertCircle, Sparkles, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Product } from "../../types.ts";
-import { collection, onSnapshot, query, deleteDoc, doc, writeBatch, getDocs, orderBy, where } from "firebase/firestore";
-import { db, auth } from "../../lib/firebase.ts";
+import { auth } from "../../lib/firebase.ts";
 import ProductEditModal from "../../components/admin/ProductEditModal.tsx";
 import { adminProductService } from "../../services/admin/AdminProductService.ts";
 
@@ -42,25 +41,6 @@ export default function Products() {
 
   useEffect(() => {
     loadProducts();
-
-    // Still use Firestore for real-time updates if available
-    const q = query(collection(db, "products"), orderBy("updatedAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const productList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Product[];
-      
-      // Prefer Firestore data for real-time if we have it
-      if (productList.length > 0) {
-        setProducts(productList);
-        setError(null);
-      }
-    }, (error) => {
-      console.warn("Firestore real-time sync restricted:", error.message);
-    });
-
-    return () => unsubscribe();
   }, [auth.currentUser]);
 
   const filteredProducts = products.filter(product => {

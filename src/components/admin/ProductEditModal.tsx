@@ -165,6 +165,83 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
               </div>
             )}
 
+            <div className="rounded-xl border-2 border-[#D4AF37]/30 bg-[#FFFBF0] p-5 md:p-6 space-y-4">
+              <div>
+                <p className="text-[10px] tracking-[0.2em] uppercase font-bold text-[#D4AF37]">
+                  Startseite & Kollektionen
+                </p>
+                <p className="text-sm text-gray-700 mt-1">
+                  Hier legen Sie fest, welche Produkte auf der Startseite erscheinen.
+                </p>
+              </div>
+
+              <label className="flex items-start gap-3 cursor-pointer group rounded-lg border border-[#D4AF37]/15 bg-white/80 p-3">
+                <input
+                  type="checkbox"
+                  checked={formData.featuredInHero === true}
+                  onChange={(e) => setFormData({ ...formData, featuredInHero: e.target.checked })}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                />
+                <span className="text-sm text-gray-700">
+                  <span className="font-medium block">Im Startseiten-Hero anzeigen</span>
+                  <span className="text-xs text-gray-400">
+                    Produkt rotiert im großen Hero-Bereich oben auf der Startseite.
+                  </span>
+                </span>
+              </label>
+
+              <div className="space-y-3 pt-1 border-t border-[#D4AF37]/15">
+                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                  Kuratierte Kollektionen — Kartenbilder
+                </p>
+
+                <label className="flex items-start gap-3 cursor-pointer group rounded-lg border border-[#D4AF37]/15 bg-white/80 p-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.featuredInSport === true}
+                    onChange={(e) => setFormData({ ...formData, featuredInSport: e.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <span className="font-medium block">Karte „Sportuhren“</span>
+                    <span className="text-xs text-gray-400">
+                      Bild auf der Sportuhren-Karte + Filter im Shop.
+                    </span>
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer group rounded-lg border border-[#D4AF37]/15 bg-white/80 p-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.featuredInVintage === true}
+                    onChange={(e) => setFormData({ ...formData, featuredInVintage: e.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <span className="font-medium block">Karte „Vintage“</span>
+                    <span className="text-xs text-gray-400">
+                      Bild auf der Vintage-Karte (Shop filtert weiter nach Zustand Vintage).
+                    </span>
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer group rounded-lg border border-[#D4AF37]/15 bg-white/80 p-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.featuredInUnder5000 === true}
+                    onChange={(e) => setFormData({ ...formData, featuredInUnder5000: e.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <span className="font-medium block">Karte „Under 5.000 €“</span>
+                    <span className="text-xs text-gray-400">
+                      Bild auf der Under-5.000-€-Karte (Shop filtert weiter nach Preis).
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Basic Info */}
               <div className="space-y-6">
@@ -244,76 +321,6 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-[#D4AF37] outline-none transition-all"
                     />
                   </div>
-                </div>
-
-                <label className="flex items-start gap-3 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={formData.featuredInHero === true}
-                    onChange={(e) => setFormData({ ...formData, featuredInHero: e.target.checked })}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
-                  />
-                  <span className="text-sm text-gray-700">
-                    <span className="font-medium block">Im Startseiten-Hero anzeigen</span>
-                    <span className="text-xs text-gray-400">
-                      Nur veröffentlichte Produkte mit Bestand erscheinen in der Hero-Rotation.
-                    </span>
-                  </span>
-                </label>
-
-                <div className="rounded-lg border border-gray-100 bg-gray-50/80 p-4 space-y-3">
-                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                    Kuratierte Kollektionen (Startseite)
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Wählen Sie, welches Produkt auf der jeweiligen Kollektions-Karte erscheint.
-                    Der Shop-Filter bleibt unverändert (Vintage = Zustandsgruppe, Under 5.000 € = Preis).
-                  </p>
-
-                  <label className="flex items-start gap-3 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={formData.featuredInSport === true}
-                      onChange={(e) => setFormData({ ...formData, featuredInSport: e.target.checked })}
-                      className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
-                    />
-                    <span className="text-sm text-gray-700">
-                      <span className="font-medium block">Karte „Sportuhren“</span>
-                      <span className="text-xs text-gray-400">
-                        Erscheint auf der Startseite und im Shop unter Sportuhren.
-                      </span>
-                    </span>
-                  </label>
-
-                  <label className="flex items-start gap-3 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={formData.featuredInVintage === true}
-                      onChange={(e) => setFormData({ ...formData, featuredInVintage: e.target.checked })}
-                      className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
-                    />
-                    <span className="text-sm text-gray-700">
-                      <span className="font-medium block">Karte „Vintage“</span>
-                      <span className="text-xs text-gray-400">
-                        Nur für die Startseiten-Vorschau. Im Shop gelten weiterhin Vintage-Produkte (Zustand).
-                      </span>
-                    </span>
-                  </label>
-
-                  <label className="flex items-start gap-3 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={formData.featuredInUnder5000 === true}
-                      onChange={(e) => setFormData({ ...formData, featuredInUnder5000: e.target.checked })}
-                      className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
-                    />
-                    <span className="text-sm text-gray-700">
-                      <span className="font-medium block">Karte „Under 5.000 €“</span>
-                      <span className="text-xs text-gray-400">
-                        Nur für die Startseiten-Vorschau. Im Shop gelten weiterhin alle Produkte unter 5.000 €.
-                      </span>
-                    </span>
-                  </label>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
