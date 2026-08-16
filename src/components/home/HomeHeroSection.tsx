@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Link } from "react-router-dom";
 import { Product } from "../../types.ts";
@@ -7,6 +7,7 @@ import { useShopSettings } from "../../contexts/ShopSettingsContext.tsx";
 import { getProductImageUrl } from "../../lib/productImage.ts";
 import { isPriceOnRequest, parsePriceOnRequestThreshold } from "../../lib/priceOnRequest.ts";
 import { useHeroRotation } from "../../hooks/useHeroRotation.ts";
+import { usePrefersReducedMotion } from "../../hooks/usePrefersReducedMotion.ts";
 
 interface HomeHeroSectionProps {
   products: Product[];
@@ -40,9 +41,25 @@ export default function HomeHeroSection({ products, loading }: HomeHeroSectionPr
   const { language, t } = useLanguage();
   const shopSettings = useShopSettings();
   const priceOnRequestThreshold = parsePriceOnRequestThreshold(shopSettings);
+  const prefersReducedMotion = usePrefersReducedMotion();
 
-  const { currentItem, activeIndex, canRotate, goNext, goPrev, goTo } =
-    useHeroRotation(products);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const heroPanelRef = useRef<HTMLDivElement>(null);
+
+  const isPaused = isHovered || isFocused;
+  const autoRotate = !prefersReducedMotion;
+
+  const { currentItem, activeIndex, canRotate, progress, goNext, goPrev, goTo } =
+    useHeroRotation(products, { paused: isPaused, autoRotate });
+
+  const fadeTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.85, ease: [0.4, 0, 0.2, 1] as const };
+
+  const contentTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 0.65, ease: [0.4, 0, 0.2, 1] as const };
 
   useEffect(() => {
     products.forEach((product) => {
@@ -52,6 +69,21 @@ export default function HomeHeroSection({ products, loading }: HomeHeroSectionPr
       img.src = url;
     });
   }, [products]);
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!canRotate || loading) return;
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        goNext();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        goPrev();
+      }
+    },
+    [canRotate, goNext, goPrev, loading]
+  );
 
   const heroContent = useMemo(() => {
     if (!currentItem) return null;
@@ -67,6 +99,9 @@ export default function HomeHeroSection({ products, loading }: HomeHeroSectionPr
           currency: "EUR",
         }).format(parseFloat(currentItem.price));
 
+    const brandName = currentItem.brand?.name || shopSettings.shopBrandName || "Antonio Bellanova";
+    const reference = currentItem.sku?.trim() || null;
+
     return {
       key: String(currentItem.id),
       image: getProductImageUrl(currentItem) || "/collections/sport.webp",
@@ -75,12 +110,31 @@ export default function HomeHeroSection({ products, loading }: HomeHeroSectionPr
       condition,
       formattedPrice,
       slug: currentItem.slug,
+      brandName,
+      reference,
+      announceTitle: title,
     };
-  }, [currentItem, language, priceOnRequestThreshold, t]);
+  }, [currentItem, language, priceOnRequestThreshold, shopSettings.shopBrandName, t]);
 
   return (
     <section className="relative h-screen flex overflow-hidden border-b border-white/10">
-      <div className="w-full lg:w-3/5 border-r border-white/10 relative p-12 flex flex-col justify-end">
+      <div
+        ref={heroPanelRef}
+        className="w-full lg:w-3/5 border-r border-white/10 relative p-12 flex flex-col justify-end outline-none"
+        tabIndex={canRotate && !loading ? 0 : -1}
+        role="region"
+        aria-roledescription="carousel"
+        aria-label={language === "en" ? "Featured products" : "Ausgewählte Produkte"}
+        onKeyDown={handleKeyDown}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onFocus={() => setIsFocused(true)}
+        onBlur={(event) => {
+          if (!heroPanelRef.current?.contains(event.relatedTarget as Node | null)) {
+            setIsFocused(false);
+          }
+        }}
+      >
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10 pointer-events-none" />
 
         <div className="absolute inset-0 overflow-hidden">
@@ -91,10 +145,10 @@ export default function HomeHeroSection({ products, loading }: HomeHeroSectionPr
               {heroContent && (
                 <motion.div
                   key={`bg-${heroContent.key}`}
-                  initial={{ opacity: 0 }}
+                  initial={{ opacity: prefersReducedMotion ? 0.3 : 0 }}
                   animate={{ opacity: 0.3 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.85, ease: [0.4, 0, 0.2, 1] }}
+                  transition={fadeTransition}
                   className="absolute inset-0 bg-cover bg-center"
                   style={{ backgroundImage: `url('${heroContent.image}')` }}
                 />
@@ -113,18 +167,22 @@ export default function HomeHeroSection({ products, loading }: HomeHeroSectionPr
           <>
             <button
               type="button"
-              aria-label={language === "en" ? "Previous product" : "Vorheriges Produkt"}
+              aria-label={t("home.hero.previous")}
               className="absolute top-0 bottom-36 left-0 w-[18%] z-[25] cursor-w-resize bg-transparent border-0 p-0"
               onClick={goPrev}
             />
             <button
               type="button"
-              aria-label={language === "en" ? "Next product" : "Nächstes Produkt"}
+              aria-label={t("home.hero.next")}
               className="absolute top-0 bottom-36 right-0 w-[18%] z-[25] cursor-e-resize bg-transparent border-0 p-0"
               onClick={goNext}
             />
           </>
         )}
+
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          {heroContent ? heroContent.announceTitle : ""}
+        </div>
 
         <div className="relative z-20 pointer-events-none">
           <motion.p
@@ -134,6 +192,26 @@ export default function HomeHeroSection({ products, loading }: HomeHeroSectionPr
           >
             {t("home.hero.subtitle")}
           </motion.p>
+
+          {!loading && heroContent && (heroContent.brandName || heroContent.reference) ? (
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={`brand-${heroContent.key}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={contentTransition}
+                className="text-[10px] tracking-[0.25em] uppercase text-white/45 mb-5"
+              >
+                {heroContent.brandName}
+                {heroContent.reference ? (
+                  <span className="text-white/25 before:content-['·'] before:mx-3">
+                    {t("home.hero.ref")} {heroContent.reference}
+                  </span>
+                ) : null}
+              </motion.p>
+            </AnimatePresence>
+          ) : null}
 
           <div className="min-h-[7.5rem] md:min-h-[9.5rem] mb-10">
             {loading ? (
@@ -145,10 +223,10 @@ export default function HomeHeroSection({ products, loading }: HomeHeroSectionPr
               <AnimatePresence mode="wait">
                 <motion.div
                   key={`title-${heroContent.key}`}
-                  initial={{ opacity: 0, y: 12 }}
+                  initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.65, ease: [0.4, 0, 0.2, 1] }}
+                  exit={{ opacity: 0, y: prefersReducedMotion ? 0 : -8 }}
+                  transition={contentTransition}
                 >
                   <h2 className="text-white text-5xl md:text-7xl font-serif leading-[0.9] font-light">
                     {heroContent.line1}
@@ -181,7 +259,7 @@ export default function HomeHeroSection({ products, loading }: HomeHeroSectionPr
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.55, ease: [0.4, 0, 0.2, 1] }}
+                  transition={contentTransition}
                   className="flex flex-wrap items-center gap-10"
                 >
                   {heroContent.condition ? (
@@ -220,25 +298,35 @@ export default function HomeHeroSection({ products, loading }: HomeHeroSectionPr
         </div>
 
         {canRotate && !loading && (
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 pointer-events-auto">
-            {products.map((product, index) => (
-              <button
-                key={product.id}
-                type="button"
-                aria-label={
-                  language === "en"
-                    ? `Show ${getProductTitle(product, language)}`
-                    : `${getProductTitle(product, language)} anzeigen`
-                }
-                aria-current={index === activeIndex ? "true" : undefined}
-                onClick={() => goTo(index)}
-                className={`h-1.5 rounded-full transition-all duration-500 ${
-                  index === activeIndex
-                    ? "w-6 bg-[#c5a059]"
-                    : "w-1.5 bg-white/25 hover:bg-white/45"
-                }`}
-              />
-            ))}
+          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-3 pointer-events-auto">
+            <div className="flex items-center gap-2">
+              {products.map((product, index) => (
+                <button
+                  key={product.id}
+                  type="button"
+                  aria-label={`${t("home.hero.show_product")}: ${getProductTitle(product, language)}`}
+                  aria-current={index === activeIndex ? "true" : undefined}
+                  onClick={() => goTo(index)}
+                  className={`h-1.5 rounded-full transition-all duration-500 ${
+                    index === activeIndex
+                      ? "w-6 bg-[#c5a059]"
+                      : "w-1.5 bg-white/25 hover:bg-white/45"
+                  }`}
+                />
+              ))}
+            </div>
+
+            {autoRotate && (
+              <div
+                className="w-24 h-px bg-white/10 overflow-hidden"
+                aria-hidden="true"
+              >
+                <div
+                  className="h-full bg-[#c5a059]/70 transition-[width] duration-100 ease-linear"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -25,6 +25,7 @@ import { handleStripeWebhook } from "./src/server/stripeWebhook.ts";
 import { buildProductJsonLd, injectProductMeta, loadSpaIndexHtml } from "./src/server/seo.ts";
 import { notifyWishlistAlerts } from "./src/server/wishlistAlerts.ts";
 import { refreshCertificatesForProduct } from "./src/server/certificate/service.ts";
+import { getShopCollectionCondition, getCuratedCollectionCondition, getCollectionFeaturePatch, isShopCollectionSlug } from "./src/lib/shopCollectionFilters.ts";
 import { getSettingsMap } from "./src/server/settings.ts";
 import {
   resolveProductPricing,
@@ -226,7 +227,7 @@ async function startServer() {
     try {
       const {
         cat, all, limit: limitParam, sort, brand: brandSlug, minPrice, maxPrice, exclude,
-        conditionGroup, box, papers, material, movement, diameter, collection,
+        conditionGroup, box, papers, material, movement, diameter, collection, hero, curated,
       } = req.query;
       
       let conditions: any[] = [];
@@ -234,6 +235,10 @@ async function startServer() {
       if (all !== "true") {
         conditions.push(inArray(products.status, ["ACTIVE"]));
         conditions.push(gt(products.stock, 0));
+      }
+
+      if (hero === "true") {
+        conditions.push(eq(products.featuredInHero, true));
       }
       
       if (cat === "watches") conditions.push(eq(products.type, "WATCH"));
@@ -270,16 +275,12 @@ async function startServer() {
         ));
       }
 
-      if (collection === "sport") {
-        conditions.push(or(
-          ilike(products.movement, "%chron%"),
-          ilike(products.movement, "%autom%"),
-          ilike(products.type, "WATCH"),
-        ));
-      } else if (collection === "vintage") {
-        conditions.push(eq(products.conditionGroup, "VINTAGE"));
-      } else if (collection === "under-5000") {
-        conditions.push(lte(products.price, "5000"));
+      if (typeof collection === "string" && isShopCollectionSlug(collection)) {
+        if (curated === "true") {
+          conditions.push(getCuratedCollectionCondition(collection));
+        } else {
+          conditions.push(getShopCollectionCondition(collection));
+        }
       }
 
       let orderBy = cat === "new" ? desc(products.createdAt) : desc(products.createdAt);
@@ -537,6 +538,94 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
   }
 
   // Admin Products Retrieval (SQL Source of Truth)
+  app.get("/api/admin/collections", requireAuth, requireRole(["ADMIN"]), async (_req: AuthRequest, res) => {
+    try {
+      const result = await db
+        .select({
+          product: products,
+          brand: brands,
+        })
+        .from(products)
+        .leftJoin(brands, eq(products.brandId, brands.id))
+        .where(
+          or(
+            eq(products.featuredInSport, true),
+            eq(products.featuredInVintage, true),
+            eq(products.featuredInUnder5000, true)
+          )
+        )
+        .orderBy(desc(products.updatedAt));
+
+      const grouped = {
+        sport: [] as any[],
+        vintage: [] as any[],
+        "under-5000": [] as any[],
+      };
+
+      for (const item of result) {
+        const mapped = {
+          ...item.product,
+          images: Array.isArray(item.product.images)
+            ? item.product.images
+            : typeof item.product.images === "string"
+              ? JSON.parse(item.product.images)
+              : [],
+          brand: item.brand,
+        };
+        if (mapped.featuredInSport) grouped.sport.push(mapped);
+        if (mapped.featuredInVintage) grouped.vintage.push(mapped);
+        if (mapped.featuredInUnder5000) grouped["under-5000"].push(mapped);
+      }
+
+      res.json(grouped);
+    } catch (error) {
+      console.error("Failed to fetch curated collections", error);
+      res.status(500).json({ error: "Failed to fetch curated collections" });
+    }
+  });
+
+  app.post("/api/admin/collections/toggle", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
+    try {
+      const productId = parseInt(String(req.body.productId), 10);
+      const collection = req.body.collection;
+      const featured = req.body.featured === true;
+
+      if (!Number.isFinite(productId) || !isShopCollectionSlug(collection)) {
+        return res.status(400).json({ error: "Ungültige Anfrage" });
+      }
+
+      const patch = getCollectionFeaturePatch(collection, featured);
+      const [updated] = await db
+        .update(products)
+        .set({ ...patch, updatedAt: new Date() })
+        .where(eq(products.id, productId))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ error: "Produkt nicht gefunden" });
+      }
+
+      if (adminDb) {
+        try {
+          const snapshot = await adminDb.collection("products").where("sqlId", "==", productId).get();
+          if (!snapshot.empty) {
+            await snapshot.docs[0].ref.update({
+              ...patch,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        } catch (fsErr) {
+          console.warn("Firestore collection toggle sync failed (non-blocking):", fsErr);
+        }
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to toggle collection membership", error);
+      res.status(500).json({ error: "Failed to update collection" });
+    }
+  });
+
   app.get("/api/admin/products", requireAuth, requireRole(["ADMIN"]), async (req: AuthRequest, res) => {
     try {
       const result = await db.select({
@@ -930,6 +1019,10 @@ ${urls.map(u => `  <url><loc>${u}</loc></url>`).join("\n")}
         destinationCountry: data.destinationCountry || "DE",
         margin: data.margin != null && data.margin !== "" ? String(data.margin).replace(",", ".") : null,
         stock: data.stock !== undefined ? parseInt(String(data.stock), 10) || 1 : 1,
+        featuredInHero: data.featuredInHero === true || data.featuredInHero === "true",
+        featuredInSport: data.featuredInSport === true || data.featuredInSport === "true",
+        featuredInVintage: data.featuredInVintage === true || data.featuredInVintage === "true",
+        featuredInUnder5000: data.featuredInUnder5000 === true || data.featuredInUnder5000 === "true",
         model: data.model || data.modelName,
         sourceUrl: data.sourceUrl || data.url,
         sourceProvider: data.sourceProvider,

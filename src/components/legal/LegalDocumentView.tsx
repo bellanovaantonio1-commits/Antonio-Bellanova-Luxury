@@ -39,10 +39,23 @@ export default function LegalDocumentView({ documentKey, fallbackTitle, classNam
   }
 
   return (
-    <div
-      className={`legal-document space-y-8 [&_.legal-missing]:text-amber-400/90 [&_.legal-missing]:not-italic ${className}`}
-      dangerouslySetInnerHTML={{ __html: html || "" }}
-    />
+    <div className={className}>
+      {documentKey === "withdrawal_form" && (
+        <p className="mb-6">
+          <a
+            href={`/api/legal/withdrawal-form/pdf?lang=${language}`}
+            download
+            className="inline-flex items-center gap-2 text-[10px] tracking-[0.25em] uppercase text-[#c5a059] border border-[#c5a059]/30 px-4 py-2 hover:bg-[#c5a059]/10 transition-colors"
+          >
+            {language === "en" ? "Download withdrawal form (PDF)" : "Widerrufsformular als PDF"}
+          </a>
+        </p>
+      )}
+      <div
+        className="legal-document space-y-8 [&_.legal-missing]:text-amber-400/90 [&_.legal-missing]:not-italic"
+        dangerouslySetInnerHTML={{ __html: html || "" }}
+      />
+    </div>
   );
 }
 

@@ -87,6 +87,10 @@ export interface Product {
   published?: boolean;
   publishedAt?: string | Date;
   stock?: number;
+  featuredInHero?: boolean;
+  featuredInSport?: boolean;
+  featuredInVintage?: boolean;
+  featuredInUnder5000?: boolean;
   images: string[];
   mainImage?: string;
   

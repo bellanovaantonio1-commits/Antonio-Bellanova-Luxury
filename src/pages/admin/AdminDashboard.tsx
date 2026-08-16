@@ -35,6 +35,7 @@ import Certificates from "./Certificates.tsx";
 import LegalCompliance from "./LegalCompliance.tsx";
 import Invoices from "./Invoices.tsx";
 import NewProduct from "./NewProduct.tsx";
+import CuratedCollectionsAdmin from "./CuratedCollectionsAdmin.tsx";
 import { auth } from "../../lib/firebase.ts";
 
 export default function AdminDashboard() {
@@ -74,17 +75,17 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Admin Sidebar */}
-      <aside className="w-64 bg-[#0A0A0A] text-white flex flex-col fixed inset-y-0 z-50">
-        <div className="p-8 border-b border-white/10">
+      <aside className="w-64 bg-[#0A0A0A] text-white flex flex-col fixed inset-y-0 z-50 min-h-0">
+        <div className="shrink-0 p-8 border-b border-white/10">
           <Link to="/" className="flex flex-col items-start">
             <span className="text-sm font-serif tracking-[0.2em] leading-tight">ANTONIO BELLANOVA</span>
             <span className="text-[7px] tracking-[0.4em] text-[#D4AF37] mt-1 uppercase">Luxury Admin</span>
           </Link>
         </div>
 
-        <nav className="flex-1 py-8 px-4 space-y-2">
+        <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain py-8 px-4 space-y-2">
           {navItems.map((item) => (
             <Link
               key={item.path}
@@ -104,7 +105,7 @@ export default function AdminDashboard() {
           ))}
         </nav>
 
-        <div className="p-8 border-t border-white/10">
+        <div className="shrink-0 p-8 border-t border-white/10">
           <button 
             onClick={logout}
             className="flex items-center gap-3 text-white/50 hover:text-red-400 text-[11px] tracking-widest uppercase transition-colors group"
@@ -116,7 +117,8 @@ export default function AdminDashboard() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 ml-64 p-12">
+      <div className="flex-1 ml-64 min-h-0 overflow-y-auto overscroll-contain">
+        <div className="p-12">
         <header className="flex justify-between items-center mb-12">
           <h2 className="text-3xl font-serif tracking-tight text-gray-900">
             {navItems.find(n => location.pathname === n.path || (n.path !== "/admin" && location.pathname.startsWith(n.path)))?.label || "Admin"}
@@ -128,22 +130,24 @@ export default function AdminDashboard() {
 
         <div className="admin-panel bg-white rounded-2xl p-8 shadow-sm border border-gray-100 min-h-[600px] text-gray-900 [&_input:not([type=checkbox]):not([type=radio])]:text-gray-900 [&_input]:placeholder:text-gray-400 [&_textarea]:text-gray-900 [&_textarea]:placeholder:text-gray-400 [&_select]:text-gray-900 [&_option]:text-gray-900 [&_h2]:text-gray-900 [&_h3]:text-gray-900 [&_h4]:text-gray-900">
           <Routes>
-            <Route path="/" element={<Overview />} />
-            <Route path="/help" element={<AdminHelp />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/products/new" element={<NewProduct />} />
-            <Route path="/ai-import" element={<AIImport />} />
-            <Route path="/orders" element={<Orders />} />
-            <Route path="/invoices" element={<Invoices />} />
-            <Route path="/certificates" element={<Certificates />} />
-            <Route path="/legal" element={<LegalCompliance />} />
-            <Route path="/inquiries" element={<Inquiries />} />
-            <Route path="/inventory" element={<Inventory />} />
-            <Route path="/brands" element={<Brands />} />
-            <Route path="/crm" element={<Customers />} />
-            <Route path="/pricing" element={<PricingPayments />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route index element={<Overview />} />
+            <Route path="help" element={<AdminHelp />} />
+            <Route path="products" element={<Products />} />
+            <Route path="collections" element={<CuratedCollectionsAdmin />} />
+            <Route path="products/new" element={<NewProduct />} />
+            <Route path="ai-import" element={<AIImport />} />
+            <Route path="orders" element={<Orders />} />
+            <Route path="invoices" element={<Invoices />} />
+            <Route path="certificates" element={<Certificates />} />
+            <Route path="legal" element={<LegalCompliance />} />
+            <Route path="inquiries" element={<Inquiries />} />
+            <Route path="inventory" element={<Inventory />} />
+            <Route path="brands" element={<Brands />} />
+            <Route path="crm" element={<Customers />} />
+            <Route path="pricing" element={<PricingPayments />} />
+            <Route path="settings" element={<Settings />} />
           </Routes>
+        </div>
         </div>
       </div>
     </div>

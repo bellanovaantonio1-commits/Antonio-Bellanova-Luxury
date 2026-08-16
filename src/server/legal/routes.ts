@@ -11,6 +11,10 @@ import {
 } from "./service.ts";
 import type { LegalDocumentKey, LegalLanguage } from "./types.ts";
 import { LEGAL_DOCUMENT_KEYS } from "./types.ts";
+import {
+  generateWithdrawalFormPdf,
+  withdrawalFormPdfFilename,
+} from "./withdrawalFormPdf.ts";
 
 function parseKey(raw: string): LegalDocumentKey | null {
   return LEGAL_DOCUMENT_KEYS.includes(raw as LegalDocumentKey) ? (raw as LegalDocumentKey) : null;
@@ -142,6 +146,25 @@ export function registerLegalRoutes(app: Express) {
       res.json(await buildLegalAcceptanceSnapshot(lang));
     } catch (error: unknown) {
       res.status(500).json({ error: error instanceof Error ? error.message : "Fehler." });
+    }
+  });
+
+  app.get("/api/legal/withdrawal-form/pdf", async (req, res) => {
+    try {
+      const lang = parseLang(req.query.lang);
+      const pdf = await generateWithdrawalFormPdf(lang);
+      const filename = withdrawalFormPdfFilename(lang);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Length", pdf.length);
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(pdf);
+    } catch (error: unknown) {
+      console.error("[legal] GET /api/legal/withdrawal-form/pdf", error);
+      res.status(500).json({
+        error: parseLang(req.query.lang) === "en"
+          ? "PDF could not be generated."
+          : "PDF konnte nicht erzeugt werden.",
+      });
     }
   });
 }

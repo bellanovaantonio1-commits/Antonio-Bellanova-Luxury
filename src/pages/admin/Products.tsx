@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
-import { Search, Edit, Trash2, ExternalLink, Plus, AlertCircle, Sparkles, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Search, Edit, Trash2, ExternalLink, Plus, AlertCircle, Sparkles, Loader2, LayoutGrid } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Product } from "../../types.ts";
-import { collection, onSnapshot, query, deleteDoc, doc, writeBatch, getDocs, orderBy, where } from "firebase/firestore";
-import { db, auth } from "../../lib/firebase.ts";
+import { auth } from "../../lib/firebase.ts";
 import ProductEditModal from "../../components/admin/ProductEditModal.tsx";
+import CuratedCollectionsAdmin from "./CuratedCollectionsAdmin.tsx";
 import { adminProductService } from "../../services/admin/AdminProductService.ts";
 
 export default function Products() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") === "collections" ? "collections" : "list";
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -42,25 +44,6 @@ export default function Products() {
 
   useEffect(() => {
     loadProducts();
-
-    // Still use Firestore for real-time updates if available
-    const q = query(collection(db, "products"), orderBy("updatedAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const productList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Product[];
-      
-      // Prefer Firestore data for real-time if we have it
-      if (productList.length > 0) {
-        setProducts(productList);
-        setError(null);
-      }
-    }, (error) => {
-      console.warn("Firestore real-time sync restricted:", error.message);
-    });
-
-    return () => unsubscribe();
   }, [auth.currentUser]);
 
   const filteredProducts = products.filter(product => {
@@ -135,6 +118,36 @@ export default function Products() {
 
   return (
     <div className="space-y-8">
+      <div className="flex flex-wrap gap-3 border-b border-gray-100 pb-6">
+        <button
+          type="button"
+          onClick={() => setSearchParams({})}
+          className={`px-5 py-2.5 rounded-lg text-[10px] tracking-widest uppercase font-bold transition-all ${
+            activeTab === "list"
+              ? "bg-[#D4AF37] text-white shadow-md"
+              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+          }`}
+        >
+          Alle Produkte
+        </button>
+        <button
+          type="button"
+          onClick={() => setSearchParams({ tab: "collections" })}
+          className={`px-5 py-2.5 rounded-lg text-[10px] tracking-widest uppercase font-bold transition-all flex items-center gap-2 ${
+            activeTab === "collections"
+              ? "bg-[#D4AF37] text-white shadow-md"
+              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+          }`}
+        >
+          <LayoutGrid size={14} />
+          Startseiten-Kollektionen
+        </button>
+      </div>
+
+      {activeTab === "collections" ? (
+        <CuratedCollectionsAdmin />
+      ) : (
+        <>
       {error && (
         <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm flex items-center gap-3">
           <AlertCircle size={18} />
@@ -299,6 +312,8 @@ export default function Products() {
             }
           }}
         />
+      )}
+        </>
       )}
     </div>
   );

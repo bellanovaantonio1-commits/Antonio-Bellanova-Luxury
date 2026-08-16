@@ -47,11 +47,11 @@ export default function ProductPaymentMethods() {
         </Link>
       </div>
 
-      <ul className="flex items-center gap-3 sm:gap-4 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin md:flex-wrap md:overflow-visible md:pb-0">
+      <ul className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5 sm:gap-3">
         {methods.map((method) => (
-          <li key={method.id} className="group shrink-0">
-            <div className="flex items-center justify-center min-w-[4.5rem] h-12 px-3 border border-white/[0.06] bg-white/[0.02] hover:border-[#c5a059]/30 hover:bg-[#c5a059]/[0.04] transition-all duration-300">
-              <PaymentMethodIcon id={method.id} className="w-11 h-5" />
+          <li key={method.id} className="group">
+            <div className="flex items-center justify-center h-14 px-2.5 border border-white/[0.08] bg-white/[0.03] hover:border-[#c5a059]/35 hover:bg-[#c5a059]/[0.05] transition-all duration-300">
+              <PaymentMethodIcon id={method.id} className="h-7 w-[4.25rem] max-w-full" />
               <span className="sr-only">
                 {language === "en" ? method.labelEn : method.labelDe}
               </span>

@@ -1,55 +1,49 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { shuffleOrder } from "../lib/rotationQueue.ts";
 
 const DEFAULT_INTERVAL_MS = 30_000;
+const PROGRESS_TICK_MS = 100;
 
-function shuffleOrder(length: number, avoidFirst?: number): number[] {
-  if (length <= 0) return [];
-  if (length === 1) return [0];
-
-  const indices = Array.from({ length }, (_, i) => i);
-
-  for (let i = indices.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [indices[i], indices[j]] = [indices[j], indices[i]];
-  }
-
-  for (let i = 1; i < indices.length; i++) {
-    if (indices[i] === indices[i - 1]) {
-      const swapWith = indices.findIndex((v, j) => j !== i && v !== indices[i - 1]);
-      if (swapWith >= 0) {
-        [indices[i], indices[swapWith]] = [indices[swapWith], indices[i]];
-      }
-    }
-  }
-
-  if (avoidFirst !== undefined && indices[0] === avoidFirst) {
-    const swapWith = indices.findIndex((v, j) => j > 0 && v !== avoidFirst);
-    if (swapWith > 0) {
-      [indices[0], indices[swapWith]] = [indices[swapWith], indices[0]];
-    }
-  }
-
-  return indices;
+interface HeroRotationOptions {
+  intervalMs?: number;
+  paused?: boolean;
+  autoRotate?: boolean;
 }
 
 export function useHeroRotation<T extends { id: string | number }>(
   items: T[],
-  intervalMs = DEFAULT_INTERVAL_MS
+  options: HeroRotationOptions = {}
 ) {
+  const { intervalMs = DEFAULT_INTERVAL_MS, paused = false, autoRotate = true } = options;
   const canRotate = items.length >= 2;
   const itemsKey = items.map((item) => item.id).join("|");
 
   const queueRef = useRef<number[]>([]);
   const queuePosRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressStartRef = useRef(Date.now());
 
   const [activeIndex, setActiveIndex] = useState(0);
+  const [progress, setProgress] = useState(0);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+  }, []);
+
+  const clearProgressTimer = useCallback(() => {
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
+    }
+  }, []);
+
+  const resetProgress = useCallback(() => {
+    progressStartRef.current = Date.now();
+    setProgress(0);
   }, []);
 
   const initQueue = useCallback(
@@ -65,13 +59,15 @@ export function useHeroRotation<T extends { id: string | number }>(
       queueRef.current = [];
       queuePosRef.current = 0;
       setActiveIndex(0);
+      setProgress(0);
       return;
     }
 
     initQueue();
     const first = queueRef.current[0] ?? 0;
     setActiveIndex(first);
-  }, [itemsKey, items.length, initQueue]);
+    resetProgress();
+  }, [itemsKey, items.length, initQueue, resetProgress]);
 
   const step = useCallback(
     (direction: 1 | -1) => {
@@ -120,13 +116,33 @@ export function useHeroRotation<T extends { id: string | number }>(
 
   const startTimer = useCallback(() => {
     clearTimer();
-    if (!canRotate || document.hidden) return;
+    clearProgressTimer();
+
+    if (!canRotate || !autoRotate || paused || document.hidden) return;
+
+    resetProgress();
+
+    progressTimerRef.current = setInterval(() => {
+      if (document.hidden || paused) return;
+      const elapsed = Date.now() - progressStartRef.current;
+      setProgress(Math.min(100, (elapsed / intervalMs) * 100));
+    }, PROGRESS_TICK_MS);
 
     timerRef.current = setInterval(() => {
-      if (document.hidden) return;
+      if (document.hidden || paused) return;
       step(1);
+      resetProgress();
     }, intervalMs);
-  }, [canRotate, clearTimer, intervalMs, step]);
+  }, [
+    autoRotate,
+    canRotate,
+    clearProgressTimer,
+    clearTimer,
+    intervalMs,
+    paused,
+    resetProgress,
+    step,
+  ]);
 
   const resetTimer = useCallback(() => {
     startTimer();
@@ -138,6 +154,7 @@ export function useHeroRotation<T extends { id: string | number }>(
     const onVisibilityChange = () => {
       if (document.hidden) {
         clearTimer();
+        clearProgressTimer();
       } else {
         startTimer();
       }
@@ -147,8 +164,9 @@ export function useHeroRotation<T extends { id: string | number }>(
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       clearTimer();
+      clearProgressTimer();
     };
-  }, [startTimer, clearTimer, canRotate, itemsKey]);
+  }, [startTimer, clearTimer, clearProgressTimer, canRotate, itemsKey, paused, autoRotate]);
 
   const manualGoNext = useCallback(() => {
     if (!canRotate) return;
@@ -177,6 +195,7 @@ export function useHeroRotation<T extends { id: string | number }>(
     currentItem,
     activeIndex,
     canRotate,
+    progress,
     goNext: manualGoNext,
     goPrev: manualGoPrev,
     goTo: manualGoTo,

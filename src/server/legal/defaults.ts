@@ -158,22 +158,81 @@ const withdrawalEn: DefaultDoc = {
 const withdrawalFormDe: DefaultDoc = {
   title: "Muster-Widerrufsformular",
   contentHtml: `
-<section class="space-y-6"><p class="text-sm opacity-70">Wenn Sie den Vertrag widerrufen wollen, füllen Sie bitte dieses Formular aus und senden Sie es zurück.</p>
-<div class="bg-white/5 p-6 rounded-xl border border-white/10 space-y-4 font-mono text-sm leading-relaxed">
-<p>An<br/>{{legalCompanyName}}<br/>{{contactAddress}}<br/>E-Mail: {{contactEmail}}</p>
-<p>Hiermit widerrufe(n) ich/wir (*) den von mir/uns (*) abgeschlossenen Vertrag über den Kauf der folgenden Waren (*)/ die Erbringung der folgenden Dienstleistung (*)</p>
-<p>Bestellt am (*)/ erhalten am (*)</p>
+<section class="space-y-6">
+<p class="text-sm opacity-70">Wenn Sie den Vertrag widerrufen wollen, füllen Sie bitte dieses Formular aus und senden Sie es zurück.</p>
+<p><a href="/api/legal/withdrawal-form/pdf?lang=de" class="inline-flex items-center gap-2 text-[10px] tracking-[0.25em] uppercase text-[#c5a059] border border-[#c5a059]/30 px-4 py-2 hover:bg-[#c5a059]/10 transition-colors" download>Widerrufsformular als PDF</a></p>
+<div class="bg-white/5 p-6 rounded-xl border border-white/10 space-y-6 text-sm leading-relaxed">
+<div>
+<p class="text-white/50 mb-2">An</p>
+<p>{{legalCompanyName}}<br/>{{contactAddress}}<br/>E-Mail: {{contactEmail}}</p>
+</div>
+<div class="space-y-2">
+<p>Hiermit widerrufe(n) ich/wir den von mir/uns abgeschlossenen Vertrag über den Kauf der folgenden Waren / die Erbringung der folgenden Dienstleistung:</p>
+<p class="mt-3 min-h-[1.75rem] border-b border-white/25"></p>
+</div>
+<div class="space-y-2">
+<p>Bestellt am / erhalten am</p>
+<p class="mt-3 min-h-[1.75rem] border-b border-white/25"></p>
+</div>
+<div class="space-y-2">
 <p>Name des/der Verbraucher(s)</p>
+<p class="mt-3 min-h-[1.75rem] border-b border-white/25"></p>
+</div>
+<div class="space-y-2">
 <p>Anschrift des/der Verbraucher(s)</p>
+<p class="mt-3 min-h-[1.75rem] border-b border-white/25"></p>
+<p class="mt-6 min-h-[1.75rem] border-b border-white/25"></p>
+</div>
+<div class="space-y-2">
 <p>Unterschrift des/der Verbraucher(s) (nur bei Mitteilung auf Papier)</p>
+<p class="mt-3 min-h-[1.75rem] border-b border-white/25"></p>
+</div>
+<div class="space-y-2">
 <p>Datum</p>
-<p class="text-xs opacity-60">(*) Unzutreffendes streichen.</p>
-</div></section>`,
+<p class="mt-3 min-h-[1.75rem] border-b border-white/25"></p>
+</div>
+</div>
+</section>`,
 };
 
 const withdrawalFormEn: DefaultDoc = {
   title: "Withdrawal Form",
-  contentHtml: withdrawalFormDe.contentHtml.replace(/Muster-Widerrufsformular/g, "Model Withdrawal Form"),
+  contentHtml: `
+<section class="space-y-6">
+<p class="text-sm opacity-70">If you wish to withdraw from the contract, please complete this form and send it back.</p>
+<p><a href="/api/legal/withdrawal-form/pdf?lang=en" class="inline-flex items-center gap-2 text-[10px] tracking-[0.25em] uppercase text-[#c5a059] border border-[#c5a059]/30 px-4 py-2 hover:bg-[#c5a059]/10 transition-colors" download>Download withdrawal form (PDF)</a></p>
+<div class="bg-white/5 p-6 rounded-xl border border-white/10 space-y-6 text-sm leading-relaxed">
+<div>
+<p class="text-white/50 mb-2">To</p>
+<p>{{legalCompanyName}}<br/>{{contactAddress}}<br/>E-Mail: {{contactEmail}}</p>
+</div>
+<div class="space-y-2">
+<p>I/We hereby give notice that I/We withdraw from my/our contract of sale of the following goods / for the provision of the following service:</p>
+<p class="mt-3 min-h-[1.75rem] border-b border-white/25"></p>
+</div>
+<div class="space-y-2">
+<p>Ordered on / received on</p>
+<p class="mt-3 min-h-[1.75rem] border-b border-white/25"></p>
+</div>
+<div class="space-y-2">
+<p>Name of consumer(s)</p>
+<p class="mt-3 min-h-[1.75rem] border-b border-white/25"></p>
+</div>
+<div class="space-y-2">
+<p>Address of consumer(s)</p>
+<p class="mt-3 min-h-[1.75rem] border-b border-white/25"></p>
+<p class="mt-6 min-h-[1.75rem] border-b border-white/25"></p>
+</div>
+<div class="space-y-2">
+<p>Signature of consumer(s) (only if this form is submitted on paper)</p>
+<p class="mt-3 min-h-[1.75rem] border-b border-white/25"></p>
+</div>
+<div class="space-y-2">
+<p>Date</p>
+<p class="mt-3 min-h-[1.75rem] border-b border-white/25"></p>
+</div>
+</div>
+</section>`,
 };
 
 const shippingDe: DefaultDoc = {

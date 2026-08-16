@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 501" fill="none" role="img" aria-label="Banküberweisung">
+  <rect width="780" height="501" rx="40" fill="#101010" stroke="#C5A059" stroke-width="8"/>
+  <path stroke="#C5A059" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" d="M390 120 590 220H190L390 120zm-115 100v120m75-120v120m115-120v120m75-120v120M130 380h520"/>
+  <path stroke="#C5A059" stroke-width="18" stroke-linecap="round" d="M100 380h580"/>
+</svg>

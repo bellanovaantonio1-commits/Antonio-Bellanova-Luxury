@@ -38,10 +38,12 @@ function assert(condition: boolean, message: string) {
   assert(terms.includes("keine pauschale"), "terms avoids blanket guarantee");
 }
 
-// 5. Withdrawal form uses placeholders
+// 5. Withdrawal form uses placeholders and fill-in lines (no asterisks)
 {
   const form = getDefaultLegalDocument("withdrawal_form", "de").contentHtml;
   assert(form.includes("{{legalCompanyName}}"), "form company placeholder");
+  assert(!form.includes("(*)"), "form without asterisk markers");
+  assert(form.includes("border-b"), "form fill-in lines");
 }
 
 // 6. Missing company fields detection

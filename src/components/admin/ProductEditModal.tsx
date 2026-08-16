@@ -116,7 +116,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-10">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-10 min-h-0">
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -129,10 +129,10 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+          className="relative w-full max-w-4xl max-h-[90vh] min-h-0 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
         >
           {/* Header */}
-          <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+          <div className="shrink-0 px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
             <div className="flex items-center gap-6">
               <div>
                 <h2 className="text-xl font-serif italic tracking-wide text-gray-900">Produkt bearbeiten</h2>
@@ -157,13 +157,90 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-8 space-y-10">
+          <form onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-8 space-y-10">
             {error && (
               <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm flex items-center gap-3">
                 <AlertCircle size={18} />
                 {error}
               </div>
             )}
+
+            <div className="rounded-xl border-2 border-[#D4AF37]/30 bg-[#FFFBF0] p-5 md:p-6 space-y-4">
+              <div>
+                <p className="text-[10px] tracking-[0.2em] uppercase font-bold text-[#D4AF37]">
+                  Startseite & Kollektionen
+                </p>
+                <p className="text-sm text-gray-700 mt-1">
+                  Hier legen Sie fest, welche Produkte auf der Startseite erscheinen.
+                </p>
+              </div>
+
+              <label className="flex items-start gap-3 cursor-pointer group rounded-lg border border-[#D4AF37]/15 bg-white/80 p-3">
+                <input
+                  type="checkbox"
+                  checked={formData.featuredInHero === true}
+                  onChange={(e) => setFormData({ ...formData, featuredInHero: e.target.checked })}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                />
+                <span className="text-sm text-gray-700">
+                  <span className="font-medium block">Im Startseiten-Hero anzeigen</span>
+                  <span className="text-xs text-gray-400">
+                    Produkt rotiert im großen Hero-Bereich oben auf der Startseite.
+                  </span>
+                </span>
+              </label>
+
+              <div className="space-y-3 pt-1 border-t border-[#D4AF37]/15">
+                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                  Kuratierte Kollektionen — Kartenbilder
+                </p>
+
+                <label className="flex items-start gap-3 cursor-pointer group rounded-lg border border-[#D4AF37]/15 bg-white/80 p-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.featuredInSport === true}
+                    onChange={(e) => setFormData({ ...formData, featuredInSport: e.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <span className="font-medium block">Karte „Sportuhren“</span>
+                    <span className="text-xs text-gray-400">
+                      Bild auf der Sportuhren-Karte + Filter im Shop.
+                    </span>
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer group rounded-lg border border-[#D4AF37]/15 bg-white/80 p-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.featuredInVintage === true}
+                    onChange={(e) => setFormData({ ...formData, featuredInVintage: e.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <span className="font-medium block">Karte „Vintage“</span>
+                    <span className="text-xs text-gray-400">
+                      Bild auf der Vintage-Karte (Shop filtert weiter nach Zustand Vintage).
+                    </span>
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-3 cursor-pointer group rounded-lg border border-[#D4AF37]/15 bg-white/80 p-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.featuredInUnder5000 === true}
+                    onChange={(e) => setFormData({ ...formData, featuredInUnder5000: e.target.checked })}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]"
+                  />
+                  <span className="text-sm text-gray-700">
+                    <span className="font-medium block">Karte „Under 5.000 €“</span>
+                    <span className="text-xs text-gray-400">
+                      Bild auf der Under-5.000-€-Karte (Shop filtert weiter nach Preis).
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Basic Info */}
@@ -344,7 +421,7 @@ export default function ProductEditModal({ product, isOpen, onClose, onSave }: P
           </form>
 
           {/* Footer */}
-          <div className="px-8 py-6 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center">
+          <div className="shrink-0 px-8 py-6 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center">
             <div>
               {product.id && (
                 <button 
