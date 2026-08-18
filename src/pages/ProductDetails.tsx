@@ -17,7 +17,6 @@ import ProductPricingBlock from "../components/product/ProductPricingBlock.tsx";
 import ProductStatusBadge from "../components/product/ProductStatusBadge.tsx";
 import ProductTrustFeatures from "../components/product/ProductTrustFeatures.tsx";
 import ProductActions from "../components/product/ProductActions.tsx";
-import ProductDatasheetButton from "../components/product/ProductDatasheetButton.tsx";
 import ProductDetailGrid from "../components/product/ProductDetailGrid.tsx";
 import ProductTabsSection from "../components/product/ProductTabsSection.tsx";
 import ProductPremiumService from "../components/product/ProductPremiumService.tsx";
@@ -408,9 +407,10 @@ export default function ProductDetails() {
               />
             </div>
 
-            <div className="mb-10 space-y-3">
+            <div className="mb-10">
               <ProductActions
                 product={product}
+                slug={product.slug}
                 priceOnRequest={priceOnRequest}
                 onAddToCart={handleAddToCart}
                 onReserve={() => {
@@ -420,7 +420,6 @@ export default function ProductDetails() {
                 }}
                 whatsappUrl={whatsappUrl}
               />
-              <ProductDatasheetButton slug={product.slug} />
             </div>
 
             <ProductPaymentMethods />
