@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext.tsx";
 import type { PaymentDisplayMethod } from "../../lib/paymentDisplay.ts";
-import PaymentMethodIcon from "./PaymentMethodIcon.tsx";
 
 export default function ProductPaymentMethods() {
   const { language, t } = useLanguage();
@@ -28,7 +27,12 @@ export default function ProductPaymentMethods() {
     };
   }, []);
 
-  if (!loaded || methods.length === 0) return null;
+  const visibleMethods = useMemo(
+    () => methods.filter((method) => method.id !== "stripe"),
+    [methods]
+  );
+
+  if (!loaded || visibleMethods.length === 0) return null;
 
   return (
     <section
@@ -47,15 +51,12 @@ export default function ProductPaymentMethods() {
         </Link>
       </div>
 
-      <ul className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2.5 sm:gap-3">
-        {methods.map((method) => (
-          <li key={method.id} className="group">
-            <div className="flex items-center justify-center h-[3.75rem] px-2 border border-white/[0.08] bg-[#0a0a0a] hover:border-[#c5a059]/35 hover:bg-[#c5a059]/[0.04] transition-all duration-300">
-              <PaymentMethodIcon id={method.id} className="h-6 w-full max-w-[5rem]" />
-              <span className="sr-only">
-                {language === "en" ? method.labelEn : method.labelDe}
-              </span>
-            </div>
+      <ul className="flex flex-wrap gap-2">
+        {visibleMethods.map((method) => (
+          <li key={method.id}>
+            <span className="inline-flex items-center px-3 py-2 border border-white/[0.08] bg-[#0a0a0a] text-[11px] tracking-[0.12em] text-white/75 font-light hover:border-[#c5a059]/35 hover:text-[#c5a059] transition-colors duration-300">
+              {language === "en" ? method.labelEn : method.labelDe}
+            </span>
           </li>
         ))}
       </ul>
